@@ -1,19 +1,23 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const db = require('./config/db');
 
-// Create Express app
 const app = express();
-
-// Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Testing route
+// Test DB
+db.query("SELECT 1")
+  .then(() => console.log("MySQL Connected ✔️"))
+  .catch(err => console.log("MySQL Connection Error ❌", err));
+
+// ROUTES
+app.use('/api/auth', require('./routes/auth'));
+
 app.get('/', (req, res) => {
   res.send("Campus Cart API is running ✔️");
 });
 
-// Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
