@@ -2,10 +2,11 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
-// REGISTER
+/* ---------------------- REGISTER ---------------------- */
 router.post('/register', async (req, res) => {
   try {
     const { full_name, email, password, student_id, role } = req.body;
@@ -29,7 +30,10 @@ router.post('/register', async (req, res) => {
       [full_name, email, hashedPassword, student_id, role || 'buyer']
     );
 
-    res.json({ message: "User registered successfully", userId: result.insertId });
+    res.json({ 
+      message: "User registered successfully", 
+      userId: result.insertId 
+    });
 
   } catch (error) {
     console.error(error);
@@ -37,7 +41,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// LOGIN
+/* ---------------------- LOGIN ---------------------- */
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -55,7 +59,9 @@ router.post('/login', async (req, res) => {
 
     // Compare password
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ error: "Invalid email or password" });
+    if (!match) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
 
     // Create token
     const token = jwt.sign(
@@ -77,6 +83,28 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error(error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ---------------------- GET CURRENT USER ---------------------- */
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [rows] = await db.query(
+      "SELECT id, full_name, email, role, student_id, phone, profile_image, created_at FROM users WHERE id = ?",
+      [userId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ user: rows[0] });
+
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
