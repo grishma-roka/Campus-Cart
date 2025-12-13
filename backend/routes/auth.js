@@ -108,5 +108,22 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+const requireRole = require('../middlewares/roleMiddleware');
+
+// Example: only sellers can access
+router.get('/seller-only', authMiddleware, requireRole(['seller']), (req, res) => {
+  res.json({ message: "Hello Seller! Access granted." });
+});
+
+// Example: only riders can access
+router.get('/rider-only', authMiddleware, requireRole(['rider']), (req, res) => {
+  res.json({ message: "Hello Rider! Access granted." });
+});
+
+// Example: only admin can access
+router.get('/admin-only', authMiddleware, requireRole(['admin']), (req, res) => {
+  res.json({ message: "Hello Admin! Access granted." });
+});
+
 
 module.exports = router;
