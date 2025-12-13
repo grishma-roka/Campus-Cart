@@ -1,23 +1,32 @@
 const express = require('express');
 const db = require('../config/db');
 const authMiddleware = require('../middlewares/authMiddleware');
-const requireRole = require('../middlewares/roleMiddleware');
+const roleMiddleware = require('../middlewares/roleMiddleware');
 
 const router = express.Router();
 
 // Approve rider
-router.put('/approve-rider/:id', authMiddleware, requireRole(['admin']), async (req, res) => {
-  try {
-    await db.query(
-      "UPDATE users SET role='rider', rider_status='approved' WHERE id=?",
-      [req.params.id]
-    );
+router.put(
+  '/approve-rider/:id',
+  authMiddleware,
+  roleMiddleware('admin'),
+  async (req, res) => {
+    try {
+      const userId = req.params.id;
 
-    res.json({ message: "Rider approved successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Server error" });
+      await db.query(
+        `UPDATE users 
+         SET role = 'rider', rider_status = 'approved'
+         WHERE id = ? AND rider_status = 'pending'`,
+        [userId]
+      );
+
+      res.json({ message: "Rider approved successfully" });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Server error" });
+    }
   }
-});
+);
 
 module.exports = router;
