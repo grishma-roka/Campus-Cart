@@ -4,6 +4,9 @@ const cors = require('cors');
 const db = require('./config/db');
 const riderRoutes = require('./routes/rider');
 const adminRoutes = require('./routes/admin');
+const deliveryRoutes = require('./routes/delivery');
+
+
 
 
 
@@ -21,7 +24,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/items', require('./routes/items'));
 app.use('/api/rider', riderRoutes);
 app.use('/api/admin', adminRoutes);
-
+app.use('/api/delivery', deliveryRoutes);
 
 
 
