@@ -9,7 +9,7 @@ const router = express.Router();
 /* ---------------------- REGISTER ---------------------- */
 router.post('/register', async (req, res) => {
   try {
-    const { full_name, email, password, student_id, role } = req.body;
+    const { full_name, email, password, student_id, role, license_number, license_image } = req.body;
 
     // Check existing email
     const [existing] = await db.query(
@@ -24,16 +24,52 @@ router.post('/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user
+    // Insert user (always as buyer/seller first, rider requires approval)
+    const userRole = role === 'rider' ? 'buyer' : role; // Riders start as buyers until approved
     const [result] = await db.query(
       "INSERT INTO users (full_name, email, password, student_id, role) VALUES (?, ?, ?, ?, ?)",
-      [full_name, email, hashedPassword, student_id, role || 'buyer']
+      [full_name, email, hashedPassword, student_id, userRole || 'buyer']
     );
 
-    res.json({ 
-      message: "User registered successfully", 
-      userId: result.insertId 
-    });
+    const userId = result.insertId;
+
+    // If user selected rider role, create rider request
+    if (role === 'rider' && license_number) {
+      await db.query(
+        "INSERT INTO rider_requests (user_id, license_number, license_image) VALUES (?, ?, ?)",
+        [userId, license_number, license_image || null]
+      );
+
+      // Send email notification to admin
+      const sendMail = require('../utils/sendEmail');
+      await sendMail(
+        'New Rider Application - Campus Cart',
+        `New rider application received during registration:
+        
+Name: ${full_name}
+Email: ${email}
+Student ID: ${student_id}
+License Number: ${license_number}
+${license_image ? `License Image: ${license_image}` : 'No license image provided'}
+
+Please review this application in the admin panel.
+
+Login to admin panel: http://localhost:3000/login
+Admin Email: ${process.env.ADMIN_EMAIL}
+Admin Password: password`
+      );
+
+      res.json({ 
+        message: "Registration successful! Rider application submitted for admin review. You will be notified via email once approved.", 
+        userId: userId,
+        riderApplicationSubmitted: true
+      });
+    } else {
+      res.json({ 
+        message: "User registered successfully", 
+        userId: userId 
+      });
+    }
 
   } catch (error) {
     console.error(error);

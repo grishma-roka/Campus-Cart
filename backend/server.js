@@ -2,13 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const db = require('./config/db');
-const riderRoutes = require('./routes/rider');
-const adminRoutes = require('./routes/admin');
-const deliveryRoutes = require('./routes/delivery');
-
-
-
-
 
 const app = express();
 app.use(cors());
@@ -22,11 +15,13 @@ db.query("SELECT 1")
 // ROUTES
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/items', require('./routes/items'));
-app.use('/api/rider', riderRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/delivery', deliveryRoutes);
-
-
+app.use('/api/borrow', require('./routes/borrow'));
+app.use('/api/orders', require('./routes/orders'));
+app.use('/api/rider', require('./routes/rider'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/delivery', require('./routes/delivery'));
+app.use('/api/ratings', require('./routes/ratings'));
+app.use('/api/chat', require('./routes/chat'));
 
 app.get('/', (req, res) => {
   res.send("Campus Cart API is running ✔️");
