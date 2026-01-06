@@ -85,9 +85,10 @@ export default function Register() {
         
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.inputGroup}>
+            <label style={styles.label}>Full Name *</label>
             <input
               name="full_name"
-              placeholder="Full Name"
+              placeholder="Enter your full name"
               value={form.full_name}
               onChange={handleChange}
               required
@@ -96,10 +97,11 @@ export default function Register() {
           </div>
           
           <div style={styles.inputGroup}>
+            <label style={styles.label}>Email Address *</label>
             <input
               name="email"
               type="email"
-              placeholder="Email"
+              placeholder="Enter your email address"
               value={form.email}
               onChange={handleChange}
               required
@@ -108,9 +110,10 @@ export default function Register() {
           </div>
           
           <div style={styles.inputGroup}>
+            <label style={styles.label}>Student ID *</label>
             <input
               name="student_id"
-              placeholder="Student ID"
+              placeholder="Enter your student ID"
               value={form.student_id}
               onChange={handleChange}
               required
@@ -119,10 +122,11 @@ export default function Register() {
           </div>
           
           <div style={styles.inputGroup}>
+            <label style={styles.label}>Password *</label>
             <input
               name="password"
               type="password"
-              placeholder="Password"
+              placeholder="Create a strong password"
               value={form.password}
               onChange={handleChange}
               required
@@ -131,15 +135,16 @@ export default function Register() {
           </div>
           
           <div style={styles.inputGroup}>
+            <label style={styles.label}>Role *</label>
             <select
               name="role"
               value={form.role}
               onChange={handleChange}
               style={styles.select}
             >
-              <option value="buyer">Buyer</option>
-              <option value="seller">Seller</option>
-              <option value="rider">Rider (Requires Admin Approval)</option>
+              <option value="buyer">Buyer - Browse and purchase items</option>
+              <option value="seller">Seller - List and sell items</option>
+              <option value="rider">Rider - Deliver items (Requires Admin Approval)</option>
             </select>
           </div>
 
@@ -155,9 +160,10 @@ export default function Register() {
               </div>
               
               <div style={styles.inputGroup}>
+                <label style={styles.label}>License Number *</label>
                 <input
                   name="license_number"
-                  placeholder="License Number (Required for Rider)"
+                  placeholder="Enter your driving license number"
                   value={form.license_number}
                   onChange={handleChange}
                   required={form.role === 'rider'}
@@ -166,9 +172,10 @@ export default function Register() {
               </div>
               
               <div style={styles.inputGroup}>
+                <label style={styles.label}>License Image URL (Optional)</label>
                 <input
                   name="license_image"
-                  placeholder="License Image URL (Optional)"
+                  placeholder="Enter URL of your license image"
                   value={form.license_image}
                   onChange={handleChange}
                   style={styles.input}

@@ -42,7 +42,13 @@ export default function AdminDashboard() {
         status,
         admin_notes: notes
       });
-      alert(`Rider request ${status} successfully!`);
+      
+      if (status === 'approved') {
+        alert('Rider approved successfully! The user can now login as a rider.');
+      } else {
+        alert('Rider request rejected. The user has been notified via email.');
+      }
+      
       fetchData();
     } catch (error) {
       alert(`Failed to ${status} rider request: ` + (error.response?.data?.error || error.message));
@@ -175,35 +181,85 @@ export default function AdminDashboard() {
 
       {activeTab === 'riders' && (
         <div>
-          <h2>Rider Applications</h2>
+          <div style={styles.sectionHeader}>
+            <h2>Rider Applications</h2>
+            <div style={styles.statusFilters}>
+              <button style={styles.filterButton}>All ({riderRequests.length})</button>
+              <button style={styles.filterButton}>
+                Pending ({riderRequests.filter(r => r.status === 'pending').length})
+              </button>
+              <button style={styles.filterButton}>
+                Approved ({riderRequests.filter(r => r.status === 'approved').length})
+              </button>
+              <button style={styles.filterButton}>
+                Rejected ({riderRequests.filter(r => r.status === 'rejected').length})
+              </button>
+            </div>
+          </div>
+
           {riderRequests.length === 0 ? (
-            <p>No rider requests found.</p>
+            <div style={styles.emptyState}>
+              <h3>No rider requests found</h3>
+              <p>When users apply for rider roles, they will appear here for review.</p>
+            </div>
           ) : (
             <div style={styles.requestsList}>
               {riderRequests.map(request => (
-                <div key={request.id} style={styles.requestCard}>
+                <div key={request.id} style={{
+                  ...styles.requestCard,
+                  borderLeft: `4px solid ${
+                    request.status === 'pending' ? '#f39c12' :
+                    request.status === 'approved' ? '#27ae60' : '#e74c3c'
+                  }`
+                }}>
                   <div style={styles.requestHeader}>
-                    <h3>{request.full_name}</h3>
-                    <span style={styles.requestStatus}>{request.status}</span>
+                    <div>
+                      <h3>{request.full_name}</h3>
+                      <p style={styles.requestEmail}>{request.email}</p>
+                    </div>
+                    <span style={{
+                      ...styles.requestStatus,
+                      backgroundColor: 
+                        request.status === 'pending' ? '#f39c12' :
+                        request.status === 'approved' ? '#27ae60' : '#e74c3c'
+                    }}>
+                      {request.status}
+                    </span>
                   </div>
                   
                   <div style={styles.requestDetails}>
-                    <p><strong>Email:</strong> {request.email}</p>
-                    <p><strong>Student ID:</strong> {request.student_id}</p>
-                    <p><strong>Phone:</strong> {request.phone || 'Not provided'}</p>
-                    <p><strong>License Number:</strong> {request.license_number}</p>
-                    <p><strong>Applied:</strong> {new Date(request.created_at).toLocaleDateString()}</p>
+                    <div style={styles.detailRow}>
+                      <strong>Student ID:</strong> {request.student_id}
+                    </div>
+                    <div style={styles.detailRow}>
+                      <strong>Phone:</strong> {request.phone || 'Not provided'}
+                    </div>
+                    <div style={styles.detailRow}>
+                      <strong>License Number:</strong> {request.license_number}
+                    </div>
+                    <div style={styles.detailRow}>
+                      <strong>Applied:</strong> {new Date(request.created_at).toLocaleDateString()}
+                    </div>
                     
                     {request.license_image && (
-                      <p><strong>License Image:</strong> 
-                        <a href={request.license_image} target="_blank" rel="noopener noreferrer">
-                          View Image
+                      <div style={styles.detailRow}>
+                        <strong>License Image:</strong> 
+                        <a href={request.license_image} target="_blank" rel="noopener noreferrer" style={styles.imageLink}>
+                          View License Image
                         </a>
-                      </p>
+                      </div>
                     )}
                     
                     {request.admin_notes && (
-                      <p><strong>Admin Notes:</strong> {request.admin_notes}</p>
+                      <div style={styles.adminNotes}>
+                        <strong>Admin Notes:</strong> {request.admin_notes}
+                      </div>
+                    )}
+
+                    {request.reviewed_at && (
+                      <div style={styles.detailRow}>
+                        <strong>Reviewed:</strong> {new Date(request.reviewed_at).toLocaleDateString()}
+                      </div>
                     )}
                   </div>
                   
@@ -213,14 +269,22 @@ export default function AdminDashboard() {
                         onClick={() => handleRiderRequest(request.id, 'approved')}
                         style={styles.approveButton}
                       >
-                        Approve
+                        Approve Rider
                       </button>
                       <button 
                         onClick={() => handleRiderRequest(request.id, 'rejected')}
                         style={styles.rejectButton}
                       >
-                        Reject
+                        Reject Application
                       </button>
+                    </div>
+                  )}
+
+                  {request.status !== 'pending' && (
+                    <div style={styles.completedActions}>
+                      <span style={styles.completedText}>
+                        Application {request.status} on {new Date(request.reviewed_at).toLocaleDateString()}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -522,5 +586,62 @@ const styles = {
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer'
+  },
+  sectionHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '2rem'
+  },
+  statusFilters: {
+    display: 'flex',
+    gap: '0.5rem'
+  },
+  filterButton: {
+    padding: '0.5rem 1rem',
+    backgroundColor: '#ecf0f1',
+    border: '1px solid #bdc3c7',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.9rem'
+  },
+  emptyState: {
+    textAlign: 'center',
+    padding: '3rem',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+    color: '#666'
+  },
+  requestEmail: {
+    color: '#666',
+    fontSize: '0.9rem',
+    margin: '0.25rem 0'
+  },
+  detailRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '0.5rem 0',
+    borderBottom: '1px solid #ecf0f1'
+  },
+  imageLink: {
+    color: '#3498db',
+    textDecoration: 'none'
+  },
+  adminNotes: {
+    backgroundColor: '#f8f9fa',
+    padding: '1rem',
+    borderRadius: '4px',
+    marginTop: '1rem',
+    fontStyle: 'italic'
+  },
+  completedActions: {
+    padding: '1rem',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '4px',
+    textAlign: 'center'
+  },
+  completedText: {
+    color: '#666',
+    fontSize: '0.9rem'
   }
 };

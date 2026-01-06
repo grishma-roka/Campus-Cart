@@ -92,6 +92,20 @@ export default function BuyerDashboard() {
       <div style={styles.header}>
         <h1>Welcome, {user?.full_name}!</h1>
         <p>Browse items, place orders, and manage your borrows</p>
+        <div style={styles.quickStats}>
+          <div style={styles.statItem}>
+            <span style={styles.statNumber}>{orders.length}</span>
+            <span style={styles.statLabel}>Orders</span>
+          </div>
+          <div style={styles.statItem}>
+            <span style={styles.statNumber}>{borrows.length}</span>
+            <span style={styles.statLabel}>Borrows</span>
+          </div>
+          <div style={styles.statItem}>
+            <span style={styles.statNumber}>{filteredItems.length}</span>
+            <span style={styles.statLabel}>Available Items</span>
+          </div>
+        </div>
       </div>
 
       <div style={styles.tabs}>
@@ -99,7 +113,7 @@ export default function BuyerDashboard() {
           style={activeTab === 'browse' ? styles.activeTab : styles.tab}
           onClick={() => setActiveTab('browse')}
         >
-          Browse Items
+          Browse Items ({filteredItems.length})
         </button>
         <button 
           style={activeTab === 'orders' ? styles.activeTab : styles.tab}
@@ -362,5 +376,31 @@ const styles = {
   status: {
     fontWeight: 'bold',
     textTransform: 'capitalize'
+  },
+  quickStats: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '2rem',
+    marginTop: '1.5rem'
+  },
+  statItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '1rem',
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    minWidth: '100px'
+  },
+  statNumber: {
+    fontSize: '2rem',
+    fontWeight: 'bold',
+    color: '#3498db'
+  },
+  statLabel: {
+    fontSize: '0.9rem',
+    color: '#666',
+    marginTop: '0.5rem'
   }
 };

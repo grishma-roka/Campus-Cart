@@ -24,17 +24,17 @@ router.post('/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user (always as buyer/seller first, rider requires approval)
-    const userRole = role === 'rider' ? 'buyer' : role; // Riders start as buyers until approved
-    const [result] = await db.query(
-      "INSERT INTO users (full_name, email, password, student_id, role) VALUES (?, ?, ?, ?, ?)",
-      [full_name, email, hashedPassword, student_id, userRole || 'buyer']
-    );
-
-    const userId = result.insertId;
-
-    // If user selected rider role, create rider request
+    // If user selected rider role, create as inactive user pending approval
     if (role === 'rider' && license_number) {
+      // Create user as inactive rider applicant
+      const [result] = await db.query(
+        "INSERT INTO users (full_name, email, password, student_id, role, is_active) VALUES (?, ?, ?, ?, ?, ?)",
+        [full_name, email, hashedPassword, student_id, 'rider_applicant', false]
+      );
+
+      const userId = result.insertId;
+
+      // Create rider request
       await db.query(
         "INSERT INTO rider_requests (user_id, license_number, license_image) VALUES (?, ?, ?)",
         [userId, license_number, license_image || null]
@@ -44,7 +44,7 @@ router.post('/register', async (req, res) => {
       const sendMail = require('../utils/sendEmail');
       await sendMail(
         'New Rider Application - Campus Cart',
-        `New rider application received during registration:
+        `New rider application received:
         
 Name: ${full_name}
 Email: ${email}
@@ -56,18 +56,27 @@ Please review this application in the admin panel.
 
 Login to admin panel: http://localhost:3000/login
 Admin Email: ${process.env.ADMIN_EMAIL}
-Admin Password: password`
+Admin Password: password
+
+Note: The applicant cannot login until you approve their rider application.`
       );
 
       res.json({ 
-        message: "Registration successful! Rider application submitted for admin review. You will be notified via email once approved.", 
+        message: "Rider application submitted successfully! You cannot login until admin approves your application. You will receive an email notification once approved.", 
         userId: userId,
-        riderApplicationSubmitted: true
+        riderApplicationSubmitted: true,
+        loginBlocked: true
       });
     } else {
+      // Regular user registration (buyer/seller)
+      const [result] = await db.query(
+        "INSERT INTO users (full_name, email, password, student_id, role) VALUES (?, ?, ?, ?, ?)",
+        [full_name, email, hashedPassword, student_id, role || 'buyer']
+      );
+
       res.json({ 
         message: "User registered successfully", 
-        userId: userId 
+        userId: result.insertId 
       });
     }
 
@@ -92,6 +101,21 @@ router.post('/login', async (req, res) => {
     }
 
     const user = rows[0];
+
+    // Check if user is active
+    if (!user.is_active) {
+      if (user.role === 'rider_applicant') {
+        return res.status(403).json({ 
+          error: "Your rider application is pending admin approval. You cannot login until approved.",
+          pendingApproval: true
+        });
+      } else {
+        return res.status(403).json({ 
+          error: "Your account has been deactivated. Please contact admin.",
+          accountDeactivated: true
+        });
+      }
+    }
 
     // Compare password
     const match = await bcrypt.compare(password, user.password);

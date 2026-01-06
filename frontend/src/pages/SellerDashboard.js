@@ -140,6 +140,26 @@ export default function SellerDashboard() {
       <div style={styles.header}>
         <h1>Seller Dashboard</h1>
         <p>Welcome, {user?.full_name}! Manage your items and orders</p>
+        <div style={styles.quickStats}>
+          <div style={styles.statItem}>
+            <span style={styles.statNumber}>{items.length}</span>
+            <span style={styles.statLabel}>Items Listed</span>
+          </div>
+          <div style={styles.statItem}>
+            <span style={styles.statNumber}>{orders.length}</span>
+            <span style={styles.statLabel}>Total Orders</span>
+          </div>
+          <div style={styles.statItem}>
+            <span style={styles.statNumber}>{borrowRequests.length}</span>
+            <span style={styles.statLabel}>Borrow Requests</span>
+          </div>
+          <div style={styles.statItem}>
+            <span style={styles.statNumber}>
+              {orders.filter(o => o.status === 'pending').length}
+            </span>
+            <span style={styles.statLabel}>Pending Orders</span>
+          </div>
+        </div>
       </div>
 
       <div style={styles.tabs}>
@@ -620,5 +640,31 @@ const styles = {
   status: {
     fontWeight: 'bold',
     textTransform: 'capitalize'
+  },
+  quickStats: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '2rem',
+    marginTop: '1.5rem'
+  },
+  statItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '1rem',
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    minWidth: '100px'
+  },
+  statNumber: {
+    fontSize: '2rem',
+    fontWeight: 'bold',
+    color: '#27ae60'
+  },
+  statLabel: {
+    fontSize: '0.9rem',
+    color: '#666',
+    marginTop: '0.5rem'
   }
 };

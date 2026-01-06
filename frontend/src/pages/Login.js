@@ -36,9 +36,10 @@ export default function Login() {
         
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.inputGroup}>
+            <label style={styles.label}>Email Address</label>
             <input
               type="email"
-              placeholder="Email"
+              placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -47,9 +48,10 @@ export default function Login() {
           </div>
           
           <div style={styles.inputGroup}>
+            <label style={styles.label}>Password</label>
             <input
               type="password"
-              placeholder="Password"
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -103,13 +105,22 @@ const styles = {
   },
   inputGroup: {
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    marginBottom: '1rem'
+  },
+  label: {
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: '0.5rem'
   },
   input: {
     padding: '0.75rem',
     border: '1px solid #ddd',
     borderRadius: '4px',
-    fontSize: '1rem'
+    fontSize: '1rem',
+    transition: 'border-color 0.3s',
+    outline: 'none'
   },
   button: {
     padding: '0.75rem',

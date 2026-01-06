@@ -54,27 +54,45 @@ router.put('/rider-requests/:id', authMiddleware, roleMiddleware(['admin']), asy
       WHERE id = ?
     `, [status, admin_notes, req.user.id, requestId]);
 
-    // If approved, update user role
     if (status === 'approved') {
+      // Update user role to rider and activate account
       await db.query(
-        "UPDATE users SET role = 'rider' WHERE id = ?",
+        "UPDATE users SET role = 'rider', is_active = TRUE WHERE id = ?",
         [request.user_id]
       );
 
       // Send approval email
       await sendMail(
-        'Rider Application Approved',
-        `Congratulations ${request.full_name}! Your rider application has been approved. You can now accept delivery requests.`
+        'Rider Application Approved - Campus Cart',
+        `Congratulations ${request.full_name}!
+
+Your rider application has been approved. You can now login to your account and start accepting delivery requests.
+
+Login here: http://localhost:3000/login
+Email: ${request.email}
+
+Welcome to the Campus Cart rider community!`
       );
     } else {
-      // Send rejection email
+      // For rejected applications, keep user inactive and send rejection email
       await sendMail(
-        'Rider Application Update',
-        `Hello ${request.full_name}, your rider application has been reviewed. ${admin_notes || 'Please contact support for more information.'}`
+        'Rider Application Update - Campus Cart',
+        `Hello ${request.full_name},
+
+Your rider application has been reviewed and unfortunately was not approved at this time.
+
+${admin_notes ? `Reason: ${admin_notes}` : ''}
+
+You can contact support for more information or reapply with updated information.
+
+Thank you for your interest in Campus Cart.`
       );
     }
 
-    res.json({ message: `Rider request ${status} successfully` });
+    res.json({ 
+      message: `Rider request ${status} successfully`,
+      userActivated: status === 'approved'
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to process rider request" });
