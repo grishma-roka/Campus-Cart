@@ -50,22 +50,55 @@ router.post('/create', auth, requireRole(['buyer']), async (req, res) => {
 // GET BUYER ORDERS
 router.get('/my-orders', auth, requireRole(['buyer']), async (req, res) => {
   try {
+    console.log('🛒 Fetching buyer orders...');
     const [rows] = await db.query(`
-      SELECT o.*, i.title, i.description, i.images, u.full_name as seller_name,
-             d.status as delivery_status, d.pickup_time, d.delivery_time,
-             ur.full_name as rider_name, ur.phone as rider_phone
+      SELECT o.*, i.title, i.description, i.images, u.full_name as seller_name
       FROM orders o
       JOIN items i ON o.item_id = i.id
       JOIN users u ON o.seller_id = u.id
-      LEFT JOIN deliveries d ON o.id = d.order_id
-      LEFT JOIN users ur ON d.rider_id = ur.id
       WHERE o.buyer_id = ?
       ORDER BY o.created_at DESC
     `, [req.user.id]);
 
+    // Add delivery and rider info separately to avoid join issues
+    for (let order of rows) {
+      try {
+        const [deliveryInfo] = await db.query(`
+          SELECT d.pickup_time, d.delivery_time, d.status as delivery_status,
+                 ur.full_name as rider_name, ur.phone as rider_phone
+          FROM deliveries d
+          LEFT JOIN users ur ON d.rider_id = ur.id
+          WHERE d.order_id = ?
+          LIMIT 1
+        `, [order.id]);
+        
+        if (deliveryInfo.length > 0) {
+          order.delivery_status = deliveryInfo[0].delivery_status || 'pending';
+          order.pickup_time = deliveryInfo[0].pickup_time;
+          order.delivery_time = deliveryInfo[0].delivery_time;
+          order.rider_name = deliveryInfo[0].rider_name;
+          order.rider_phone = deliveryInfo[0].rider_phone;
+        } else {
+          order.delivery_status = 'pending';
+          order.pickup_time = null;
+          order.delivery_time = null;
+          order.rider_name = null;
+          order.rider_phone = null;
+        }
+      } catch (err) {
+        console.log('⚠️ Delivery info error for order', order.id, ':', err.message);
+        order.delivery_status = 'pending';
+        order.pickup_time = null;
+        order.delivery_time = null;
+        order.rider_name = null;
+        order.rider_phone = null;
+      }
+    }
+
+    console.log(`✅ Found ${rows.length} orders for buyer`);
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error fetching buyer orders:', err);
     res.status(500).json({ error: "Error fetching orders" });
   }
 });
@@ -73,22 +106,55 @@ router.get('/my-orders', auth, requireRole(['buyer']), async (req, res) => {
 // GET SELLER ORDERS
 router.get('/seller-orders', auth, requireRole(['seller']), async (req, res) => {
   try {
+    console.log('🏪 Fetching seller orders...');
     const [rows] = await db.query(`
-      SELECT o.*, i.title, i.description, i.images, u.full_name as buyer_name, u.phone as buyer_phone,
-             d.status as delivery_status, d.pickup_time, d.delivery_time,
-             ur.full_name as rider_name, ur.phone as rider_phone
+      SELECT o.*, i.title, i.description, i.images, u.full_name as buyer_name, u.phone as buyer_phone
       FROM orders o
       JOIN items i ON o.item_id = i.id
       JOIN users u ON o.buyer_id = u.id
-      LEFT JOIN deliveries d ON o.id = d.order_id
-      LEFT JOIN users ur ON d.rider_id = ur.id
       WHERE o.seller_id = ?
       ORDER BY o.created_at DESC
     `, [req.user.id]);
 
+    // Add delivery and rider info separately to avoid join issues
+    for (let order of rows) {
+      try {
+        const [deliveryInfo] = await db.query(`
+          SELECT d.pickup_time, d.delivery_time, d.status as delivery_status,
+                 ur.full_name as rider_name, ur.phone as rider_phone
+          FROM deliveries d
+          LEFT JOIN users ur ON d.rider_id = ur.id
+          WHERE d.order_id = ?
+          LIMIT 1
+        `, [order.id]);
+        
+        if (deliveryInfo.length > 0) {
+          order.delivery_status = deliveryInfo[0].delivery_status || 'pending';
+          order.pickup_time = deliveryInfo[0].pickup_time;
+          order.delivery_time = deliveryInfo[0].delivery_time;
+          order.rider_name = deliveryInfo[0].rider_name;
+          order.rider_phone = deliveryInfo[0].rider_phone;
+        } else {
+          order.delivery_status = 'pending';
+          order.pickup_time = null;
+          order.delivery_time = null;
+          order.rider_name = null;
+          order.rider_phone = null;
+        }
+      } catch (err) {
+        console.log('⚠️ Delivery info error for order', order.id, ':', err.message);
+        order.delivery_status = 'pending';
+        order.pickup_time = null;
+        order.delivery_time = null;
+        order.rider_name = null;
+        order.rider_phone = null;
+      }
+    }
+
+    console.log(`✅ Found ${rows.length} orders for seller`);
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error fetching seller orders:', err);
     res.status(500).json({ error: "Error fetching seller orders" });
   }
 });

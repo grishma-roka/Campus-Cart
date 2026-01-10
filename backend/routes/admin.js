@@ -104,17 +104,16 @@ Thank you for your interest in Campus Cart.`
 // GET ALL USERS
 router.get('/users', authMiddleware, roleMiddleware(['admin']), async (req, res) => {
   try {
+    console.log('👥 Fetching users...');
     const { role, search } = req.query;
     let query = `
       SELECT u.id, u.full_name, u.email, u.student_id, u.phone, u.role, u.is_active, u.created_at,
              COUNT(DISTINCT i.id) as items_listed,
              COUNT(DISTINCT o.id) as orders_made,
-             COUNT(DISTINCT d.id) as deliveries_completed,
              COALESCE(AVG(r.rating), 0) as average_rating
       FROM users u
       LEFT JOIN items i ON u.id = i.seller_id
       LEFT JOIN orders o ON u.id = o.buyer_id
-      LEFT JOIN deliveries d ON u.id = d.rider_id AND d.status = 'delivered'
       LEFT JOIN ratings r ON u.id = r.rated_user_id
       WHERE 1=1
     `;
@@ -133,9 +132,24 @@ router.get('/users', authMiddleware, roleMiddleware(['admin']), async (req, res)
     query += ' GROUP BY u.id ORDER BY u.created_at DESC';
 
     const [rows] = await db.query(query, params);
+    
+    // Add deliveries count separately to avoid join issues
+    for (let user of rows) {
+      try {
+        const [deliveryCount] = await db.query(
+          "SELECT COUNT(*) as deliveries_completed FROM deliveries WHERE rider_id = ? AND status = 'delivered'",
+          [user.id]
+        );
+        user.deliveries_completed = deliveryCount[0].deliveries_completed;
+      } catch (err) {
+        user.deliveries_completed = 0;
+      }
+    }
+    
+    console.log(`✅ Found ${rows.length} users`);
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error fetching users:', err);
     res.status(500).json({ error: "Error fetching users" });
   }
 });
@@ -164,6 +178,8 @@ router.put('/users/:id/toggle-status', authMiddleware, roleMiddleware(['admin'])
 // GET SYSTEM STATS
 router.get('/stats', authMiddleware, roleMiddleware(['admin']), async (req, res) => {
   try {
+    console.log('📊 Fetching admin stats...');
+    
     const [userStats] = await db.query(`
       SELECT 
         COUNT(*) as total_users,
@@ -201,15 +217,23 @@ router.get('/stats', authMiddleware, roleMiddleware(['admin']), async (req, res)
       FROM borrow_requests
     `);
 
-    const [deliveryStats] = await db.query(`
-      SELECT 
-        COUNT(*) as total_deliveries,
-        COUNT(CASE WHEN status = 'delivered' THEN 1 END) as completed_deliveries,
-        COUNT(CASE WHEN status IN ('assigned', 'picked_up') THEN 1 END) as active_deliveries,
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_deliveries
-      FROM deliveries
-    `);
+    // Check if deliveries table exists and has status column
+    let deliveryStats = [{ total_deliveries: 0, completed_deliveries: 0, active_deliveries: 0, pending_deliveries: 0 }];
+    try {
+      const [result] = await db.query(`
+        SELECT 
+          COUNT(*) as total_deliveries,
+          COUNT(CASE WHEN status = 'delivered' THEN 1 END) as completed_deliveries,
+          COUNT(CASE WHEN status IN ('assigned', 'picked_up') THEN 1 END) as active_deliveries,
+          COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_deliveries
+        FROM deliveries
+      `);
+      deliveryStats = result;
+    } catch (deliveryErr) {
+      console.log('⚠️ Deliveries table issue:', deliveryErr.message);
+    }
 
+    console.log('✅ Stats fetched successfully');
     res.json({
       users: userStats[0],
       items: itemStats[0],
@@ -218,7 +242,7 @@ router.get('/stats', authMiddleware, roleMiddleware(['admin']), async (req, res)
       deliveries: deliveryStats[0]
     });
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error fetching system stats:', err);
     res.status(500).json({ error: "Error fetching system stats" });
   }
 });

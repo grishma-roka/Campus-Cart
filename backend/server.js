@@ -23,6 +23,26 @@ app.use('/api/delivery', require('./routes/delivery'));
 app.use('/api/ratings', require('./routes/ratings'));
 app.use('/api/chat', require('./routes/chat'));
 
+app.get('/api/test/items', async (req, res) => {
+  try {
+    const [items] = await db.query("SELECT id, title, price, seller_id, is_available FROM items");
+    res.json({
+      count: items.length,
+      items: items
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/test/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Campus Cart API is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get('/', (req, res) => {
   res.send("Campus Cart API is running ✔️");
 });

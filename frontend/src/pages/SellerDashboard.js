@@ -18,7 +18,8 @@ export default function SellerDashboard() {
     condition_status: 'good',
     is_borrowable: false,
     borrow_price_per_day: '',
-    max_borrow_days: 7
+    max_borrow_days: 7,
+    images: ''
   });
 
   useEffect(() => {
@@ -27,17 +28,22 @@ export default function SellerDashboard() {
 
   const fetchData = async () => {
     try {
+      console.log('🏪 Fetching seller dashboard data...');
       const [itemsRes, ordersRes, borrowsRes] = await Promise.all([
         axios.get('/items/my-items'),
         axios.get('/orders/seller-orders'),
         axios.get('/borrow/seller-requests')
       ]);
       
+      console.log('📦 Items:', itemsRes.data.length);
+      console.log('🛒 Orders:', ordersRes.data.length);
+      console.log('📋 Borrows:', borrowsRes.data.length);
+      
       setItems(itemsRes.data);
       setOrders(ordersRes.data);
       setBorrowRequests(borrowsRes.data);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('❌ Error fetching seller data:', error);
     } finally {
       setLoading(false);
     }
@@ -46,8 +52,16 @@ export default function SellerDashboard() {
   const handleAddItem = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/items/add', newItem);
-      alert('Item added successfully!');
+      const itemData = {
+        ...newItem,
+        price: parseFloat(newItem.price),
+        borrow_price_per_day: newItem.is_borrowable ? parseFloat(newItem.borrow_price_per_day) : 0,
+        max_borrow_days: parseInt(newItem.max_borrow_days),
+        images: newItem.images ? JSON.stringify([newItem.images]) : JSON.stringify([])
+      };
+
+      await axios.post('/items/add', itemData);
+      alert(`Item "${newItem.title}" added successfully!`);
       setShowAddItem(false);
       setNewItem({
         title: '',
@@ -57,7 +71,8 @@ export default function SellerDashboard() {
         condition_status: 'good',
         is_borrowable: false,
         borrow_price_per_day: '',
-        max_borrow_days: 7
+        max_borrow_days: 7,
+        images: ''
       });
       fetchData();
     } catch (error) {
@@ -65,31 +80,31 @@ export default function SellerDashboard() {
     }
   };
 
-  const handleConfirmOrder = async (orderId) => {
+  const handleConfirmOrder = async (orderId, orderTitle) => {
     try {
       await axios.put(`/orders/confirm/${orderId}`);
-      alert('Order confirmed successfully!');
+      alert(`Order for "${orderTitle}" confirmed successfully!`);
       fetchData();
     } catch (error) {
       alert('Failed to confirm order: ' + (error.response?.data?.error || error.message));
     }
   };
 
-  const handleBorrowResponse = async (requestId, status) => {
+  const handleBorrowResponse = async (requestId, status, itemTitle) => {
     try {
       const notes = status === 'rejected' ? window.prompt('Reason for rejection (optional):') : '';
       await axios.put(`/borrow/respond/${requestId}`, {
         status,
         admin_notes: notes
       });
-      alert(`Borrow request ${status} successfully!`);
+      alert(`Borrow request for "${itemTitle}" ${status} successfully!`);
       fetchData();
     } catch (error) {
       alert(`Failed to ${status} borrow request: ` + (error.response?.data?.error || error.message));
     }
   };
 
-  const handleStartBorrow = async (requestId) => {
+  const handleStartBorrow = async (requestId, itemTitle) => {
     try {
       const condition = window.prompt('Describe the current condition of the item:');
       if (!condition) return;
@@ -98,14 +113,14 @@ export default function SellerDashboard() {
         condition_before: condition,
         images_before: []
       });
-      alert('Borrowing started successfully!');
+      alert(`Borrowing started for "${itemTitle}" successfully!`);
       fetchData();
     } catch (error) {
       alert('Failed to start borrowing: ' + (error.response?.data?.error || error.message));
     }
   };
 
-  const handleReturnItem = async (requestId) => {
+  const handleReturnItem = async (requestId, itemTitle) => {
     try {
       const condition = window.prompt('Describe the condition after return:');
       const damageReported = window.confirm('Is there any damage to report?');
@@ -124,7 +139,7 @@ export default function SellerDashboard() {
         damage_description: damageDescription,
         refund_amount: refundAmount
       });
-      alert('Item return processed successfully!');
+      alert(`Return processed for "${itemTitle}" successfully!`);
       fetchData();
     } catch (error) {
       alert('Failed to process return: ' + (error.response?.data?.error || error.message));
@@ -202,7 +217,7 @@ export default function SellerDashboard() {
                 <form onSubmit={handleAddItem} style={styles.form}>
                   <input
                     type="text"
-                    placeholder="Title"
+                    placeholder="Item Title"
                     value={newItem.title}
                     onChange={(e) => setNewItem({...newItem, title: e.target.value})}
                     required
@@ -217,7 +232,7 @@ export default function SellerDashboard() {
                   />
                   <input
                     type="number"
-                    placeholder="Price"
+                    placeholder="Price (रू)"
                     value={newItem.price}
                     onChange={(e) => setNewItem({...newItem, price: e.target.value})}
                     required
@@ -225,10 +240,17 @@ export default function SellerDashboard() {
                   />
                   <input
                     type="text"
-                    placeholder="Category"
+                    placeholder="Category (e.g., Electronics, Books, Furniture)"
                     value={newItem.category}
                     onChange={(e) => setNewItem({...newItem, category: e.target.value})}
                     required
+                    style={styles.input}
+                  />
+                  <input
+                    type="url"
+                    placeholder="Image URL (optional)"
+                    value={newItem.images}
+                    onChange={(e) => setNewItem({...newItem, images: e.target.value})}
                     style={styles.input}
                   />
                   <select
@@ -256,14 +278,14 @@ export default function SellerDashboard() {
                     <>
                       <input
                         type="number"
-                        placeholder="Borrow price per day"
+                        placeholder="Borrow price per day (रू)"
                         value={newItem.borrow_price_per_day}
                         onChange={(e) => setNewItem({...newItem, borrow_price_per_day: e.target.value})}
                         style={styles.input}
                       />
                       <input
                         type="number"
-                        placeholder="Max borrow days"
+                        placeholder="Maximum borrow days"
                         value={newItem.max_borrow_days}
                         onChange={(e) => setNewItem({...newItem, max_borrow_days: e.target.value})}
                         style={styles.input}
@@ -287,115 +309,217 @@ export default function SellerDashboard() {
           )}
 
           <div style={styles.itemsGrid}>
-            {items.map(item => (
-              <div key={item.id} style={styles.itemCard}>
-                <h3>{item.title}</h3>
-                <p style={styles.description}>{item.description}</p>
-                <div style={styles.itemDetails}>
-                  <span style={styles.price}>₹{item.price}</span>
-                  <span style={styles.category}>{item.category}</span>
-                  <span style={styles.condition}>{item.condition_status}</span>
+            {items.map(item => {
+              const images = item.images ? JSON.parse(item.images) : [];
+              const imageUrl = images.length > 0 ? images[0] : `https://via.placeholder.com/300x200/27ae60/white?text=${encodeURIComponent(item.title.substring(0, 20))}`;
+              
+              return (
+                <div key={item.id} style={styles.itemCard}>
+                  <div style={styles.imageContainer}>
+                    <img 
+                      src={imageUrl} 
+                      alt={item.title}
+                      style={styles.itemImage}
+                      onError={(e) => {
+                        e.target.src = `https://via.placeholder.com/300x200/27ae60/white?text=${encodeURIComponent(item.title.substring(0, 20))}`;
+                      }}
+                    />
+                    <div style={styles.conditionBadge}>
+                      {item.condition_status.replace('_', ' ').toUpperCase()}
+                    </div>
+                  </div>
+                  
+                  <div style={styles.itemContent}>
+                    <h3 style={styles.itemTitle}>{item.title}</h3>
+                    <p style={styles.description}>{item.description}</p>
+                    
+                    <div style={styles.itemDetails}>
+                      <div style={styles.priceSection}>
+                        <span style={styles.price}>रू {item.price.toLocaleString()}</span>
+                        <span style={styles.category}>{item.category}</span>
+                      </div>
+                      
+                      {item.is_borrowable && (
+                        <div style={styles.borrowInfo}>
+                          <span style={styles.borrowPrice}>
+                            Borrow: रू {item.borrow_price_per_day}/day
+                          </span>
+                          <span style={styles.maxDays}>
+                            (Max {item.max_borrow_days} days)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div style={styles.itemStats}>
+                      <span>Orders: {item.total_orders || 0}</span>
+                      <span>Borrows: {item.total_borrows || 0}</span>
+                      <span style={{color: item.is_available ? '#27ae60' : '#e74c3c'}}>
+                        {item.is_available ? 'Available' : 'Unavailable'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                {item.is_borrowable && (
-                  <p style={styles.borrowInfo}>
-                    Borrowable: ₹{item.borrow_price_per_day}/day (max {item.max_borrow_days} days)
-                  </p>
-                )}
-                <div style={styles.itemStats}>
-                  <span>Orders: {item.total_orders || 0}</span>
-                  <span>Borrows: {item.total_borrows || 0}</span>
-                  <span>Status: {item.is_available ? 'Available' : 'Unavailable'}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+
+          {items.length === 0 && (
+            <div style={styles.emptyState}>
+              <h3>No items listed yet</h3>
+              <p>Click "Add New Item" to list your first item!</p>
+            </div>
+          )}
         </div>
       )}
 
       {activeTab === 'orders' && (
-        <div>
+        <div style={styles.ordersSection}>
           <h2>Orders</h2>
           {orders.length === 0 ? (
-            <p>No orders yet.</p>
+            <div style={styles.emptyState}>
+              <h3>No orders yet</h3>
+              <p>Orders will appear here when customers buy your items.</p>
+            </div>
           ) : (
             <div style={styles.ordersList}>
-              {orders.map(order => (
-                <div key={order.id} style={styles.orderCard}>
-                  <h3>{order.title}</h3>
-                  <p>Buyer: {order.buyer_name} ({order.buyer_phone})</p>
-                  <p>Amount: ₹{order.total_amount}</p>
-                  <p>Status: <span style={styles.status}>{order.status}</span></p>
-                  <p>Delivery Status: <span style={styles.status}>{order.delivery_status || 'Pending'}</span></p>
-                  <p>Address: {order.delivery_address}</p>
-                  <p>Ordered: {new Date(order.created_at).toLocaleDateString()}</p>
-                  
-                  {order.status === 'pending' && (
-                    <button 
-                      onClick={() => handleConfirmOrder(order.id)}
-                      style={styles.confirmButton}
-                    >
-                      Confirm Order
-                    </button>
-                  )}
-                </div>
-              ))}
+              {orders.map(order => {
+                const images = order.images ? JSON.parse(order.images) : [];
+                const imageUrl = images.length > 0 ? images[0] : 'https://via.placeholder.com/100x100?text=No+Image';
+                
+                return (
+                  <div key={order.id} style={styles.orderCard}>
+                    <div style={styles.orderHeader}>
+                      <img 
+                        src={imageUrl} 
+                        alt={order.title}
+                        style={styles.orderImage}
+                        onError={(e) => {
+                          e.target.src = 'https://via.placeholder.com/100x100?text=No+Image';
+                        }}
+                      />
+                      <div style={styles.orderInfo}>
+                        <h3>{order.title}</h3>
+                        <p>Amount: <strong>रू {order.total_amount.toLocaleString()}</strong></p>
+                        <p>Buyer: {order.buyer_name} ({order.buyer_phone})</p>
+                      </div>
+                      <div style={styles.orderStatus}>
+                        <span style={{...styles.statusBadge, backgroundColor: getStatusColor(order.status)}}>
+                          {order.status.toUpperCase()}
+                        </span>
+                        <span style={{...styles.statusBadge, backgroundColor: getStatusColor(order.delivery_status)}}>
+                          {order.delivery_status ? order.delivery_status.toUpperCase() : 'PENDING'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div style={styles.orderDetails}>
+                      <p><strong>Delivery Address:</strong> {order.delivery_address}</p>
+                      <p><strong>Ordered:</strong> {new Date(order.created_at).toLocaleDateString()}</p>
+                      {order.rider_name && <p><strong>Rider:</strong> {order.rider_name} ({order.rider_phone})</p>}
+                      {order.pickup_time && <p><strong>Picked up:</strong> {new Date(order.pickup_time).toLocaleString()}</p>}
+                      {order.delivery_time && <p><strong>Delivered:</strong> {new Date(order.delivery_time).toLocaleString()}</p>}
+                    </div>
+                    
+                    {order.status === 'pending' && (
+                      <div style={styles.orderActions}>
+                        <button 
+                          onClick={() => handleConfirmOrder(order.id, order.title)}
+                          style={styles.confirmButton}
+                        >
+                          Confirm Order
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       )}
 
       {activeTab === 'borrows' && (
-        <div>
+        <div style={styles.borrowsSection}>
           <h2>Borrow Requests</h2>
           {borrowRequests.length === 0 ? (
-            <p>No borrow requests yet.</p>
+            <div style={styles.emptyState}>
+              <h3>No borrow requests yet</h3>
+              <p>Borrow requests will appear here when customers want to borrow your items.</p>
+            </div>
           ) : (
             <div style={styles.borrowsList}>
-              {borrowRequests.map(request => (
-                <div key={request.id} style={styles.borrowCard}>
-                  <h3>{request.title}</h3>
-                  <p>Borrower: {request.borrower_name} ({request.borrower_phone})</p>
-                  <p>Duration: {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()}</p>
-                  <p>Total Cost: ₹{request.total_cost} ({request.total_days} days)</p>
-                  <p>Status: <span style={styles.status}>{request.status}</span></p>
-                  {request.message && <p>Message: {request.message}</p>}
-                  
-                  <div style={styles.borrowActions}>
-                    {request.status === 'pending' && (
-                      <>
+              {borrowRequests.map(request => {
+                const images = request.images ? JSON.parse(request.images) : [];
+                const imageUrl = images.length > 0 ? images[0] : 'https://via.placeholder.com/100x100?text=No+Image';
+                
+                return (
+                  <div key={request.id} style={styles.borrowCard}>
+                    <div style={styles.borrowHeader}>
+                      <img 
+                        src={imageUrl} 
+                        alt={request.title}
+                        style={styles.borrowImage}
+                        onError={(e) => {
+                          e.target.src = 'https://via.placeholder.com/100x100?text=No+Image';
+                        }}
+                      />
+                      <div style={styles.borrowInfo}>
+                        <h3>{request.title}</h3>
+                        <p>Total Cost: <strong>रू {request.total_cost.toLocaleString()}</strong></p>
+                        <p>Borrower: {request.borrower_name} ({request.borrower_phone})</p>
+                      </div>
+                      <div style={styles.borrowStatus}>
+                        <span style={{...styles.statusBadge, backgroundColor: getStatusColor(request.status)}}>
+                          {request.status.toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div style={styles.borrowDetailsText}>
+                      <p><strong>Duration:</strong> {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()} ({request.total_days} days)</p>
+                      <p><strong>Daily Rate:</strong> रू {(request.total_cost / request.total_days).toFixed(0)}/day</p>
+                      {request.message && <p><strong>Message:</strong> {request.message}</p>}
+                      <p><strong>Requested:</strong> {new Date(request.created_at).toLocaleDateString()}</p>
+                    </div>
+                    
+                    <div style={styles.borrowActions}>
+                      {request.status === 'pending' && (
+                        <>
+                          <button 
+                            onClick={() => handleBorrowResponse(request.id, 'approved', request.title)}
+                            style={styles.approveButton}
+                          >
+                            Approve
+                          </button>
+                          <button 
+                            onClick={() => handleBorrowResponse(request.id, 'rejected', request.title)}
+                            style={styles.rejectButton}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                      {request.status === 'approved' && (
                         <button 
-                          onClick={() => handleBorrowResponse(request.id, 'approved')}
-                          style={styles.approveButton}
+                          onClick={() => handleStartBorrow(request.id, request.title)}
+                          style={styles.startButton}
                         >
-                          Approve
+                          Start Borrowing
                         </button>
+                      )}
+                      {request.status === 'active' && (
                         <button 
-                          onClick={() => handleBorrowResponse(request.id, 'rejected')}
-                          style={styles.rejectButton}
+                          onClick={() => handleReturnItem(request.id, request.title)}
+                          style={styles.returnButton}
                         >
-                          Reject
+                          Process Return
                         </button>
-                      </>
-                    )}
-                    {request.status === 'approved' && (
-                      <button 
-                        onClick={() => handleStartBorrow(request.id)}
-                        style={styles.startButton}
-                      >
-                        Start Borrowing
-                      </button>
-                    )}
-                    {request.status === 'active' && (
-                      <button 
-                        onClick={() => handleReturnItem(request.id)}
-                        style={styles.returnButton}
-                      >
-                        Process Return
-                      </button>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -404,15 +528,38 @@ export default function SellerDashboard() {
   );
 }
 
+// Helper function to get status colors
+const getStatusColor = (status) => {
+  const colors = {
+    pending: '#f39c12',
+    confirmed: '#3498db',
+    assigned: '#9b59b6',
+    picked_up: '#e67e22',
+    delivered: '#27ae60',
+    cancelled: '#e74c3c',
+    approved: '#27ae60',
+    rejected: '#e74c3c',
+    active: '#2ecc71',
+    returned: '#95a5a6',
+    overdue: '#e74c3c'
+  };
+  return colors[status] || '#95a5a6';
+};
+
 const styles = {
   container: {
     maxWidth: '1200px',
     margin: '0 auto',
-    padding: '2rem'
+    padding: '2rem',
+    backgroundColor: '#f8f9fa'
   },
   header: {
     textAlign: 'center',
-    marginBottom: '2rem'
+    marginBottom: '2rem',
+    backgroundColor: '#fff',
+    padding: '2rem',
+    borderRadius: '12px',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
   },
   loading: {
     textAlign: 'center',
@@ -422,36 +569,48 @@ const styles = {
   tabs: {
     display: 'flex',
     marginBottom: '2rem',
-    borderBottom: '1px solid #ddd'
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
   },
   tab: {
+    flex: 1,
     padding: '1rem 2rem',
     border: 'none',
     backgroundColor: 'transparent',
     cursor: 'pointer',
-    fontSize: '1rem'
+    fontSize: '1rem',
+    transition: 'all 0.3s ease'
   },
   activeTab: {
+    flex: 1,
     padding: '1rem 2rem',
     border: 'none',
-    backgroundColor: '#3498db',
+    backgroundColor: '#27ae60',
     color: '#fff',
     cursor: 'pointer',
-    fontSize: '1rem'
+    fontSize: '1rem',
+    fontWeight: 'bold'
   },
   sectionHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '2rem'
+    marginBottom: '2rem',
+    backgroundColor: '#fff',
+    padding: '1.5rem',
+    borderRadius: '12px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
   },
   addButton: {
     padding: '0.75rem 1.5rem',
     backgroundColor: '#27ae60',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
   },
   modal: {
     position: 'fixed',
@@ -468,7 +627,7 @@ const styles = {
   modalContent: {
     backgroundColor: '#fff',
     padding: '2rem',
-    borderRadius: '8px',
+    borderRadius: '12px',
     width: '90%',
     maxWidth: '500px',
     maxHeight: '90vh',
@@ -481,25 +640,29 @@ const styles = {
   },
   input: {
     padding: '0.75rem',
-    border: '1px solid #ddd',
-    borderRadius: '4px'
+    border: '2px solid #e9ecef',
+    borderRadius: '8px',
+    fontSize: '1rem'
   },
   textarea: {
     padding: '0.75rem',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
+    border: '2px solid #e9ecef',
+    borderRadius: '8px',
     minHeight: '100px',
-    resize: 'vertical'
+    resize: 'vertical',
+    fontSize: '1rem'
   },
   select: {
     padding: '0.75rem',
-    border: '1px solid #ddd',
-    borderRadius: '4px'
+    border: '2px solid #e9ecef',
+    borderRadius: '8px',
+    fontSize: '1rem'
   },
   checkboxLabel: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem'
+    gap: '0.5rem',
+    fontSize: '1rem'
   },
   modalActions: {
     display: 'flex',
@@ -512,8 +675,9 @@ const styles = {
     backgroundColor: '#27ae60',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
   },
   cancelButton: {
     flex: 1,
@@ -521,50 +685,96 @@ const styles = {
     backgroundColor: '#95a5a6',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
   },
   itemsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: '1.5rem'
+    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+    gap: '2rem'
   },
   itemCard: {
-    border: '1px solid #ddd',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    backgroundColor: '#fff'
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+    transition: 'transform 0.3s ease'
+  },
+  imageContainer: {
+    position: 'relative',
+    height: '200px',
+    overflow: 'hidden'
+  },
+  itemImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover'
+  },
+  conditionBadge: {
+    position: 'absolute',
+    top: '10px',
+    right: '10px',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    color: '#fff',
+    padding: '0.25rem 0.5rem',
+    borderRadius: '4px',
+    fontSize: '0.7rem',
+    fontWeight: 'bold'
+  },
+  itemContent: {
+    padding: '1.5rem'
+  },
+  itemTitle: {
+    margin: '0 0 0.5rem 0',
+    fontSize: '1.2rem',
+    fontWeight: 'bold',
+    color: '#2c3e50'
   },
   description: {
     color: '#666',
-    marginBottom: '1rem'
+    marginBottom: '1rem',
+    fontSize: '0.9rem',
+    lineHeight: '1.4'
   },
   itemDetails: {
-    display: 'flex',
-    gap: '1rem',
     marginBottom: '1rem'
   },
+  priceSection: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '0.5rem'
+  },
   price: {
+    fontSize: '1.5rem',
     fontWeight: 'bold',
     color: '#27ae60'
   },
   category: {
     backgroundColor: '#ecf0f1',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.8rem'
-  },
-  condition: {
-    backgroundColor: '#f39c12',
-    color: '#fff',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.8rem'
+    padding: '0.25rem 0.75rem',
+    borderRadius: '20px',
+    fontSize: '0.8rem',
+    color: '#2c3e50'
   },
   borrowInfo: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff3cd',
+    padding: '0.5rem',
+    borderRadius: '6px',
+    border: '1px solid #ffeaa7'
+  },
+  borrowPrice: {
     color: '#f39c12',
-    fontSize: '0.9rem',
-    marginBottom: '1rem'
+    fontWeight: 'bold',
+    fontSize: '0.9rem'
+  },
+  maxDays: {
+    color: '#666',
+    fontSize: '0.8rem'
   },
   itemStats: {
     display: 'flex',
@@ -572,74 +782,155 @@ const styles = {
     fontSize: '0.9rem',
     color: '#666'
   },
+  ordersSection: {
+    backgroundColor: '#fff',
+    padding: '2rem',
+    borderRadius: '12px',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+  },
   ordersList: {
-    display: 'grid',
-    gap: '1rem'
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1.5rem'
   },
   orderCard: {
-    border: '1px solid #ddd',
-    borderRadius: '8px',
+    border: '1px solid #e9ecef',
+    borderRadius: '12px',
     padding: '1.5rem',
-    backgroundColor: '#fff'
+    backgroundColor: '#f8f9fa'
   },
-  borrowsList: {
-    display: 'grid',
-    gap: '1rem'
-  },
-  borrowCard: {
-    border: '1px solid #ddd',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    backgroundColor: '#fff'
-  },
-  borrowActions: {
+  orderHeader: {
     display: 'flex',
-    gap: '0.5rem',
-    marginTop: '1rem'
+    gap: '1rem',
+    marginBottom: '1rem'
+  },
+  orderImage: {
+    width: '80px',
+    height: '80px',
+    objectFit: 'cover',
+    borderRadius: '8px'
+  },
+  orderInfo: {
+    flex: 1
+  },
+  orderStatus: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem'
+  },
+  statusBadge: {
+    padding: '0.25rem 0.75rem',
+    borderRadius: '20px',
+    fontSize: '0.7rem',
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center'
+  },
+  orderDetails: {
+    fontSize: '0.9rem',
+    color: '#666',
+    marginBottom: '1rem'
+  },
+  orderActions: {
+    display: 'flex',
+    gap: '0.5rem'
   },
   confirmButton: {
     padding: '0.5rem 1rem',
     backgroundColor: '#27ae60',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
+  },
+  borrowsSection: {
+    backgroundColor: '#fff',
+    padding: '2rem',
+    borderRadius: '12px',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+  },
+  borrowsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1.5rem'
+  },
+  borrowCard: {
+    border: '1px solid #e9ecef',
+    borderRadius: '12px',
+    padding: '1.5rem',
+    backgroundColor: '#f8f9fa'
+  },
+  borrowHeader: {
+    display: 'flex',
+    gap: '1rem',
+    marginBottom: '1rem'
+  },
+  borrowImage: {
+    width: '80px',
+    height: '80px',
+    objectFit: 'cover',
+    borderRadius: '8px'
+  },
+  borrowInfo: {
+    flex: 1
+  },
+  borrowStatus: {
+    display: 'flex',
+    flexDirection: 'column'
+  },
+  borrowDetailsText: {
+    fontSize: '0.9rem',
+    color: '#666',
+    marginBottom: '1rem'
+  },
+  borrowActions: {
+    display: 'flex',
+    gap: '0.5rem'
   },
   approveButton: {
     padding: '0.5rem 1rem',
     backgroundColor: '#27ae60',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
   },
   rejectButton: {
     padding: '0.5rem 1rem',
     backgroundColor: '#e74c3c',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
   },
   startButton: {
     padding: '0.5rem 1rem',
     backgroundColor: '#3498db',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
   },
   returnButton: {
     padding: '0.5rem 1rem',
     backgroundColor: '#f39c12',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
   },
-  status: {
-    fontWeight: 'bold',
-    textTransform: 'capitalize'
+  emptyState: {
+    textAlign: 'center',
+    padding: '3rem',
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    color: '#666',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
   },
   quickStats: {
     display: 'flex',
@@ -652,10 +943,10 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     padding: '1rem',
-    backgroundColor: '#fff',
-    borderRadius: '8px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    minWidth: '100px'
+    backgroundColor: '#f8f9fa',
+    borderRadius: '12px',
+    minWidth: '120px',
+    border: '2px solid #e9ecef'
   },
   statNumber: {
     fontSize: '2rem',

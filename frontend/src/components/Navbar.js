@@ -50,7 +50,7 @@ const Navbar = () => {
             <Link to="/admin" style={styles.link}>Admin Panel</Link>
           )}
           
-          <Link to="/chat" style={styles.link}>Messages</Link>
+          <Link to="/messages" style={styles.link}>Messages</Link>
           <Link to="/profile" style={styles.link}>Profile</Link>
         </div>
         

@@ -11,6 +11,7 @@ import SellerDashboard from "./pages/SellerDashboard";
 import RiderDashboard from "./pages/RiderDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import Profile from "./pages/Profile";
+import Messages from "./pages/Messages";
 import './App.css';
 
 export default function App() {
@@ -32,6 +33,12 @@ export default function App() {
             <Route path="/profile" element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/messages" element={
+              <ProtectedRoute>
+                <Messages />
               </ProtectedRoute>
             } />
             

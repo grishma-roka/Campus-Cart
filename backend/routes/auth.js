@@ -24,12 +24,12 @@ router.post('/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // If user selected rider role, create as inactive user pending approval
+    // If user selected rider role, create as buyer first and let them apply later
     if (role === 'rider' && license_number) {
-      // Create user as inactive rider applicant
+      // Create user as active buyer first
       const [result] = await db.query(
         "INSERT INTO users (full_name, email, password, student_id, role, is_active) VALUES (?, ?, ?, ?, ?, ?)",
-        [full_name, email, hashedPassword, student_id, 'rider_applicant', false]
+        [full_name, email, hashedPassword, student_id, 'buyer', true]
       );
 
       const userId = result.insertId;
@@ -102,19 +102,12 @@ router.post('/login', async (req, res) => {
 
     const user = rows[0];
 
-    // Check if user is active
+    // Check if user is active (only for deactivated accounts, not for pending rider applications)
     if (!user.is_active) {
-      if (user.role === 'rider_applicant') {
-        return res.status(403).json({ 
-          error: "Your rider application is pending admin approval. You cannot login until approved.",
-          pendingApproval: true
-        });
-      } else {
-        return res.status(403).json({ 
-          error: "Your account has been deactivated. Please contact admin.",
-          accountDeactivated: true
-        });
-      }
+      return res.status(403).json({ 
+        error: "Your account has been deactivated. Please contact admin.",
+        accountDeactivated: true
+      });
     }
 
     // Compare password
