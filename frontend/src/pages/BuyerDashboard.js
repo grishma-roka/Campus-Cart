@@ -18,17 +18,26 @@ export default function BuyerDashboard() {
 
   const fetchData = async () => {
     try {
+      console.log('🔄 Fetching buyer dashboard data...');
       const [itemsRes, ordersRes, borrowsRes] = await Promise.all([
         axios.get('/items'),
         axios.get('/orders/my-orders'),
         axios.get('/borrow/my-requests')
       ]);
       
+      console.log('📦 Items received:', itemsRes.data.length);
+      console.log('🛒 Orders received:', ordersRes.data.length);
+      console.log('📋 Borrows received:', borrowsRes.data.length);
+      
       setItems(itemsRes.data);
       setOrders(ordersRes.data);
       setBorrows(borrowsRes.data);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('❌ Error fetching buyer data:', error);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
     } finally {
       setLoading(false);
     }

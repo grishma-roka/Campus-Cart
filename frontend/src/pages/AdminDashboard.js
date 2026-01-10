@@ -17,6 +17,7 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     try {
+      console.log('Fetching admin data...');
       const [statsRes, riderRequestsRes, usersRes, activitiesRes] = await Promise.all([
         axios.get('/admin/stats'),
         axios.get('/admin/rider-requests'),
@@ -24,12 +25,19 @@ export default function AdminDashboard() {
         axios.get('/admin/activities')
       ]);
       
+      console.log('Rider requests:', riderRequestsRes.data);
+      console.log('Stats:', statsRes.data);
+      
       setStats(statsRes.data);
       setRiderRequests(riderRequestsRes.data);
       setUsers(usersRes.data);
       setActivities(activitiesRes.data);
     } catch (error) {
       console.error('Error fetching admin data:', error);
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+      }
     } finally {
       setLoading(false);
     }

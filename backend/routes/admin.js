@@ -9,6 +9,7 @@ const router = express.Router();
 // GET ALL RIDER REQUESTS
 router.get('/rider-requests', authMiddleware, roleMiddleware(['admin']), async (req, res) => {
   try {
+    console.log('📋 Admin fetching rider requests...');
     const [rows] = await db.query(`
       SELECT rr.*, u.full_name, u.email, u.student_id, u.phone
       FROM rider_requests rr
@@ -16,9 +17,10 @@ router.get('/rider-requests', authMiddleware, roleMiddleware(['admin']), async (
       ORDER BY rr.created_at DESC
     `);
 
+    console.log(`✅ Found ${rows.length} rider requests`);
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error fetching rider requests:', err);
     res.status(500).json({ error: "Error fetching rider requests" });
   }
 });

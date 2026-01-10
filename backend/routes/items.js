@@ -28,6 +28,7 @@ router.post('/add', auth, requireRole(['seller']), async (req, res) => {
 // GET ALL ITEMS (public)
 router.get('/', async (req, res) => {
   try {
+    console.log('📦 Fetching items...');
     const { category, search, is_borrowable } = req.query;
     let query = `
       SELECT i.*, u.full_name as seller_name, u.email as seller_email,
@@ -57,9 +58,10 @@ router.get('/', async (req, res) => {
     query += ' GROUP BY i.id ORDER BY i.created_at DESC';
 
     const [rows] = await db.query(query, params);
+    console.log(`✅ Found ${rows.length} items`);
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error fetching items:', err);
     res.status(500).json({ error: "Error fetching items" });
   }
 });

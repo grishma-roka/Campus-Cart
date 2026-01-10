@@ -168,6 +168,25 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+/* ---------------------- UPDATE PROFILE ---------------------- */
+router.put('/profile', authMiddleware, async (req, res) => {
+  try {
+    const { full_name, phone } = req.body;
+    const userId = req.user.id;
+
+    await db.query(
+      "UPDATE users SET full_name = ?, phone = ? WHERE id = ?",
+      [full_name, phone, userId]
+    );
+
+    res.json({ message: "Profile updated successfully" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 const requireRole = require('../middlewares/roleMiddleware');
 
 // Example: only sellers can access
