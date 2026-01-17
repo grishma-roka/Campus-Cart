@@ -25,24 +25,24 @@ const Navbar = () => {
           
           {user?.role === 'buyer' && (
             <>
-              <Link to="/items" style={styles.link}>Browse Items</Link>
-              <Link to="/my-orders" style={styles.link}>My Orders</Link>
-              <Link to="/my-borrows" style={styles.link}>My Borrows</Link>
+              <Link to="/buyer-dashboard?tab=browse" style={styles.link}>Browse Items</Link>
+              <Link to="/buyer-dashboard?tab=orders" style={styles.link}>My Orders</Link>
+              <Link to="/buyer-dashboard?tab=borrows" style={styles.link}>My Borrows</Link>
             </>
           )}
           
           {user?.role === 'seller' && (
             <>
-              <Link to="/my-items" style={styles.link}>My Items</Link>
-              <Link to="/seller-orders" style={styles.link}>Orders</Link>
-              <Link to="/borrow-requests" style={styles.link}>Borrow Requests</Link>
+              <Link to="/seller-dashboard?tab=items" style={styles.link}>My Items</Link>
+              <Link to="/seller-dashboard?tab=orders" style={styles.link}>Orders</Link>
+              <Link to="/seller-dashboard?tab=borrows" style={styles.link}>Borrow Requests</Link>
             </>
           )}
           
           {user?.role === 'rider' && (
             <>
-              <Link to="/available-deliveries" style={styles.link}>Available Deliveries</Link>
-              <Link to="/my-deliveries" style={styles.link}>My Deliveries</Link>
+              <Link to="/rider-dashboard?tab=available" style={styles.link}>Available Deliveries</Link>
+              <Link to="/rider-dashboard?tab=my-deliveries" style={styles.link}>My Deliveries</Link>
             </>
           )}
           

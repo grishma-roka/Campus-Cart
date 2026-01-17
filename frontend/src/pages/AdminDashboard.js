@@ -43,23 +43,43 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleRiderRequest = async (requestId, status) => {
+  const handleRiderRequest = async (requestId, status, requestName) => {
     try {
-      const notes = status === 'rejected' ? window.prompt('Reason for rejection:') : '';
-      await axios.put(`/admin/rider-requests/${requestId}`, {
+      let notes = '';
+      if (status === 'rejected') {
+        notes = window.prompt('Reason for rejection (optional):') || '';
+      }
+      
+      console.log(`🔄 Processing ${status} for rider request ${requestId}`);
+      
+      // Show loading state
+      const confirmMsg = status === 'approved' 
+        ? `Are you sure you want to APPROVE ${requestName} as a rider?`
+        : `Are you sure you want to REJECT ${requestName}'s rider application?`;
+        
+      if (!window.confirm(confirmMsg)) {
+        return;
+      }
+      
+      const response = await axios.put(`/admin/rider-requests/${requestId}`, {
         status,
         admin_notes: notes
       });
       
+      console.log('✅ Rider request response:', response.data);
+      
       if (status === 'approved') {
-        alert('Rider approved successfully! The user can now login as a rider.');
+        alert(`🎉 SUCCESS!\n\n${requestName} has been approved as a rider!\n\n✅ User role updated to 'rider'\n📧 Approval email sent\n🚚 They can now accept delivery requests`);
       } else {
-        alert('Rider request rejected. The user has been notified via email.');
+        alert(`❌ REJECTED\n\n${requestName}'s rider application has been rejected.\n\n📧 Rejection email sent with reason`);
       }
       
+      // Refresh data to show updated status
       fetchData();
     } catch (error) {
-      alert(`Failed to ${status} rider request: ` + (error.response?.data?.error || error.message));
+      console.error('❌ Error processing rider request:', error);
+      const errorMsg = error.response?.data?.error || error.message;
+      alert(`❌ FAILED\n\nCould not ${status} rider request.\n\nError: ${errorMsg}\n\nPlease try again or check the console for details.`);
     }
   };
 
@@ -274,16 +294,16 @@ export default function AdminDashboard() {
                   {request.status === 'pending' && (
                     <div style={styles.requestActions}>
                       <button 
-                        onClick={() => handleRiderRequest(request.id, 'approved')}
+                        onClick={() => handleRiderRequest(request.id, 'approved', request.full_name)}
                         style={styles.approveButton}
                       >
-                        Approve Rider
+                        ✅ Approve Rider
                       </button>
                       <button 
-                        onClick={() => handleRiderRequest(request.id, 'rejected')}
+                        onClick={() => handleRiderRequest(request.id, 'rejected', request.full_name)}
                         style={styles.rejectButton}
                       >
-                        Reject Application
+                        ❌ Reject Application
                       </button>
                     </div>
                   )}

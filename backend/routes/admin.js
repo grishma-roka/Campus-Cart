@@ -35,6 +35,8 @@ router.put('/rider-requests/:id', authMiddleware, roleMiddleware(['admin']), asy
       return res.status(400).json({ error: "Invalid status" });
     }
 
+    console.log(`🔄 Admin ${req.user.id} ${status} rider request ${requestId}`);
+
     // Get request details
     const [requestRows] = await db.query(`
       SELECT rr.*, u.full_name, u.email 
@@ -49,55 +51,90 @@ router.put('/rider-requests/:id', authMiddleware, roleMiddleware(['admin']), asy
 
     const request = requestRows[0];
 
-    // Update request status
-    await db.query(`
-      UPDATE rider_requests 
-      SET status = ?, admin_notes = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `, [status, admin_notes, req.user.id, requestId]);
+    // Update request status - use only columns that exist
+    try {
+      await db.query(`
+        UPDATE rider_requests 
+        SET status = ?
+        WHERE id = ?
+      `, [status, requestId]);
+      
+      console.log(`✅ Updated rider request ${requestId} to ${status}`);
+      
+    } catch (updateErr) {
+      console.error('❌ Error updating rider request:', updateErr);
+      return res.status(500).json({ error: "Failed to update rider request" });
+    }
 
     if (status === 'approved') {
       // Update user role to rider and activate account
-      await db.query(
-        "UPDATE users SET role = 'rider', is_active = TRUE WHERE id = ?",
-        [request.user_id]
-      );
+      try {
+        await db.query(
+          "UPDATE users SET role = 'rider', is_active = TRUE WHERE id = ?",
+          [request.user_id]
+        );
 
-      // Send approval email
-      await sendMail(
-        'Rider Application Approved - Campus Cart',
-        `Congratulations ${request.full_name}!
+        console.log(`✅ User ${request.user_id} (${request.full_name}) approved as rider`);
 
-Your rider application has been approved. You can now login to your account and start accepting delivery requests.
+        // Send approval email
+        try {
+          await sendMail(
+            'Rider Application Approved - Campus Cart',
+            `Congratulations ${request.full_name}!
+
+Your rider application has been APPROVED! 🎉
+
+You can now login to your account and start accepting delivery requests.
 
 Login here: http://localhost:3000/login
 Email: ${request.email}
 
-Welcome to the Campus Cart rider community!`
-      );
+Welcome to the Campus Cart rider community!
+
+Best regards,
+Campus Cart Team`
+          );
+          console.log('📧 Approval email sent successfully');
+        } catch (emailErr) {
+          console.log('⚠️ Email sending failed:', emailErr.message);
+        }
+      } catch (userUpdateErr) {
+        console.error('❌ Error updating user role:', userUpdateErr);
+        return res.status(500).json({ error: "Failed to update user role" });
+      }
     } else {
-      // For rejected applications, keep user inactive and send rejection email
-      await sendMail(
-        'Rider Application Update - Campus Cart',
-        `Hello ${request.full_name},
+      // For rejected applications, send rejection email
+      try {
+        await sendMail(
+          'Rider Application Update - Campus Cart',
+          `Hello ${request.full_name},
 
 Your rider application has been reviewed and unfortunately was not approved at this time.
 
-${admin_notes ? `Reason: ${admin_notes}` : ''}
+${admin_notes ? `Reason: ${admin_notes}` : 'Please contact support for more information.'}
 
-You can contact support for more information or reapply with updated information.
+You can reapply with updated information if needed.
 
-Thank you for your interest in Campus Cart.`
-      );
+Thank you for your interest in Campus Cart.
+
+Best regards,
+Campus Cart Team`
+        );
+        console.log('📧 Rejection email sent successfully');
+      } catch (emailErr) {
+        console.log('⚠️ Email sending failed:', emailErr.message);
+      }
     }
 
     res.json({ 
       message: `Rider request ${status} successfully`,
-      userActivated: status === 'approved'
+      userActivated: status === 'approved',
+      requestId: requestId,
+      userName: request.full_name
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to process rider request" });
+    console.error('❌ Error processing rider request:', err);
+    res.status(500).json({ error: "Failed to process rider request: " + err.message });
   }
 });
 

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
+import { useLocation } from 'react-router-dom';
 
 export default function BuyerDashboard() {
   const { user } = useAuth();
+  const location = useLocation();
   const [items, setItems] = useState([]);
   const [orders, setOrders] = useState([]);
   const [borrows, setBorrows] = useState([]);
@@ -13,8 +15,15 @@ export default function BuyerDashboard() {
   const [categoryFilter, setCategoryFilter] = useState('');
 
   useEffect(() => {
+    // Check URL parameters for tab
+    const urlParams = new URLSearchParams(location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['browse', 'orders', 'borrows'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+    
     fetchData();
-  }, []);
+  }, [location]);
 
   const fetchData = async () => {
     try {
@@ -169,7 +178,7 @@ export default function BuyerDashboard() {
           <div style={styles.itemsGrid}>
             {filteredItems.map(item => {
               const images = item.images ? JSON.parse(item.images) : [];
-              const imageUrl = images.length > 0 ? images[0] : `https://via.placeholder.com/300x200/2196F3/white?text=${encodeURIComponent(item.title.substring(0, 20))}`;
+              const imageUrl = images.length > 0 ? images[0] : `https://dummyimage.com/300x200/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 15))}`;
               
               return (
                 <div key={item.id} style={styles.itemCard}>
@@ -179,7 +188,7 @@ export default function BuyerDashboard() {
                       alt={item.title}
                       style={styles.itemImage}
                       onError={(e) => {
-                        e.target.src = `https://via.placeholder.com/300x200/4CAF50/white?text=${encodeURIComponent(item.title.substring(0, 20))}`;
+                        e.target.src = `https://dummyimage.com/300x200/2196F3/ffffff&text=${encodeURIComponent(item.title.substring(0, 10))}`;
                       }}
                     />
                     <div style={styles.conditionBadge}>

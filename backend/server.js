@@ -35,6 +35,23 @@ app.get('/api/test/items', async (req, res) => {
   }
 });
 
+app.get('/api/test/rider-requests', async (req, res) => {
+  try {
+    const [requests] = await db.query(`
+      SELECT rr.id, rr.user_id, rr.license_number, rr.status, u.full_name, u.email, u.role
+      FROM rider_requests rr
+      JOIN users u ON rr.user_id = u.id
+      ORDER BY rr.created_at DESC
+    `);
+    res.json({
+      count: requests.length,
+      requests: requests
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/test/health', (req, res) => {
   res.json({ 
     status: 'OK', 
