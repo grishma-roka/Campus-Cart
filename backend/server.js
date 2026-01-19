@@ -14,6 +14,7 @@ db.query("SELECT 1")
 
 // ROUTES
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/roles', require('./routes/roles'));
 app.use('/api/items', require('./routes/items'));
 app.use('/api/borrow', require('./routes/borrow'));
 app.use('/api/orders', require('./routes/orders'));

@@ -5,11 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import BuyerDashboard from "./pages/BuyerDashboard";
-import SellerDashboard from "./pages/SellerDashboard";
-import RiderDashboard from "./pages/RiderDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
+import UnifiedDashboard from "./pages/UnifiedDashboard";
 import Profile from "./pages/Profile";
 import Messages from "./pages/Messages";
 import './App.css';
@@ -26,7 +22,7 @@ export default function App() {
             
             <Route path="/dashboard" element={
               <ProtectedRoute>
-                <Dashboard />
+                <UnifiedDashboard />
               </ProtectedRoute>
             } />
             
@@ -39,30 +35,6 @@ export default function App() {
             <Route path="/messages" element={
               <ProtectedRoute>
                 <Messages />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/buyer-dashboard" element={
-              <ProtectedRoute requiredRole="buyer">
-                <BuyerDashboard />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/seller-dashboard" element={
-              <ProtectedRoute requiredRole="seller">
-                <SellerDashboard />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/rider-dashboard" element={
-              <ProtectedRoute requiredRole="rider">
-                <RiderDashboard />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin" element={
-              <ProtectedRoute requiredRole="admin">
-                <AdminDashboard />
               </ProtectedRoute>
             } />
             

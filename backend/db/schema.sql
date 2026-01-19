@@ -2,7 +2,7 @@
 CREATE DATABASE IF NOT EXISTS campus_cart;
 USE campus_cart;
 
--- Users table
+-- Users table with additive roles
 CREATE TABLE users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     full_name VARCHAR(100) NOT NULL,
@@ -10,7 +10,11 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     student_id VARCHAR(50) UNIQUE NOT NULL,
     phone VARCHAR(20),
-    role ENUM('buyer', 'seller', 'rider', 'admin') DEFAULT 'buyer',
+    role ENUM('buyer', 'seller', 'rider', 'admin') DEFAULT 'buyer', -- Primary role for backward compatibility
+    is_buyer BOOLEAN DEFAULT TRUE,
+    is_seller BOOLEAN DEFAULT FALSE,
+    is_rider BOOLEAN DEFAULT FALSE,
+    is_admin BOOLEAN DEFAULT FALSE,
     profile_image VARCHAR(255),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -111,6 +115,8 @@ CREATE TABLE rider_requests (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
     license_number VARCHAR(50) NOT NULL,
+    license_issue_date DATE,
+    license_expiry_date DATE,
     license_image VARCHAR(255),
     status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
     admin_notes TEXT,

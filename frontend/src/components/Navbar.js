@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
 const Navbar = () => {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, userRoles, logout, isAuthenticated, availableRoles } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -23,31 +23,24 @@ const Navbar = () => {
         <div style={styles.navLinks}>
           <Link to="/dashboard" style={styles.link}>Dashboard</Link>
           
-          {user?.role === 'buyer' && (
-            <>
-              <Link to="/buyer-dashboard?tab=browse" style={styles.link}>Browse Items</Link>
-              <Link to="/buyer-dashboard?tab=orders" style={styles.link}>My Orders</Link>
-              <Link to="/buyer-dashboard?tab=borrows" style={styles.link}>My Borrows</Link>
-            </>
+          {/* Universal navigation - works for all roles */}
+          <Link to="/dashboard?tab=browse" style={styles.link}>Browse Items</Link>
+          <Link to="/dashboard?tab=orders" style={styles.link}>My Orders</Link>
+          <Link to="/dashboard?tab=borrows" style={styles.link}>My Borrows</Link>
+          
+          {/* Show seller-specific links if user has seller role */}
+          {availableRoles?.includes('seller') && (
+            <Link to="/dashboard?mode=seller" style={styles.link}>Seller Mode</Link>
           )}
           
-          {user?.role === 'seller' && (
-            <>
-              <Link to="/seller-dashboard?tab=items" style={styles.link}>My Items</Link>
-              <Link to="/seller-dashboard?tab=orders" style={styles.link}>Orders</Link>
-              <Link to="/seller-dashboard?tab=borrows" style={styles.link}>Borrow Requests</Link>
-            </>
+          {/* Show rider-specific links if user has rider role */}
+          {availableRoles?.includes('rider') && (
+            <Link to="/dashboard?mode=rider" style={styles.link}>Rider Mode</Link>
           )}
           
-          {user?.role === 'rider' && (
-            <>
-              <Link to="/rider-dashboard?tab=available" style={styles.link}>Available Deliveries</Link>
-              <Link to="/rider-dashboard?tab=my-deliveries" style={styles.link}>My Deliveries</Link>
-            </>
-          )}
-          
-          {user?.role === 'admin' && (
-            <Link to="/admin" style={styles.link}>Admin Panel</Link>
+          {/* Show admin links if user has admin role */}
+          {availableRoles?.includes('admin') && (
+            <Link to="/dashboard?mode=admin" style={styles.link}>Admin Panel</Link>
           )}
           
           <Link to="/messages" style={styles.link}>Messages</Link>
@@ -56,8 +49,18 @@ const Navbar = () => {
         
         <div style={styles.userSection}>
           <span style={styles.userName}>
-            {user?.full_name} ({user?.role})
+            {user?.full_name}
           </span>
+          <div style={styles.rolesBadges}>
+            {availableRoles?.map(role => (
+              <span key={role} style={{
+                ...styles.roleBadge,
+                backgroundColor: getRoleColor(role)
+              }}>
+                {role}
+              </span>
+            ))}
+          </div>
           <button onClick={handleLogout} style={styles.logoutBtn}>
             Logout
           </button>
@@ -65,6 +68,16 @@ const Navbar = () => {
       </div>
     </nav>
   );
+};
+
+const getRoleColor = (role) => {
+  const colors = {
+    buyer: '#3498db',
+    seller: '#27ae60',
+    rider: '#f39c12',
+    admin: '#e74c3c'
+  };
+  return colors[role] || '#95a5a6';
 };
 
 const styles = {
@@ -105,7 +118,20 @@ const styles = {
   },
   userName: {
     color: '#ecf0f1',
-    fontSize: '0.9rem'
+    fontSize: '0.9rem',
+    fontWeight: '500'
+  },
+  rolesBadges: {
+    display: 'flex',
+    gap: '0.25rem'
+  },
+  roleBadge: {
+    padding: '0.2rem 0.5rem',
+    borderRadius: '12px',
+    fontSize: '0.7rem',
+    fontWeight: 'bold',
+    color: '#fff',
+    textTransform: 'uppercase'
   },
   logoutBtn: {
     backgroundColor: '#e74c3c',
