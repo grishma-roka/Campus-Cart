@@ -58,7 +58,13 @@ router.get('/', async (req, res) => {
     query += ' GROUP BY i.id ORDER BY i.created_at DESC';
 
     const [rows] = await db.query(query, params);
-    console.log(`✅ Found ${rows.length} items`);
+    console.log(`✅ Found ${rows.length} items - sending to frontend`);
+    
+    // Log first item for debugging
+    if (rows.length > 0) {
+      console.log(`📦 Sample item: ${rows[0].title} - रू${rows[0].price}`);
+    }
+    
     res.json(rows);
   } catch (err) {
     console.error('❌ Error fetching items:', err);

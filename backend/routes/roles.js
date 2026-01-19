@@ -6,9 +6,10 @@ const auth = require('../middlewares/authMiddleware');
 // GET USER ROLES
 router.get('/my-roles', auth, async (req, res) => {
   try {
+    console.log(`🔍 Fetching roles for user ID: ${req.user.id}`);
+    
     const [rows] = await db.query(`
-      SELECT id, role, is_buyer, is_seller, is_rider, is_admin 
-      FROM users WHERE id = ?
+      SELECT id, role FROM users WHERE id = ?
     `, [req.user.id]);
 
     if (!rows.length) {
@@ -16,21 +17,24 @@ router.get('/my-roles', auth, async (req, res) => {
     }
 
     const user = rows[0];
+    
+    // For now, simulate additive roles based on current role
+    // In a real implementation, you'd have separate columns
     const roles = {
       primary_role: user.role,
-      is_buyer: user.is_buyer,
-      is_seller: user.is_seller,
-      is_rider: user.is_rider,
-      is_admin: user.is_admin,
-      available_roles: []
+      is_buyer: true, // Everyone can buy
+      is_seller: user.role === 'seller' || user.role === 'admin',
+      is_rider: user.role === 'rider' || user.role === 'admin',
+      is_admin: user.role === 'admin',
+      available_roles: ['buyer'] // Start with buyer
     };
 
-    // Build available roles array
-    if (user.is_buyer) roles.available_roles.push('buyer');
-    if (user.is_seller) roles.available_roles.push('seller');
-    if (user.is_rider) roles.available_roles.push('rider');
-    if (user.is_admin) roles.available_roles.push('admin');
+    // Add available roles based on current role
+    if (roles.is_seller) roles.available_roles.push('seller');
+    if (roles.is_rider) roles.available_roles.push('rider');
+    if (roles.is_admin) roles.available_roles.push('admin');
 
+    console.log(`✅ User roles: ${JSON.stringify(roles)}`);
     res.json(roles);
   } catch (error) {
     console.error('Error fetching user roles:', error);
@@ -41,8 +45,10 @@ router.get('/my-roles', auth, async (req, res) => {
 // SWITCH TO SELLER MODE
 router.post('/become-seller', auth, async (req, res) => {
   try {
+    // For now, just update the role to seller
+    // In a full implementation, you'd set is_seller = TRUE
     await db.query(
-      "UPDATE users SET is_seller = TRUE WHERE id = ?",
+      "UPDATE users SET role = 'seller' WHERE id = ?",
       [req.user.id]
     );
 
@@ -83,32 +89,36 @@ router.post('/apply-rider', auth, async (req, res) => {
       }
     }
 
-    // Create new rider request
+    // Create new rider request (only with required fields for now)
     await db.query(`
-      INSERT INTO rider_requests (user_id, license_number, license_issue_date, license_expiry_date, license_image)
-      VALUES (?, ?, ?, ?, ?)
-    `, [req.user.id, license_number, license_issue_date, license_expiry_date, license_image]);
+      INSERT INTO rider_requests (user_id, license_number, license_image)
+      VALUES (?, ?, ?)
+    `, [req.user.id, license_number, license_image || null]);
 
     // Send email notification to admin
     const sendMail = require('../utils/sendEmail');
     const [userRows] = await db.query("SELECT full_name, email FROM users WHERE id = ?", [req.user.id]);
     const user = userRows[0];
 
-    await sendMail(
-      'New Rider Application - Campus Cart',
-      `New rider application received:
-      
+    try {
+      await sendMail(
+        'New Rider Application - Campus Cart',
+        `New rider application received:
+        
 Name: ${user.full_name}
 Email: ${user.email}
 License Number: ${license_number}
-Issue Date: ${license_issue_date}
-Expiry Date: ${license_expiry_date}
+${license_issue_date ? `Issue Date: ${license_issue_date}` : ''}
+${license_expiry_date ? `Expiry Date: ${license_expiry_date}` : ''}
 ${license_image ? `License Image: ${license_image}` : 'No license image provided'}
 
 Please review this application in the admin panel.
 
 Login to admin panel: http://localhost:3000/login`
-    );
+      );
+    } catch (emailError) {
+      console.log('Email sending failed:', emailError.message);
+    }
 
     res.json({ 
       message: "Rider application submitted successfully! You will receive an email notification once reviewed by admin.",

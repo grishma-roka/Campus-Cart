@@ -70,7 +70,7 @@ router.put('/rider-requests/:id', authMiddleware, roleMiddleware(['admin']), asy
       // Update user role to rider and activate account
       try {
         await db.query(
-          "UPDATE users SET role = 'rider', is_rider = TRUE, is_active = TRUE WHERE id = ?",
+          "UPDATE users SET role = 'rider', is_active = TRUE WHERE id = ?",
           [request.user_id]
         );
 

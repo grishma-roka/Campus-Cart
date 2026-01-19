@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import RoleSwitcher from '../components/RoleSwitcher';
 import BuyerDashboard from './BuyerDashboard';
 import SellerDashboard from './SellerDashboard';
@@ -10,7 +10,6 @@ import AdminDashboard from './AdminDashboard';
 export default function UnifiedDashboard() {
   const { user, userRoles, availableRoles, primaryRole } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const [currentMode, setCurrentMode] = useState('buyer');
 
   useEffect(() => {

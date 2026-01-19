@@ -17,15 +17,32 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const [userResponse, rolesResponse] = await Promise.all([
+          axios.get('/auth/me'),
+          axios.get('/roles/my-roles')
+        ]);
+        setUser(userResponse.data.user);
+        setUserRoles(rolesResponse.data);
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+        logout();
+      } finally {
+        setLoading(false);
+      }
+    };
+
     const token = localStorage.getItem('token');
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchUser();
+      fetchUserData();
     } else {
       setLoading(false);
     }
   }, []);
 
+  // eslint-disable-next-line no-unused-vars
   const fetchUser = async () => {
     try {
       const [userResponse, rolesResponse] = await Promise.all([
@@ -37,8 +54,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Failed to fetch user:', error);
       logout();
-    } finally {
-      setLoading(false);
     }
   };
 
