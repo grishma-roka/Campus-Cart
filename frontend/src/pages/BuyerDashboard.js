@@ -13,8 +13,7 @@ export default function BuyerDashboard() {
   const [activeTab, setActiveTab] = useState('browse');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
+  const [priceRange, setPriceRange] = useState('');
   const [sortBy, setSortBy] = useState('newest');
 
   useEffect(() => {
@@ -26,7 +25,7 @@ export default function BuyerDashboard() {
     }
     
     fetchData();
-  }, [location, searchTerm, categoryFilter, minPrice, maxPrice, sortBy]);
+  }, [location, searchTerm, categoryFilter, priceRange, sortBy]);
 
   const fetchData = async () => {
     try {
@@ -36,9 +35,14 @@ export default function BuyerDashboard() {
       const itemsParams = new URLSearchParams();
       if (searchTerm) itemsParams.append('search', searchTerm);
       if (categoryFilter) itemsParams.append('category', categoryFilter);
-      if (minPrice) itemsParams.append('min_price', minPrice);
-      if (maxPrice) itemsParams.append('max_price', maxPrice);
       if (sortBy) itemsParams.append('sort_by', sortBy);
+      
+      // Handle price range
+      if (priceRange) {
+        const [min, max] = priceRange.split('-');
+        if (min) itemsParams.append('min_price', min);
+        if (max && max !== 'above') itemsParams.append('max_price', max);
+      }
       
       const [itemsRes, ordersRes, borrowsRes] = await Promise.all([
         axios.get(`/items?${itemsParams.toString()}`),
@@ -168,6 +172,7 @@ export default function BuyerDashboard() {
               onChange={(e) => setSearchTerm(e.target.value)}
               style={styles.searchInput}
             />
+            
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
@@ -179,22 +184,21 @@ export default function BuyerDashboard() {
               ))}
             </select>
             
-            <div style={styles.priceFilters}>
-              <input
-                type="number"
-                placeholder="Min Price (रू)"
-                value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
-                style={styles.priceInput}
-              />
-              <input
-                type="number"
-                placeholder="Max Price (रू)"
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
-                style={styles.priceInput}
-              />
-            </div>
+            <select
+              value={priceRange}
+              onChange={(e) => setPriceRange(e.target.value)}
+              style={styles.priceRangeSelect}
+            >
+              <option value="">All Prices</option>
+              <option value="1-100">रू 1 - रू 100</option>
+              <option value="100-300">रू 100 - रू 300</option>
+              <option value="300-500">रू 300 - रू 500</option>
+              <option value="500-1000">रू 500 - रू 1,000</option>
+              <option value="1000-2000">रू 1,000 - रू 2,000</option>
+              <option value="2000-3000">रू 2,000 - रू 3,000</option>
+              <option value="3000-5000">रू 3,000 - रू 5,000</option>
+              <option value="5000-above">रू 5,000+</option>
+            </select>
             
             <select
               value={sortBy}
@@ -212,8 +216,7 @@ export default function BuyerDashboard() {
               onClick={() => {
                 setSearchTerm('');
                 setCategoryFilter('');
-                setMinPrice('');
-                setMaxPrice('');
+                setPriceRange('');
                 setSortBy('newest');
               }}
               style={styles.clearButton}
@@ -497,17 +500,13 @@ const styles = {
     fontSize: '1rem',
     minWidth: '200px'
   },
-  priceFilters: {
-    display: 'flex',
-    gap: '0.5rem',
-    alignItems: 'center'
-  },
-  priceInput: {
+  priceRangeSelect: {
     padding: '0.75rem',
     border: '2px solid #e9ecef',
     borderRadius: '8px',
     fontSize: '1rem',
-    width: '140px'
+    minWidth: '180px',
+    backgroundColor: '#fff'
   },
   sortSelect: {
     padding: '0.75rem',

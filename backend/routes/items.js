@@ -30,6 +30,8 @@ router.get('/', async (req, res) => {
   try {
     console.log('📦 Fetching items...');
     const { category, search, is_borrowable, min_price, max_price, sort_by } = req.query;
+    console.log(`🔍 Filters: category=${category}, search=${search}, price=${min_price}-${max_price}, sort=${sort_by}`);
+    
     let query = `
       SELECT i.*, u.full_name as seller_name, u.email as seller_email,
              COALESCE(AVG(r.rating), 0) as seller_rating
@@ -61,7 +63,7 @@ router.get('/', async (req, res) => {
       params.push(parseFloat(min_price));
     }
 
-    if (max_price) {
+    if (max_price && max_price !== 'above') {
       query += ' AND i.price <= ?';
       params.push(parseFloat(max_price));
     }
