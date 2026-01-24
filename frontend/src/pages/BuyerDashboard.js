@@ -13,6 +13,9 @@ export default function BuyerDashboard() {
   const [activeTab, setActiveTab] = useState('browse');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
 
   useEffect(() => {
     // Check URL parameters for tab
@@ -23,13 +26,22 @@ export default function BuyerDashboard() {
     }
     
     fetchData();
-  }, [location]);
+  }, [location, searchTerm, categoryFilter, minPrice, maxPrice, sortBy]);
 
   const fetchData = async () => {
     try {
       console.log('🔄 Fetching buyer dashboard data...');
+      
+      // Build query parameters for items
+      const itemsParams = new URLSearchParams();
+      if (searchTerm) itemsParams.append('search', searchTerm);
+      if (categoryFilter) itemsParams.append('category', categoryFilter);
+      if (minPrice) itemsParams.append('min_price', minPrice);
+      if (maxPrice) itemsParams.append('max_price', maxPrice);
+      if (sortBy) itemsParams.append('sort_by', sortBy);
+      
       const [itemsRes, ordersRes, borrowsRes] = await Promise.all([
-        axios.get('/items'),
+        axios.get(`/items?${itemsParams.toString()}`),
         axios.get('/orders/my-orders'),
         axios.get('/borrow/my-requests')
       ]);
@@ -98,13 +110,6 @@ export default function BuyerDashboard() {
     }
   };
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !categoryFilter || item.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
-
   const categories = [...new Set(items.map(item => item.category))];
 
   if (loading) {
@@ -126,7 +131,7 @@ export default function BuyerDashboard() {
             <span style={styles.statLabel}>My Borrows</span>
           </div>
           <div style={styles.statItem}>
-            <span style={styles.statNumber}>{filteredItems.length}</span>
+            <span style={styles.statNumber}>{items.length}</span>
             <span style={styles.statLabel}>Available Items</span>
           </div>
         </div>
@@ -137,7 +142,7 @@ export default function BuyerDashboard() {
           style={activeTab === 'browse' ? styles.activeTab : styles.tab}
           onClick={() => setActiveTab('browse')}
         >
-          Browse Items ({filteredItems.length})
+          Browse Items ({items.length})
         </button>
         <button 
           style={activeTab === 'orders' ? styles.activeTab : styles.tab}
@@ -173,10 +178,52 @@ export default function BuyerDashboard() {
                 <option key={category} value={category}>{category}</option>
               ))}
             </select>
+            
+            <div style={styles.priceFilters}>
+              <input
+                type="number"
+                placeholder="Min Price (रू)"
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+                style={styles.priceInput}
+              />
+              <input
+                type="number"
+                placeholder="Max Price (रू)"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                style={styles.priceInput}
+              />
+            </div>
+            
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={styles.sortSelect}
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="price_low">Price: Low to High</option>
+              <option value="price_high">Price: High to Low</option>
+              <option value="rating">Highest Rated Seller</option>
+            </select>
+            
+            <button 
+              onClick={() => {
+                setSearchTerm('');
+                setCategoryFilter('');
+                setMinPrice('');
+                setMaxPrice('');
+                setSortBy('newest');
+              }}
+              style={styles.clearButton}
+            >
+              Clear Filters
+            </button>
           </div>
 
           <div style={styles.itemsGrid}>
-            {filteredItems.map(item => {
+            {items.map(item => {
               const images = item.images ? JSON.parse(item.images) : [];
               const imageUrl = images.length > 0 ? images[0] : `https://dummyimage.com/300x200/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 15))}`;
               
@@ -242,7 +289,7 @@ export default function BuyerDashboard() {
             })}
           </div>
 
-          {filteredItems.length === 0 && (
+          {items.length === 0 && (
             <div style={styles.emptyState}>
               <h3>No items found</h3>
               <p>Try adjusting your search or category filter.</p>
@@ -432,7 +479,9 @@ const styles = {
     backgroundColor: '#fff',
     padding: '1.5rem',
     borderRadius: '12px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    flexWrap: 'wrap',
+    alignItems: 'center'
   },
   searchInput: {
     flex: 1,
@@ -447,6 +496,36 @@ const styles = {
     borderRadius: '8px',
     fontSize: '1rem',
     minWidth: '200px'
+  },
+  priceFilters: {
+    display: 'flex',
+    gap: '0.5rem',
+    alignItems: 'center'
+  },
+  priceInput: {
+    padding: '0.75rem',
+    border: '2px solid #e9ecef',
+    borderRadius: '8px',
+    fontSize: '1rem',
+    width: '140px'
+  },
+  sortSelect: {
+    padding: '0.75rem',
+    border: '2px solid #e9ecef',
+    borderRadius: '8px',
+    fontSize: '1rem',
+    minWidth: '180px'
+  },
+  clearButton: {
+    padding: '0.75rem 1.5rem',
+    backgroundColor: '#95a5a6',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    fontWeight: '500',
+    transition: 'background-color 0.3s ease'
   },
   itemsGrid: {
     display: 'grid',

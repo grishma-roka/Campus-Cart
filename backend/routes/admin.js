@@ -76,53 +76,79 @@ router.put('/rider-requests/:id', authMiddleware, roleMiddleware(['admin']), asy
 
         console.log(`✅ User ${request.user_id} (${request.full_name}) approved as rider`);
 
-        // Send approval email
+        // Send approval email to rider
         try {
           await sendMail(
             'Rider Application Approved - Campus Cart',
-            `Congratulations ${request.full_name}!
+            `🎉 CONGRATULATIONS ${request.full_name}!
 
-Your rider application has been APPROVED! 🎉
+✅ Your rider application has been APPROVED!
 
-You can now login to your account and start accepting delivery requests.
+🚚 You are now an official Campus Cart rider!
 
-Login here: http://localhost:3000/login
+🔑 What you can do now:
+• Login to your account at: http://localhost:3000/login
+• Switch to "Rider Mode" using the role switcher
+• Accept delivery requests from buyers and sellers
+• Earn money by completing deliveries
+• Build your rider rating and reputation
+
+📧 Your login credentials:
 Email: ${request.email}
+(Use your existing password)
 
-Welcome to the Campus Cart rider community!
+🎯 Getting Started:
+1. Login to your account
+2. Click on "Rider Mode" in the dashboard
+3. View available delivery requests
+4. Accept deliveries and start earning!
+
+📞 Need help? Contact support or check the rider guidelines in your dashboard.
+
+Welcome to the Campus Cart rider community! 🚚💨
 
 Best regards,
 Campus Cart Team`
           );
-          console.log('📧 Approval email sent successfully');
+          console.log('📧 Rider approval email sent successfully');
         } catch (emailErr) {
-          console.log('⚠️ Email sending failed:', emailErr.message);
+          console.log('⚠️ Rider email sending failed:', emailErr.message);
         }
       } catch (userUpdateErr) {
         console.error('❌ Error updating user role:', userUpdateErr);
         return res.status(500).json({ error: "Failed to update user role" });
       }
     } else {
-      // For rejected applications, send rejection email
+      // For rejected applications, send rejection email to rider
       try {
         await sendMail(
           'Rider Application Update - Campus Cart',
           `Hello ${request.full_name},
 
-Your rider application has been reviewed and unfortunately was not approved at this time.
+❌ Your rider application has been reviewed and unfortunately was not approved at this time.
 
-${admin_notes ? `Reason: ${admin_notes}` : 'Please contact support for more information.'}
+📋 Application Details:
+License Number: ${request.license_number}
+Status: Rejected
 
-You can reapply with updated information if needed.
+${admin_notes ? `📝 Reason: ${admin_notes}` : '📞 Please contact support for more information.'}
+
+🔄 What you can do:
+• Review the rejection reason above
+• Ensure your license image is clear and valid
+• You can reapply with updated information if needed
+• Contact support if you have questions
+
+📧 Questions? Reply to this email or contact support.
 
 Thank you for your interest in Campus Cart.
 
 Best regards,
 Campus Cart Team`
         );
-        console.log('📧 Rejection email sent successfully');
+        console.log('📧 Rider rejection email sent successfully');
       } catch (emailErr) {
-        console.log('⚠️ Email sending failed:', emailErr.message);
+        console.log('⚠️ Rider email sending failed:', emailErr.message);
       }
     }
 

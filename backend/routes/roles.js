@@ -67,6 +67,17 @@ router.post('/apply-rider', auth, async (req, res) => {
   try {
     const { license_number, license_issue_date, license_expiry_date, license_image } = req.body;
 
+    // Validate required fields
+    if (!license_number || !license_image) {
+      return res.status(400).json({ 
+        error: "License number and license image are required for rider application",
+        missing_fields: {
+          license_number: !license_number,
+          license_image: !license_image
+        }
+      });
+    }
+
     // Check if user already has a pending or approved rider request
     const [existing] = await db.query(
       "SELECT id, status FROM rider_requests WHERE user_id = ?",
@@ -93,36 +104,78 @@ router.post('/apply-rider', auth, async (req, res) => {
     await db.query(`
       INSERT INTO rider_requests (user_id, license_number, license_image)
       VALUES (?, ?, ?)
-    `, [req.user.id, license_number, license_image || null]);
+    `, [req.user.id, license_number, license_image]);
 
-    // Send email notification to admin
-    const sendMail = require('../utils/sendEmail');
+    // Get user details for email
     const [userRows] = await db.query("SELECT full_name, email FROM users WHERE id = ?", [req.user.id]);
     const user = userRows[0];
 
+    // Send email notification to admin with license image
+    const sendMail = require('../utils/sendEmail');
+    
     try {
       await sendMail(
         'New Rider Application - Campus Cart',
-        `New rider application received:
-        
+        `🚚 NEW RIDER APPLICATION RECEIVED
+
+📋 Application Details:
 Name: ${user.full_name}
 Email: ${user.email}
 License Number: ${license_number}
 ${license_issue_date ? `Issue Date: ${license_issue_date}` : ''}
 ${license_expiry_date ? `Expiry Date: ${license_expiry_date}` : ''}
-${license_image ? `License Image: ${license_image}` : 'No license image provided'}
 
-Please review this application in the admin panel.
+📷 License Image: ${license_image}
 
-Login to admin panel: http://localhost:3000/login`
+⚠️ IMPORTANT: Please verify the license image before approving this application.
+
+🔗 Review Application:
+Login to admin panel: http://localhost:3000/login
+Admin Email: ${process.env.ADMIN_EMAIL || 'np03cs4a230143@heraldcollege.edu.np'}
+
+Please review and approve/reject this application promptly.
+
+Best regards,
+Campus Cart System`
       );
+      console.log('📧 Admin notification email sent successfully');
     } catch (emailError) {
-      console.log('Email sending failed:', emailError.message);
+      console.log('⚠️ Admin email sending failed:', emailError.message);
+    }
+
+    // Send confirmation email to applicant
+    try {
+      await sendMail(
+        'Rider Application Submitted - Campus Cart',
+        `Hello ${user.full_name},
+
+✅ Your rider application has been submitted successfully!
+
+📋 Application Details:
+License Number: ${license_number}
+Status: Pending Review
+
+⏳ What happens next?
+1. Admin will review your license image and details
+2. You will receive an email notification once reviewed
+3. If approved, you can start accepting delivery requests
+
+📧 You will be notified at: ${user.email}
+
+Thank you for applying to become a Campus Cart rider!
+
+Best regards,
+Campus Cart Team`
+      );
+      console.log('📧 Applicant confirmation email sent successfully');
+    } catch (emailError) {
+      console.log('⚠️ Applicant email sending failed:', emailError.message);
     }
 
     res.json({ 
-      message: "Rider application submitted successfully! You will receive an email notification once reviewed by admin.",
-      status: 'pending'
+      message: "Rider application submitted successfully! Admin has been notified and will review your license image. You will receive an email notification once reviewed.",
+      status: 'pending',
+      license_image_submitted: true
     });
   } catch (error) {
     console.error('Error submitting rider application:', error);

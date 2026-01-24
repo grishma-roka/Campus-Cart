@@ -29,7 +29,7 @@ router.post('/add', auth, requireRole(['seller']), async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     console.log('📦 Fetching items...');
-    const { category, search, is_borrowable } = req.query;
+    const { category, search, is_borrowable, min_price, max_price, sort_by } = req.query;
     let query = `
       SELECT i.*, u.full_name as seller_name, u.email as seller_email,
              COALESCE(AVG(r.rating), 0) as seller_rating
@@ -55,7 +55,39 @@ router.get('/', async (req, res) => {
       params.push(is_borrowable === 'true');
     }
 
-    query += ' GROUP BY i.id ORDER BY i.created_at DESC';
+    // Price range filtering
+    if (min_price) {
+      query += ' AND i.price >= ?';
+      params.push(parseFloat(min_price));
+    }
+
+    if (max_price) {
+      query += ' AND i.price <= ?';
+      params.push(parseFloat(max_price));
+    }
+
+    query += ' GROUP BY i.id';
+
+    // Sorting
+    switch (sort_by) {
+      case 'price_low':
+        query += ' ORDER BY i.price ASC';
+        break;
+      case 'price_high':
+        query += ' ORDER BY i.price DESC';
+        break;
+      case 'newest':
+        query += ' ORDER BY i.created_at DESC';
+        break;
+      case 'oldest':
+        query += ' ORDER BY i.created_at ASC';
+        break;
+      case 'rating':
+        query += ' ORDER BY seller_rating DESC';
+        break;
+      default:
+        query += ' ORDER BY i.created_at DESC';
+    }
 
     const [rows] = await db.query(query, params);
     console.log(`✅ Found ${rows.length} items - sending to frontend`);

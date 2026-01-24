@@ -10,6 +10,8 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
     license_expiry_date: '',
     license_image: ''
   });
+  const [imagePreview, setImagePreview] = useState('');
+  const [formErrors, setFormErrors] = useState({});
 
   const handleBecomeSeller = async () => {
     if (!userRoles?.is_seller) {
@@ -27,13 +29,61 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
 
   const handleApplyRider = async (e) => {
     e.preventDefault();
+    
+    // Validate required fields
+    const errors = {};
+    if (!riderFormData.license_number.trim()) {
+      errors.license_number = 'License number is required';
+    }
+    if (!riderFormData.license_image.trim()) {
+      errors.license_image = 'License image URL is required';
+    }
+    if (!riderFormData.license_issue_date) {
+      errors.license_issue_date = 'License issue date is required';
+    }
+    if (!riderFormData.license_expiry_date) {
+      errors.license_expiry_date = 'License expiry date is required';
+    }
+    
+    // Check if expiry date is in the future
+    if (riderFormData.license_expiry_date) {
+      const expiryDate = new Date(riderFormData.license_expiry_date);
+      const today = new Date();
+      if (expiryDate <= today) {
+        errors.license_expiry_date = 'License must not be expired';
+      }
+    }
+    
+    setFormErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      alert('Please fix the errors in the form before submitting.');
+      return;
+    }
+    
     const result = await applyForRider(riderFormData);
     if (result.success) {
       alert(result.message);
       setShowRiderForm(false);
+      setRiderFormData({
+        license_number: '',
+        license_issue_date: '',
+        license_expiry_date: '',
+        license_image: ''
+      });
+      setImagePreview('');
+      setFormErrors({});
     } else {
       alert(result.error);
     }
+  };
+
+  const handleImageUrlChange = (url) => {
+    setRiderFormData({
+      ...riderFormData,
+      license_image: url
+    });
+    setImagePreview(url);
   };
 
   const availableRoles = userRoles?.available_roles || [];
@@ -127,6 +177,9 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
         <div style={styles.modal}>
           <div style={styles.modalContent}>
             <h3>Apply to Become a Rider</h3>
+            <p style={styles.formDescription}>
+              📋 All fields are required. Your license image will be reviewed by admin before approval.
+            </p>
             <form onSubmit={handleApplyRider}>
               <div style={styles.formGroup}>
                 <label>License Number *</label>
@@ -138,9 +191,15 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                     ...riderFormData,
                     license_number: e.target.value
                   })}
-                  style={styles.input}
+                  style={{
+                    ...styles.input,
+                    borderColor: formErrors.license_number ? '#e74c3c' : '#e9ecef'
+                  }}
                   placeholder="Enter your license number"
                 />
+                {formErrors.license_number && (
+                  <span style={styles.errorText}>{formErrors.license_number}</span>
+                )}
               </div>
 
               <div style={styles.formGroup}>
@@ -153,8 +212,14 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                     ...riderFormData,
                     license_issue_date: e.target.value
                   })}
-                  style={styles.input}
+                  style={{
+                    ...styles.input,
+                    borderColor: formErrors.license_issue_date ? '#e74c3c' : '#e9ecef'
+                  }}
                 />
+                {formErrors.license_issue_date && (
+                  <span style={styles.errorText}>{formErrors.license_issue_date}</span>
+                )}
               </div>
 
               <div style={styles.formGroup}>
@@ -167,23 +232,48 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                     ...riderFormData,
                     license_expiry_date: e.target.value
                   })}
-                  style={styles.input}
+                  style={{
+                    ...styles.input,
+                    borderColor: formErrors.license_expiry_date ? '#e74c3c' : '#e9ecef'
+                  }}
                 />
+                {formErrors.license_expiry_date && (
+                  <span style={styles.errorText}>{formErrors.license_expiry_date}</span>
+                )}
               </div>
 
               <div style={styles.formGroup}>
-                <label>License Image URL (Optional)</label>
+                <label>License Image URL *</label>
                 <input
                   type="url"
+                  required
                   value={riderFormData.license_image}
-                  onChange={(e) => setRiderFormData({
-                    ...riderFormData,
-                    license_image: e.target.value
-                  })}
-                  style={styles.input}
+                  onChange={(e) => handleImageUrlChange(e.target.value)}
+                  style={{
+                    ...styles.input,
+                    borderColor: formErrors.license_image ? '#e74c3c' : '#e9ecef'
+                  }}
                   placeholder="https://example.com/license-image.jpg"
                 />
+                {formErrors.license_image && (
+                  <span style={styles.errorText}>{formErrors.license_image}</span>
+                )}
+                <small style={styles.helpText}>
+                  📷 Upload your license image to a service like Imgur, Google Drive, or Dropbox and paste the direct image URL here.
+                </small>
               </div>
+
+              {imagePreview && (
+                <div style={styles.imagePreview}>
+                  <label>License Image Preview:</label>
+                  <img 
+                    src={imagePreview} 
+                    alt="License Preview" 
+                    style={styles.previewImage}
+                    onError={() => setImagePreview('')}
+                  />
+                </div>
+              )}
 
               <div style={styles.formActions}>
                 <button type="submit" style={styles.submitButton}>
@@ -294,9 +384,18 @@ const styles = {
     padding: '2rem',
     borderRadius: '12px',
     width: '90%',
-    maxWidth: '500px',
+    maxWidth: '600px',
     maxHeight: '80vh',
     overflow: 'auto'
+  },
+  formDescription: {
+    color: '#666',
+    fontSize: '0.9rem',
+    marginBottom: '1.5rem',
+    padding: '1rem',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+    border: '1px solid #e9ecef'
   },
   formGroup: {
     marginBottom: '1rem'
@@ -307,7 +406,32 @@ const styles = {
     border: '2px solid #e9ecef',
     borderRadius: '8px',
     fontSize: '1rem',
-    marginTop: '0.25rem'
+    marginTop: '0.25rem',
+    transition: 'border-color 0.3s ease'
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: '0.8rem',
+    marginTop: '0.25rem',
+    display: 'block'
+  },
+  helpText: {
+    color: '#666',
+    fontSize: '0.8rem',
+    marginTop: '0.5rem',
+    display: 'block',
+    lineHeight: '1.4'
+  },
+  imagePreview: {
+    marginBottom: '1rem'
+  },
+  previewImage: {
+    width: '100%',
+    maxWidth: '300px',
+    height: 'auto',
+    border: '2px solid #e9ecef',
+    borderRadius: '8px',
+    marginTop: '0.5rem'
   },
   formActions: {
     display: 'flex',
