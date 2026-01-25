@@ -5,7 +5,7 @@ const auth = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/roleMiddleware');
 
 // CREATE ORDER
-router.post('/create', auth, requireRole(['buyer']), async (req, res) => {
+router.post('/create', auth, async (req, res) => {
   try {
     const { item_id, quantity, delivery_address } = req.body;
     const buyer_id = req.user.id;
@@ -48,7 +48,7 @@ router.post('/create', auth, requireRole(['buyer']), async (req, res) => {
 });
 
 // GET BUYER ORDERS
-router.get('/my-orders', auth, requireRole(['buyer']), async (req, res) => {
+router.get('/my-orders', auth, async (req, res) => {
   try {
     console.log('🛒 Fetching buyer orders...');
     const [rows] = await db.query(`

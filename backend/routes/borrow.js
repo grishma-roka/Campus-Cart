@@ -5,7 +5,7 @@ const auth = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/roleMiddleware');
 
 // CREATE BORROW REQUEST
-router.post('/request', auth, requireRole(['buyer']), async (req, res) => {
+router.post('/request', auth, async (req, res) => {
   try {
     const { item_id, start_date, end_date, message } = req.body;
     const borrower_id = req.user.id;
@@ -62,7 +62,7 @@ router.post('/request', auth, requireRole(['buyer']), async (req, res) => {
 });
 
 // GET BORROW REQUESTS FOR BORROWER
-router.get('/my-requests', auth, requireRole(['buyer']), async (req, res) => {
+router.get('/my-requests', auth, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT br.*, i.title, i.description, i.images, u.full_name as seller_name, u.email as seller_email
