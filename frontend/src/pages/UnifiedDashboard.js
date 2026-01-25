@@ -38,16 +38,22 @@ export default function UnifiedDashboard() {
   }
 
   const renderDashboard = () => {
+    console.log('🎯 UnifiedDashboard rendering mode:', currentMode);
     switch (currentMode) {
       case 'buyer':
+        console.log('🛒 Rendering BuyerDashboard');
         return <BuyerDashboard />;
       case 'seller':
+        console.log('🏪 Rendering SellerDashboard');
         return <SellerDashboard />;
       case 'rider':
+        console.log('🚚 Rendering RiderDashboard');
         return <RiderDashboard />;
       case 'admin':
+        console.log('⚙️ Rendering AdminDashboard');
         return <AdminDashboard />;
       default:
+        console.log('🛒 Rendering default BuyerDashboard');
         return <BuyerDashboard />;
     }
   };

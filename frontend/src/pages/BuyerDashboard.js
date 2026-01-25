@@ -16,6 +16,8 @@ export default function BuyerDashboard() {
   const [priceRange, setPriceRange] = useState('');
   const [sortBy, setSortBy] = useState('newest');
 
+  console.log('🏪 BuyerDashboard component mounted/updated');
+
   useEffect(() => {
     // Check URL parameters for tab
     const urlParams = new URLSearchParams(location.search);
@@ -25,11 +27,14 @@ export default function BuyerDashboard() {
     }
     
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, searchTerm, categoryFilter, priceRange, sortBy]);
 
   const fetchData = async () => {
     try {
       console.log('🔄 Fetching buyer dashboard data...');
+      console.log('🔗 Axios base URL:', axios.defaults.baseURL);
+      console.log('🔑 Auth token exists:', !!localStorage.getItem('token'));
       
       // Build query parameters for items
       const itemsParams = new URLSearchParams();
@@ -44,27 +49,42 @@ export default function BuyerDashboard() {
         if (max && max !== 'above') itemsParams.append('max_price', max);
       }
       
+      console.log('📡 Making API calls with params:', itemsParams.toString());
+      console.log('🌐 Full items URL:', `/items?${itemsParams.toString()}`);
+      
       const [itemsRes, ordersRes, borrowsRes] = await Promise.all([
         axios.get(`/items?${itemsParams.toString()}`),
         axios.get('/orders/my-orders'),
         axios.get('/borrow/my-requests')
       ]);
       
+      console.log('📦 Items API response:', itemsRes);
+      console.log('📦 Items data:', itemsRes.data);
       console.log('📦 Items received:', itemsRes.data.length);
       console.log('🛒 Orders received:', ordersRes.data.length);
       console.log('📋 Borrows received:', borrowsRes.data.length);
       
+      if (itemsRes.data.length > 0) {
+        console.log('📦 Sample item:', itemsRes.data[0].title, '- रू' + itemsRes.data[0].price);
+      }
+      
       setItems(itemsRes.data);
       setOrders(ordersRes.data);
       setBorrows(borrowsRes.data);
+      
+      console.log('✅ State updated - items:', itemsRes.data.length);
     } catch (error) {
       console.error('❌ Error fetching buyer data:', error);
       if (error.response) {
         console.error('Response status:', error.response.status);
         console.error('Response data:', error.response.data);
       }
+      if (error.request) {
+        console.error('Request failed:', error.request);
+      }
     } finally {
       setLoading(false);
+      console.log('🏁 Loading set to false');
     }
   };
 
@@ -117,8 +137,17 @@ export default function BuyerDashboard() {
   const categories = [...new Set(items.map(item => item.category))];
 
   if (loading) {
+    console.log('🔄 BuyerDashboard is loading...');
     return <div style={styles.loading}>Loading...</div>;
   }
+
+  console.log('📊 BuyerDashboard render state:', {
+    itemsCount: items.length,
+    ordersCount: orders.length,
+    borrowsCount: borrows.length,
+    activeTab,
+    user: user?.full_name
+  });
 
   return (
     <div style={styles.container}>
@@ -381,7 +410,7 @@ export default function BuyerDashboard() {
                           e.target.src = 'https://via.placeholder.com/100x100?text=No+Image';
                         }}
                       />
-                      <div style={styles.borrowInfo}>
+                      <div style={styles.borrowCardInfo}>
                         <h3>{borrow.title}</h3>
                         <p>Total Cost: <strong>रू {borrow.total_cost.toLocaleString()}</strong></p>
                         <p>Seller: {borrow.seller_name}</p>
@@ -723,7 +752,7 @@ const styles = {
     objectFit: 'cover',
     borderRadius: '8px'
   },
-  borrowInfo: {
+  borrowCardInfo: {
     flex: 1
   },
   borrowStatus: {
