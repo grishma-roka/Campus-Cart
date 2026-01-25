@@ -84,19 +84,19 @@ export default function UnifiedDashboard() {
 const styles = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#f8f9fa'
+    backgroundColor: '#EAF4FE'
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: '2rem',
-    borderBottom: '1px solid #e9ecef',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
   welcomeSection: {
     marginBottom: '1rem'
   },
   subtitle: {
-    color: '#666',
+    color: '#000000',
     fontSize: '1rem',
     margin: '0.5rem 0'
   },
@@ -109,6 +109,7 @@ const styles = {
     justifyContent: 'center',
     height: '100vh',
     fontSize: '1.2rem',
-    color: '#666'
+    color: '#000000',
+    backgroundColor: '#EAF4FE'
   }
 };

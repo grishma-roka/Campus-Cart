@@ -90,204 +90,250 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
 
   return (
     <div style={styles.container}>
-      <div style={styles.currentMode}>
-        <span style={styles.modeLabel}>Current Mode:</span>
-        <span style={{
-          ...styles.modeBadge,
-          backgroundColor: getModeColor(currentMode)
-        }}>
-          {currentMode.toUpperCase()}
-        </span>
-      </div>
-
-      <div style={styles.switchButtons}>
-        {/* Buyer Mode */}
-        {availableRoles.includes('buyer') && (
+      {/* Unified Mode Switcher Group */}
+      <div className="mode-switcher-group" style={styles.modeSwitcherGroup}>
+        <div style={styles.modeSwitcherLabel}>
+          <span className="text-sm" style={styles.labelText}>Switch Mode</span>
+        </div>
+        
+        <div className="pill-button-group" style={styles.pillButtonGroup}>
+          {/* Buyer Mode - Active Blue */}
           <button
             onClick={() => onModeChange('buyer')}
+            className="mode-pill-button"
             style={{
-              ...styles.switchButton,
-              backgroundColor: currentMode === 'buyer' ? '#3498db' : '#ecf0f1',
-              color: currentMode === 'buyer' ? '#fff' : '#2c3e50'
+              ...styles.pillButton,
+              ...(currentMode === 'buyer' ? styles.activeBuyerButton : styles.neutralButton)
             }}
           >
-            🛒 Buyer Mode
+            <span style={styles.buttonIcon}>🛒</span>
+            <span style={styles.buttonText}>Buyer Mode</span>
           </button>
-        )}
 
-        {/* Seller Mode */}
-        {availableRoles.includes('seller') ? (
-          <button
-            onClick={() => onModeChange('seller')}
-            style={{
-              ...styles.switchButton,
-              backgroundColor: currentMode === 'seller' ? '#27ae60' : '#ecf0f1',
-              color: currentMode === 'seller' ? '#fff' : '#2c3e50'
-            }}
-          >
-            🏪 Seller Mode
-          </button>
-        ) : (
-          <button
-            onClick={handleBecomeSeller}
-            style={styles.becomeButton}
-          >
-            ➕ Become Seller
-          </button>
-        )}
+          {/* Seller Mode - Neutral White or Active */}
+          {availableRoles.includes('seller') ? (
+            <button
+              onClick={() => onModeChange('seller')}
+              className="mode-pill-button"
+              style={{
+                ...styles.pillButton,
+                ...(currentMode === 'seller' ? styles.activeSellerButton : styles.neutralButton)
+              }}
+            >
+              <span style={styles.buttonIcon}>🏪</span>
+              <span style={styles.buttonText}>Seller Mode</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleBecomeSeller}
+              className="mode-pill-button"
+              style={{
+                ...styles.pillButton,
+                ...styles.becomeSellerButton
+              }}
+            >
+              <span style={styles.buttonIcon}>➕</span>
+              <span style={styles.buttonText}>Become Seller</span>
+            </button>
+          )}
 
-        {/* Rider Mode */}
-        {availableRoles.includes('rider') ? (
-          <button
-            onClick={() => onModeChange('rider')}
-            style={{
-              ...styles.switchButton,
-              backgroundColor: currentMode === 'rider' ? '#f39c12' : '#ecf0f1',
-              color: currentMode === 'rider' ? '#fff' : '#2c3e50'
-            }}
-          >
-            🚚 Rider Mode
-          </button>
-        ) : (
-          <button
-            onClick={() => setShowRiderForm(true)}
-            style={styles.applyButton}
-          >
-            📝 Apply for Rider
-          </button>
-        )}
+          {/* Rider Mode - Vibrant Amber with Motorcycle Icon */}
+          {availableRoles.includes('rider') ? (
+            <button
+              onClick={() => onModeChange('rider')}
+              className="mode-pill-button"
+              style={{
+                ...styles.pillButton,
+                ...(currentMode === 'rider' ? styles.activeRiderButton : styles.riderButton)
+              }}
+            >
+              <span style={styles.buttonIcon}>🏍️</span>
+              <span style={styles.buttonText}>Rider Mode</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowRiderForm(true)}
+              className="mode-pill-button"
+              style={{
+                ...styles.pillButton,
+                ...styles.applyRiderButton
+              }}
+            >
+              <span style={styles.buttonIcon}>🏍️</span>
+              <span style={styles.buttonText}>Apply for Rider</span>
+            </button>
+          )}
 
-        {/* Admin Mode */}
-        {availableRoles.includes('admin') && (
-          <button
-            onClick={() => onModeChange('admin')}
-            style={{
-              ...styles.switchButton,
-              backgroundColor: currentMode === 'admin' ? '#e74c3c' : '#ecf0f1',
-              color: currentMode === 'admin' ? '#fff' : '#2c3e50'
-            }}
-          >
-            ⚙️ Admin Mode
-          </button>
-        )}
+          {/* Admin Mode - If Available */}
+          {availableRoles.includes('admin') && (
+            <button
+              onClick={() => onModeChange('admin')}
+              className="mode-pill-button"
+              style={{
+                ...styles.pillButton,
+                ...(currentMode === 'admin' ? styles.activeAdminButton : styles.neutralButton)
+              }}
+            >
+              <span style={styles.buttonIcon}>⚙️</span>
+              <span style={styles.buttonText}>Admin Mode</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Current Mode Indicator */}
+      <div className="current-mode-indicator" style={styles.currentModeIndicator}>
+        <div style={styles.statusDot}></div>
+        <span className="text-sm" style={styles.currentModeText}>
+          Active: <strong>{currentMode.charAt(0).toUpperCase() + currentMode.slice(1)} Mode</strong>
+        </span>
       </div>
 
       {/* Rider Application Form Modal */}
       {showRiderForm && (
         <div style={styles.modal}>
           <div style={styles.modalContent}>
-            <h3>Apply to Become a Rider</h3>
-            <p style={styles.formDescription}>
-              📋 All fields are required. Your license image will be reviewed by admin before approval.
-            </p>
-            <form onSubmit={handleApplyRider}>
-              <div style={styles.formGroup}>
-                <label>License Number *</label>
-                <input
-                  type="text"
-                  required
-                  value={riderFormData.license_number}
-                  onChange={(e) => setRiderFormData({
-                    ...riderFormData,
-                    license_number: e.target.value
-                  })}
-                  style={{
-                    ...styles.input,
-                    borderColor: formErrors.license_number ? '#e74c3c' : '#e9ecef'
-                  }}
-                  placeholder="Enter your license number"
-                />
-                {formErrors.license_number && (
-                  <span style={styles.errorText}>{formErrors.license_number}</span>
-                )}
-              </div>
-
-              <div style={styles.formGroup}>
-                <label>License Issue Date *</label>
-                <input
-                  type="date"
-                  required
-                  value={riderFormData.license_issue_date}
-                  onChange={(e) => setRiderFormData({
-                    ...riderFormData,
-                    license_issue_date: e.target.value
-                  })}
-                  style={{
-                    ...styles.input,
-                    borderColor: formErrors.license_issue_date ? '#e74c3c' : '#e9ecef'
-                  }}
-                />
-                {formErrors.license_issue_date && (
-                  <span style={styles.errorText}>{formErrors.license_issue_date}</span>
-                )}
-              </div>
-
-              <div style={styles.formGroup}>
-                <label>License Expiry Date *</label>
-                <input
-                  type="date"
-                  required
-                  value={riderFormData.license_expiry_date}
-                  onChange={(e) => setRiderFormData({
-                    ...riderFormData,
-                    license_expiry_date: e.target.value
-                  })}
-                  style={{
-                    ...styles.input,
-                    borderColor: formErrors.license_expiry_date ? '#e74c3c' : '#e9ecef'
-                  }}
-                />
-                {formErrors.license_expiry_date && (
-                  <span style={styles.errorText}>{formErrors.license_expiry_date}</span>
-                )}
-              </div>
-
-              <div style={styles.formGroup}>
-                <label>License Image URL *</label>
-                <input
-                  type="url"
-                  required
-                  value={riderFormData.license_image}
-                  onChange={(e) => handleImageUrlChange(e.target.value)}
-                  style={{
-                    ...styles.input,
-                    borderColor: formErrors.license_image ? '#e74c3c' : '#e9ecef'
-                  }}
-                  placeholder="https://example.com/license-image.jpg"
-                />
-                {formErrors.license_image && (
-                  <span style={styles.errorText}>{formErrors.license_image}</span>
-                )}
-                <small style={styles.helpText}>
-                  📷 Upload your license image to a service like Imgur, Google Drive, or Dropbox and paste the direct image URL here.
-                </small>
-              </div>
-
-              {imagePreview && (
-                <div style={styles.imagePreview}>
-                  <label>License Image Preview:</label>
-                  <img 
-                    src={imagePreview} 
-                    alt="License Preview" 
-                    style={styles.previewImage}
-                    onError={() => setImagePreview('')}
-                  />
+            <div style={styles.modalHeader}>
+              <h3 className="heading-md" style={styles.modalTitle}>🏍️ Apply to Become a Rider</h3>
+              <button 
+                onClick={() => setShowRiderForm(false)}
+                className="close-button"
+                style={styles.closeButton}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div style={styles.modalBody}>
+              <div style={styles.formDescription}>
+                <div style={styles.descriptionIcon}>📋</div>
+                <div>
+                  <p className="text-base" style={styles.descriptionTitle}>Required Information</p>
+                  <p className="text-sm" style={styles.descriptionText}>
+                    All fields are mandatory. Your license image will be reviewed by admin before approval.
+                  </p>
                 </div>
-              )}
-
-              <div style={styles.formActions}>
-                <button type="submit" style={styles.submitButton}>
-                  Submit Application
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowRiderForm(false)}
-                  style={styles.cancelButton}
-                >
-                  Cancel
-                </button>
               </div>
-            </form>
+
+              <form onSubmit={handleApplyRider} style={styles.form}>
+                <div style={styles.formGroup}>
+                  <label className="text-sm" style={styles.label}>License Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={riderFormData.license_number}
+                    onChange={(e) => setRiderFormData({
+                      ...riderFormData,
+                      license_number: e.target.value
+                    })}
+                    className="rider-form-input"
+                    style={{
+                      ...styles.input,
+                      borderColor: formErrors.license_number ? '#ef4444' : 'rgba(0, 0, 0, 0.1)'
+                    }}
+                    placeholder="Enter your license number"
+                  />
+                  {formErrors.license_number && (
+                    <span style={styles.errorText}>{formErrors.license_number}</span>
+                  )}
+                </div>
+
+                <div style={styles.formRow}>
+                  <div style={styles.formGroup}>
+                    <label className="text-sm" style={styles.label}>License Issue Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={riderFormData.license_issue_date}
+                      onChange={(e) => setRiderFormData({
+                        ...riderFormData,
+                        license_issue_date: e.target.value
+                      })}
+                      className="rider-form-input"
+                      style={{
+                        ...styles.input,
+                        borderColor: formErrors.license_issue_date ? '#ef4444' : 'rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                    {formErrors.license_issue_date && (
+                      <span style={styles.errorText}>{formErrors.license_issue_date}</span>
+                    )}
+                  </div>
+
+                  <div style={styles.formGroup}>
+                    <label className="text-sm" style={styles.label}>License Expiry Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={riderFormData.license_expiry_date}
+                      onChange={(e) => setRiderFormData({
+                        ...riderFormData,
+                        license_expiry_date: e.target.value
+                      })}
+                      className="rider-form-input"
+                      style={{
+                        ...styles.input,
+                        borderColor: formErrors.license_expiry_date ? '#ef4444' : 'rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                    {formErrors.license_expiry_date && (
+                      <span style={styles.errorText}>{formErrors.license_expiry_date}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label className="text-sm" style={styles.label}>License Image URL *</label>
+                  <input
+                    type="url"
+                    required
+                    value={riderFormData.license_image}
+                    onChange={(e) => handleImageUrlChange(e.target.value)}
+                    className="rider-form-input"
+                    style={{
+                      ...styles.input,
+                      borderColor: formErrors.license_image ? '#ef4444' : 'rgba(0, 0, 0, 0.1)'
+                    }}
+                    placeholder="https://example.com/license-image.jpg"
+                  />
+                  {formErrors.license_image && (
+                    <span style={styles.errorText}>{formErrors.license_image}</span>
+                  )}
+                  <small style={styles.helpText}>
+                    📷 Upload your license image to a service like Imgur, Google Drive, or Dropbox and paste the direct image URL here.
+                  </small>
+                </div>
+
+                {imagePreview && (
+                  <div style={styles.imagePreview}>
+                    <label className="text-sm" style={styles.label}>License Image Preview:</label>
+                    <div style={styles.previewContainer}>
+                      <img 
+                        src={imagePreview} 
+                        alt="License Preview" 
+                        style={styles.previewImage}
+                        onError={() => setImagePreview('')}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div style={styles.formActions}>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowRiderForm(false)}
+                    className="cancel-button"
+                    style={styles.cancelButton}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="submit-button" style={styles.submitButton}>
+                    <span style={styles.submitIcon}>🚀</span>
+                    Submit Application
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -295,166 +341,369 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
   );
 }
 
-const getModeColor = (mode) => {
-  const colors = {
-    buyer: '#3498db',
-    seller: '#27ae60',
-    rider: '#f39c12',
-    admin: '#e74c3c'
-  };
-  return colors[mode] || '#95a5a6';
-};
-
 const styles = {
   container: {
     display: 'flex',
     alignItems: 'center',
-    gap: '1rem',
-    padding: '1rem',
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    marginBottom: '1rem'
+    justifyContent: 'space-between',
+    background: 'var(--card-bg)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: 'var(--radius-bento)',
+    padding: 'var(--spacing-md)',
+    boxShadow: 'var(--shadow-card)',
+    marginBottom: 'var(--spacing-lg)',
+    fontFamily: 'Inter, sans-serif'
   },
-  currentMode: {
+
+  // Mode Switcher Group
+  modeSwitcherGroup: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem'
+    gap: 'var(--spacing-md)'
   },
-  modeLabel: {
-    fontSize: '0.9rem',
-    color: '#666',
-    fontWeight: '500'
-  },
-  modeBadge: {
-    padding: '0.25rem 0.75rem',
-    borderRadius: '20px',
-    fontSize: '0.8rem',
-    fontWeight: 'bold',
-    color: '#fff'
-  },
-  switchButtons: {
+
+  modeSwitcherLabel: {
     display: 'flex',
-    gap: '0.5rem',
-    flexWrap: 'wrap'
+    alignItems: 'center',
+    gap: '8px'
   },
-  switchButton: {
-    padding: '0.5rem 1rem',
-    border: '2px solid #e9ecef',
-    borderRadius: '8px',
-    cursor: 'pointer',
+
+  labelText: {
+    color: 'var(--text-secondary)',
+    fontWeight: '600',
     fontSize: '0.9rem',
-    fontWeight: '500',
-    transition: 'all 0.3s ease'
+    letterSpacing: '0.02em'
   },
-  becomeButton: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#27ae60',
-    color: '#fff',
+
+  // Pill Button Group
+  pillButtonGroup: {
+    display: 'flex',
+    gap: '8px',
+    background: 'rgba(255, 255, 255, 0.4)',
+    padding: '6px',
+    borderRadius: '50px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.1)'
+  },
+
+  // Base Pill Button
+  pillButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 20px',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '50px',
     cursor: 'pointer',
     fontSize: '0.9rem',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    outline: 'none',
+    position: 'relative',
+    overflow: 'hidden',
+    minHeight: '44px',
+    whiteSpace: 'nowrap'
+  },
+
+  // Button States
+  activeBuyerButton: {
+    background: '#F88000',
+    color: '#FFFFFF',
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+    transform: 'translateY(-1px)'
+  },
+
+  activeSellerButton: {
+    background: '#F88000',
+    color: '#FFFFFF',
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+    transform: 'translateY(-1px)'
+  },
+
+  activeRiderButton: {
+    background: '#F88000',
+    color: '#FFFFFF',
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+    transform: 'translateY(-1px)'
+  },
+
+  activeAdminButton: {
+    background: '#F88000',
+    color: '#FFFFFF',
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+    transform: 'translateY(-1px)'
+  },
+
+  neutralButton: {
+    background: 'rgba(255, 255, 255, 0.9)',
+    color: 'var(--text-secondary)',
+    border: '1px solid rgba(0, 0, 0, 0.08)',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+  },
+
+  becomeSellerButton: {
+    background: '#EAF4FE',
+    color: '#F88000',
+    border: '1px solid rgba(248, 128, 0, 0.2)',
+    boxShadow: '0 1px 3px rgba(248, 128, 0, 0.1)'
+  },
+
+  riderButton: {
+    background: '#EAF4FE',
+    color: '#F88000',
+    border: '1px solid rgba(248, 128, 0, 0.2)',
+    boxShadow: '0 1px 3px rgba(248, 128, 0, 0.1)'
+  },
+
+  applyRiderButton: {
+    background: '#F88000',
+    color: '#FFFFFF',
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+  },
+
+  buttonIcon: {
+    fontSize: '1.1rem',
+    lineHeight: '1'
+  },
+
+  buttonText: {
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    letterSpacing: '0.01em'
+  },
+
+  // Current Mode Indicator
+  currentModeIndicator: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'rgba(255, 255, 255, 0.6)',
+    padding: '8px 16px',
+    borderRadius: '50px',
+    border: '1px solid rgba(255, 255, 255, 0.3)'
+  },
+
+  statusDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: '#F88000',
+    boxShadow: '0 0 8px rgba(248, 128, 0, 0.4)',
+    animation: 'pulse 2s infinite'
+  },
+
+  currentModeText: {
+    color: 'var(--text-secondary)',
+    fontSize: '0.85rem',
     fontWeight: '500'
   },
-  applyButton: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#f39c12',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-    fontWeight: '500'
-  },
+
+  // Modal Styles
   modal: {
     position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    background: 'rgba(0, 0, 0, 0.6)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1000
+    zIndex: 1000,
+    padding: 'var(--spacing-md)'
   },
+
   modalContent: {
-    backgroundColor: '#fff',
-    padding: '2rem',
-    borderRadius: '12px',
-    width: '90%',
-    maxWidth: '600px',
-    maxHeight: '80vh',
-    overflow: 'auto'
-  },
-  formDescription: {
-    color: '#666',
-    fontSize: '0.9rem',
-    marginBottom: '1.5rem',
-    padding: '1rem',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '8px',
-    border: '1px solid #e9ecef'
-  },
-  formGroup: {
-    marginBottom: '1rem'
-  },
-  input: {
+    background: 'var(--card-bg)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: 'var(--radius-bento)',
     width: '100%',
-    padding: '0.75rem',
-    border: '2px solid #e9ecef',
-    borderRadius: '8px',
+    maxWidth: '600px',
+    maxHeight: '90vh',
+    overflow: 'hidden',
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+    fontFamily: 'Inter, sans-serif'
+  },
+
+  modalHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 'var(--spacing-lg)',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+    background: '#EAF4FE'
+  },
+
+  modalTitle: {
+    color: 'var(--text-primary)',
+    margin: 0,
+    fontWeight: '700'
+  },
+
+  closeButton: {
+    background: 'rgba(255, 255, 255, 0.2)',
+    border: 'none',
+    borderRadius: '50%',
+    width: '32px',
+    height: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    color: 'var(--text-secondary)',
+    fontSize: '1.2rem',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+  },
+
+  modalBody: {
+    padding: 'var(--spacing-lg)',
+    maxHeight: 'calc(90vh - 120px)',
+    overflowY: 'auto'
+  },
+
+  formDescription: {
+    display: 'flex',
+    gap: 'var(--spacing-md)',
+    background: '#EAF4FE',
+    border: '1px solid rgba(248, 128, 0, 0.2)',
+    borderRadius: 'var(--radius-card)',
+    padding: 'var(--spacing-md)',
+    marginBottom: 'var(--spacing-lg)'
+  },
+
+  descriptionIcon: {
+    fontSize: '1.5rem',
+    lineHeight: '1'
+  },
+
+  descriptionTitle: {
+    color: 'var(--text-primary)',
+    fontWeight: '600',
+    margin: '0 0 4px 0'
+  },
+
+  descriptionText: {
+    color: 'var(--text-secondary)',
+    margin: 0,
+    lineHeight: '1.5'
+  },
+
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--spacing-md)'
+  },
+
+  formRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 'var(--spacing-md)'
+  },
+
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column'
+  },
+
+  label: {
+    color: 'var(--text-primary)',
+    fontWeight: '600',
+    marginBottom: '8px',
+    fontSize: '0.9rem'
+  },
+
+  input: {
+    padding: '12px 16px',
+    border: '2px solid rgba(0, 0, 0, 0.1)',
+    borderRadius: 'var(--radius-button)',
     fontSize: '1rem',
-    marginTop: '0.25rem',
-    transition: 'border-color 0.3s ease'
+    fontFamily: 'Inter, sans-serif',
+    background: 'rgba(255, 255, 255, 0.9)',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    outline: 'none'
   },
+
   errorText: {
-    color: '#e74c3c',
+    color: '#ef4444',
     fontSize: '0.8rem',
-    marginTop: '0.25rem',
-    display: 'block'
+    marginTop: '4px',
+    fontWeight: '500'
   },
+
   helpText: {
-    color: '#666',
+    color: 'var(--text-muted)',
     fontSize: '0.8rem',
-    marginTop: '0.5rem',
-    display: 'block',
+    marginTop: '8px',
     lineHeight: '1.4'
   },
+
   imagePreview: {
-    marginBottom: '1rem'
+    marginTop: 'var(--spacing-md)'
   },
+
+  previewContainer: {
+    marginTop: '8px',
+    border: '2px dashed rgba(248, 128, 0, 0.3)',
+    borderRadius: 'var(--radius-card)',
+    padding: 'var(--spacing-md)',
+    background: '#EAF4FE'
+  },
+
   previewImage: {
     width: '100%',
     maxWidth: '300px',
     height: 'auto',
-    border: '2px solid #e9ecef',
-    borderRadius: '8px',
-    marginTop: '0.5rem'
+    borderRadius: 'var(--radius-button)',
+    boxShadow: 'var(--shadow-card)'
   },
+
   formActions: {
     display: 'flex',
-    gap: '1rem',
+    gap: 'var(--spacing-md)',
     justifyContent: 'flex-end',
-    marginTop: '1.5rem'
+    marginTop: 'var(--spacing-lg)',
+    paddingTop: 'var(--spacing-md)',
+    borderTop: '1px solid rgba(255, 255, 255, 0.1)'
   },
-  submitButton: {
-    padding: '0.75rem 1.5rem',
-    backgroundColor: '#f39c12',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 'bold'
-  },
+
   cancelButton: {
-    padding: '0.75rem 1.5rem',
-    backgroundColor: '#95a5a6',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
+    padding: '12px 24px',
+    background: 'rgba(255, 255, 255, 0.9)',
+    color: 'var(--text-secondary)',
+    border: '1px solid rgba(0, 0, 0, 0.1)',
+    borderRadius: 'var(--radius-button)',
     cursor: 'pointer',
-    fontWeight: 'bold'
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+  },
+
+  submitButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 24px',
+    background: '#F88000',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+  },
+
+  submitIcon: {
+    fontSize: '1rem'
   }
 };

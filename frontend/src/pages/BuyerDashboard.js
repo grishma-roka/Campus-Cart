@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 import { useLocation } from 'react-router-dom';
@@ -7,216 +7,178 @@ export default function BuyerDashboard() {
   const { user } = useAuth();
   const location = useLocation();
   const [items, setItems] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [borrows, setBorrows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('browse');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [priceRange, setPriceRange] = useState('');
-  const [sortBy, setSortBy] = useState('newest');
+  const [currentSlide, setCurrentSlide] = useState(0);
 
-  console.log('🏪 BuyerDashboard component mounted/updated');
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
-    // Check URL parameters for tab
-    const urlParams = new URLSearchParams(location.search);
-    const tabParam = urlParams.get('tab');
-    if (tabParam && ['browse', 'orders', 'borrows'].includes(tabParam)) {
-      setActiveTab(tabParam);
-    }
-    
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, searchTerm, categoryFilter, priceRange, sortBy]);
+  }, [debouncedSearchTerm, categoryFilter, priceRange]);
+
+  // Auto-advance carousel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % 3);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchData = async () => {
     try {
-      console.log('🔄 Fetching buyer dashboard data...');
-      console.log('🔗 Axios base URL:', axios.defaults.baseURL);
-      console.log('🔑 Auth token exists:', !!localStorage.getItem('token'));
-      
-      // Build query parameters for items
       const itemsParams = new URLSearchParams();
-      if (searchTerm) itemsParams.append('search', searchTerm);
+      if (debouncedSearchTerm) itemsParams.append('search', debouncedSearchTerm);
       if (categoryFilter) itemsParams.append('category', categoryFilter);
-      if (sortBy) itemsParams.append('sort_by', sortBy);
-      
-      // Handle price range
       if (priceRange) {
         const [min, max] = priceRange.split('-');
         if (min) itemsParams.append('min_price', min);
         if (max && max !== 'above') itemsParams.append('max_price', max);
       }
       
-      console.log('📡 Making API calls with params:', itemsParams.toString());
-      console.log('🌐 Full items URL:', `/items?${itemsParams.toString()}`);
-      
-      const [itemsRes, ordersRes, borrowsRes] = await Promise.all([
-        axios.get(`/items?${itemsParams.toString()}`),
-        axios.get('/orders/my-orders'),
-        axios.get('/borrow/my-requests')
-      ]);
-      
-      console.log('📦 Items API response:', itemsRes);
-      console.log('📦 Items data:', itemsRes.data);
-      console.log('📦 Items received:', itemsRes.data.length);
-      console.log('🛒 Orders received:', ordersRes.data.length);
-      console.log('📋 Borrows received:', borrowsRes.data.length);
-      
-      if (itemsRes.data.length > 0) {
-        console.log('📦 Sample item:', itemsRes.data[0].title, '- रू' + itemsRes.data[0].price);
-      }
-      
+      const itemsRes = await axios.get(`/items?${itemsParams.toString()}`);
       setItems(itemsRes.data);
-      setOrders(ordersRes.data);
-      setBorrows(borrowsRes.data);
-      
-      console.log('✅ State updated - items:', itemsRes.data.length);
     } catch (error) {
-      console.error('❌ Error fetching buyer data:', error);
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
-      }
-      if (error.request) {
-        console.error('Request failed:', error.request);
-      }
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
-      console.log('🏁 Loading set to false');
-    }
-  };
-
-  const handleBuyItem = async (itemId, itemTitle, itemPrice) => {
-    try {
-      const address = window.prompt('Enter delivery address:');
-      if (!address) return;
-
-      await axios.post('/orders/create', {
-        item_id: itemId,
-        quantity: 1,
-        delivery_address: address
-      });
-
-      alert(`Order placed successfully for ${itemTitle}! Total: रू ${itemPrice.toLocaleString()}`);
-      fetchData();
-    } catch (error) {
-      alert('Failed to place order: ' + (error.response?.data?.error || error.message));
-    }
-  };
-
-  const handleBorrowRequest = async (itemId, itemTitle, borrowPrice) => {
-    try {
-      const startDate = window.prompt('Enter start date (YYYY-MM-DD):');
-      const endDate = window.prompt('Enter end date (YYYY-MM-DD):');
-      const message = window.prompt('Message to seller (optional):');
-      
-      if (!startDate || !endDate) return;
-
-      // Calculate days and cost
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-      const totalCost = days * borrowPrice;
-
-      await axios.post('/borrow/request', {
-        item_id: itemId,
-        start_date: startDate,
-        end_date: endDate,
-        message
-      });
-
-      alert(`Borrow request sent for ${itemTitle}! Duration: ${days} days, Total cost: रू ${totalCost.toLocaleString()}`);
-      fetchData();
-    } catch (error) {
-      alert('Failed to send borrow request: ' + (error.response?.data?.error || error.message));
     }
   };
 
   const categories = [...new Set(items.map(item => item.category))];
 
+  const getCategoryIcon = (category) => {
+    const icons = {
+      'Books': '📚',
+      'Electronics': '💻',
+      'Clothing': '👕',
+      'Sports': '⚽',
+      'default': '📦'
+    };
+    return icons[category] || icons.default;
+  };
+
   if (loading) {
-    console.log('🔄 BuyerDashboard is loading...');
-    return <div style={styles.loading}>Loading...</div>;
+    return (
+      <div style={styles.loadingContainer}>
+        <div style={styles.loadingSpinner}></div>
+        <p style={styles.loadingText}>Loading your dashboard...</p>
+      </div>
+    );
   }
 
-  console.log('📊 BuyerDashboard render state:', {
-    itemsCount: items.length,
-    ordersCount: orders.length,
-    borrowsCount: borrows.length,
-    activeTab,
-    user: user?.full_name
-  });
-
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1>Welcome, {user?.full_name}!</h1>
-        <p>Browse items, place orders, and manage your borrows</p>
-        <div style={styles.quickStats}>
-          <div style={styles.statItem}>
-            <span style={styles.statNumber}>{orders.length}</span>
-            <span style={styles.statLabel}>My Orders</span>
+    <div style={styles.dashboardContainer}>
+      {/* Top Header Bar */}
+      <div style={styles.topHeader}>
+        <div style={styles.headerContent}>
+          {/* Brand Section */}
+          <div style={styles.brandSection}>
+            <div style={styles.brandIcon}>🛒</div>
+            <span style={styles.brandText}>Campus Cart</span>
           </div>
-          <div style={styles.statItem}>
-            <span style={styles.statNumber}>{borrows.length}</span>
-            <span style={styles.statLabel}>My Borrows</span>
-          </div>
-          <div style={styles.statItem}>
-            <span style={styles.statNumber}>{items.length}</span>
-            <span style={styles.statLabel}>Available Items</span>
-          </div>
-        </div>
-      </div>
 
-      <div style={styles.tabs}>
-        <button 
-          style={activeTab === 'browse' ? styles.activeTab : styles.tab}
-          onClick={() => setActiveTab('browse')}
-        >
-          Browse Items ({items.length})
-        </button>
-        <button 
-          style={activeTab === 'orders' ? styles.activeTab : styles.tab}
-          onClick={() => setActiveTab('orders')}
-        >
-          My Orders ({orders.length})
-        </button>
-        <button 
-          style={activeTab === 'borrows' ? styles.activeTab : styles.tab}
-          onClick={() => setActiveTab('borrows')}
-        >
-          My Borrows ({borrows.length})
-        </button>
-      </div>
-
-      {activeTab === 'browse' && (
-        <div>
-          <div style={styles.filters}>
+          {/* Search Pill */}
+          <div style={styles.searchPill}>
+            <div style={styles.searchIcon}>🔍</div>
             <input
               type="text"
-              placeholder="Search items..."
+              placeholder="Search for items, books, electronics..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={styles.searchInput}
             />
-            
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              style={styles.categorySelect}
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                style={styles.clearSearchButton}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Button Group */}
+          <div style={styles.buttonGroup}>
+            <button style={{...styles.segmentButton, ...styles.activeBuyerButton}}>
+              <span style={styles.buttonIcon}>🛒</span>
+              Buyer
+            </button>
+            <button style={styles.segmentButton}>
+              <span style={styles.buttonIcon}>🏪</span>
+              Seller
+            </button>
+            <button style={{...styles.segmentButton, ...styles.riderButton}}>
+              <span style={styles.buttonIcon}>🏍️</span>
+              Apply as Rider
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Layout */}
+      <div style={styles.mainLayout}>
+        {/* Sidebar */}
+        <div style={styles.sidebar}>
+          <div style={styles.sidebarHeader}>
+            <h3 style={styles.sidebarTitle}>
+              <span style={styles.sidebarIcon}>📂</span>
+              Categories
+            </h3>
+          </div>
+          
+          <div style={styles.categoriesMenu}>
+            <button
+              onClick={() => setCategoryFilter('')}
+              style={{
+                ...styles.categoryItem,
+                ...(categoryFilter === '' ? styles.activeCategoryItem : {})
+              }}
             >
-              <option value="">All Categories</option>
-              {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
+              <span style={styles.categoryIcon}>🏪</span>
+              <span style={styles.categoryText}>All Items</span>
+              <span style={styles.categoryCount}>{items.length}</span>
+            </button>
             
+            {categories.map(category => (
+              <button
+                key={category}
+                onClick={() => setCategoryFilter(category)}
+                style={{
+                  ...styles.categoryItem,
+                  ...(categoryFilter === category ? styles.activeCategoryItem : {})
+                }}
+              >
+                <span style={styles.categoryIcon}>{getCategoryIcon(category)}</span>
+                <span style={styles.categoryText}>{category}</span>
+                <span style={styles.categoryCount}>
+                  {items.filter(item => item.category === category).length}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Price Range Filter */}
+          <div style={styles.filterSection}>
+            <h4 style={styles.filterTitle}>
+              <span style={styles.filterIcon}>💰</span>
+              Price Range
+            </h4>
             <select
               value={priceRange}
               onChange={(e) => setPriceRange(e.target.value)}
-              style={styles.priceRangeSelect}
+              style={styles.priceRangeDropdown}
             >
               <option value="">All Prices</option>
               <option value="1-100">रू 1 - रू 100</option>
@@ -228,573 +190,651 @@ export default function BuyerDashboard() {
               <option value="3000-5000">रू 3,000 - रू 5,000</option>
               <option value="5000-above">रू 5,000+</option>
             </select>
-            
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              style={styles.sortSelect}
-            >
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
-              <option value="price_low">Price: Low to High</option>
-              <option value="price_high">Price: High to Low</option>
-              <option value="rating">Highest Rated Seller</option>
-            </select>
-            
-            <button 
-              onClick={() => {
-                setSearchTerm('');
-                setCategoryFilter('');
-                setPriceRange('');
-                setSortBy('newest');
-              }}
-              style={styles.clearButton}
-            >
-              Clear Filters
-            </button>
           </div>
+        </div>
 
-          <div style={styles.itemsGrid}>
-            {items.map(item => {
-              const images = item.images ? JSON.parse(item.images) : [];
-              const imageUrl = images.length > 0 ? images[0] : `https://dummyimage.com/300x200/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 15))}`;
-              
-              return (
-                <div key={item.id} style={styles.itemCard}>
-                  <div style={styles.imageContainer}>
-                    <img 
-                      src={imageUrl} 
-                      alt={item.title}
-                      style={styles.itemImage}
-                      onError={(e) => {
-                        e.target.src = `https://dummyimage.com/300x200/2196F3/ffffff&text=${encodeURIComponent(item.title.substring(0, 10))}`;
-                      }}
-                    />
-                    <div style={styles.conditionBadge}>
-                      {item.condition_status.replace('_', ' ').toUpperCase()}
-                    </div>
-                  </div>
-                  
-                  <div style={styles.itemContent}>
-                    <h3 style={styles.itemTitle}>{item.title}</h3>
-                    <p style={styles.description}>{item.description}</p>
-                    
-                    <div style={styles.itemDetails}>
-                      <div style={styles.priceSection}>
-                        <span style={styles.price}>रू {item.price.toLocaleString()}</span>
-                        <span style={styles.category}>{item.category}</span>
+        {/* Main Content */}
+        <div style={styles.mainContent}>
+          {/* Hero Carousel */}
+          <div style={styles.heroSection}>
+            <div style={styles.carousel}>
+              <div style={styles.carouselSlide}>
+                <div style={styles.slideBackground}></div>
+                <div style={styles.slideOverlay}>
+                  <div style={styles.slideContent}>
+                    <h2 style={styles.slideTitle}>Welcome to Campus Cart! 🎓</h2>
+                    <p style={styles.slideSubtitle}>Your premium student marketplace</p>
+                    <div style={styles.slideStats}>
+                      <div style={styles.statBadge}>
+                        <span style={styles.statNumber}>{items.length}</span>
+                        <span style={styles.statText}>Items Available</span>
                       </div>
-                      
-                      {item.is_borrowable && (
-                        <div style={styles.borrowInfo}>
-                          <span style={styles.borrowPrice}>
-                            Borrow: रू {item.borrow_price_per_day}/day
-                          </span>
-                          <span style={styles.maxDays}>
-                            (Max {item.max_borrow_days} days)
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <p style={styles.seller}>Seller: {item.seller_name}</p>
-                    
-                    <div style={styles.itemActions}>
-                      <button 
-                        onClick={() => handleBuyItem(item.id, item.title, item.price)}
-                        style={styles.buyButton}
-                      >
-                        Buy Now - रू {item.price.toLocaleString()}
-                      </button>
-                      {item.is_borrowable && (
-                        <button 
-                          onClick={() => handleBorrowRequest(item.id, item.title, item.borrow_price_per_day)}
-                          style={styles.borrowButton}
-                        >
-                          Borrow - रू {item.borrow_price_per_day}/day
-                        </button>
-                      )}
+                      <div style={styles.statBadge}>
+                        <span style={styles.statNumber}>{categories.length}</span>
+                        <span style={styles.statText}>Categories</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            </div>
           </div>
 
-          {items.length === 0 && (
-            <div style={styles.emptyState}>
-              <h3>No items found</h3>
-              <p>Try adjusting your search or category filter.</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'orders' && (
-        <div style={styles.ordersSection}>
-          <h2>My Orders</h2>
-          {orders.length === 0 ? (
-            <div style={styles.emptyState}>
-              <h3>No orders yet</h3>
-              <p>Browse items and place your first order!</p>
-            </div>
-          ) : (
-            <div style={styles.ordersList}>
-              {orders.map(order => {
-                const images = order.images ? JSON.parse(order.images) : [];
-                const imageUrl = images.length > 0 ? images[0] : `https://via.placeholder.com/100x100/FF9800/white?text=${encodeURIComponent(order.title.substring(0, 10))}`;
+          {/* Products Grid */}
+          <div style={styles.productsSection}>
+            <h3 style={styles.sectionTitle}>
+              {debouncedSearchTerm ? (
+                <>Search results for "{debouncedSearchTerm}"</>
+              ) : categoryFilter ? (
+                `${categoryFilter} Items`
+              ) : (
+                'All Items'
+              )}
+              {priceRange && (
+                <span style={styles.priceRangeIndicator}>
+                  • {priceRange === '5000-above' ? 'रू 5,000+' : 
+                     priceRange.split('-').map(p => `रू ${parseInt(p).toLocaleString()}`).join(' - ')}
+                </span>
+              )}
+              ({items.length})
+            </h3>
+            
+            <div style={styles.productsGrid}>
+              {items.map(item => {
+                const images = item.images ? JSON.parse(item.images) : [];
+                const imageUrl = images.length > 0 ? images[0] : 
+                  `https://dummyimage.com/400x300/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 15))}`;
                 
                 return (
-                  <div key={order.id} style={styles.orderCard}>
-                    <div style={styles.orderHeader}>
+                  <div key={item.id} style={styles.productCard}>
+                    <div style={styles.productImageContainer}>
                       <img 
                         src={imageUrl} 
-                        alt={order.title}
-                        style={styles.orderImage}
-                        onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/100x100?text=No+Image';
-                        }}
+                        alt={item.title}
+                        style={styles.productImage}
                       />
-                      <div style={styles.orderInfo}>
-                        <h3>{order.title}</h3>
-                        <p>Amount: <strong>रू {order.total_amount.toLocaleString()}</strong></p>
-                        <p>Seller: {order.seller_name}</p>
-                      </div>
-                      <div style={styles.orderStatus}>
-                        <span style={{...styles.statusBadge, backgroundColor: getStatusColor(order.status)}}>
-                          {order.status.toUpperCase()}
-                        </span>
-                        <span style={{...styles.statusBadge, backgroundColor: getStatusColor(order.delivery_status)}}>
-                          {order.delivery_status ? order.delivery_status.toUpperCase() : 'PENDING'}
-                        </span>
-                      </div>
                     </div>
                     
-                    <div style={styles.orderDetails}>
-                      <p><strong>Delivery Address:</strong> {order.delivery_address}</p>
-                      <p><strong>Ordered:</strong> {new Date(order.created_at).toLocaleDateString()}</p>
-                      {order.rider_name && <p><strong>Rider:</strong> {order.rider_name} ({order.rider_phone})</p>}
-                      {order.pickup_time && <p><strong>Picked up:</strong> {new Date(order.pickup_time).toLocaleString()}</p>}
-                      {order.delivery_time && <p><strong>Delivered:</strong> {new Date(order.delivery_time).toLocaleString()}</p>}
+                    <div style={styles.productInfo}>
+                      <h4 style={styles.productTitle}>{item.title}</h4>
+                      <p style={styles.productDescription}>
+                        {item.description.length > 80 ? 
+                          item.description.substring(0, 80) + '...' : 
+                          item.description
+                        }
+                      </p>
+                      
+                      <div style={styles.productPricing}>
+                        <span style={styles.priceAmount}>रू {item.price.toLocaleString()}</span>
+                      </div>
+                      
+                      <button style={styles.buyButton}>
+                        Buy Now
+                      </button>
                     </div>
                   </div>
                 );
               })}
             </div>
-          )}
-        </div>
-      )}
 
-      {activeTab === 'borrows' && (
-        <div style={styles.borrowsSection}>
-          <h2>My Borrow Requests</h2>
-          {borrows.length === 0 ? (
-            <div style={styles.emptyState}>
-              <h3>No borrow requests yet</h3>
-              <p>Find borrowable items and send your first request!</p>
-            </div>
-          ) : (
-            <div style={styles.borrowsList}>
-              {borrows.map(borrow => {
-                const images = borrow.images ? JSON.parse(borrow.images) : [];
-                const imageUrl = images.length > 0 ? images[0] : 'https://via.placeholder.com/100x100?text=No+Image';
-                
-                return (
-                  <div key={borrow.id} style={styles.borrowCard}>
-                    <div style={styles.borrowHeader}>
-                      <img 
-                        src={imageUrl} 
-                        alt={borrow.title}
-                        style={styles.borrowImage}
-                        onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/100x100?text=No+Image';
-                        }}
-                      />
-                      <div style={styles.borrowCardInfo}>
-                        <h3>{borrow.title}</h3>
-                        <p>Total Cost: <strong>रू {borrow.total_cost.toLocaleString()}</strong></p>
-                        <p>Seller: {borrow.seller_name}</p>
-                      </div>
-                      <div style={styles.borrowStatus}>
-                        <span style={{...styles.statusBadge, backgroundColor: getStatusColor(borrow.status)}}>
-                          {borrow.status.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div style={styles.borrowDetailsText}>
-                      <p><strong>Duration:</strong> {new Date(borrow.start_date).toLocaleDateString()} - {new Date(borrow.end_date).toLocaleDateString()} ({borrow.total_days} days)</p>
-                      <p><strong>Daily Rate:</strong> रू {(borrow.total_cost / borrow.total_days).toFixed(0)}/day</p>
-                      {borrow.message && <p><strong>Message:</strong> {borrow.message}</p>}
-                      <p><strong>Requested:</strong> {new Date(borrow.created_at).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+            {items.length === 0 && (
+              <div style={styles.emptyState}>
+                <div style={styles.emptyIcon}>
+                  {debouncedSearchTerm ? '🔍' : '📦'}
+                </div>
+                <h3>
+                  {debouncedSearchTerm ? 'No search results found' : 'No items found'}
+                </h3>
+                <p>
+                  {debouncedSearchTerm 
+                    ? `No items match "${debouncedSearchTerm}". Try different keywords or browse categories.`
+                    : 'Try adjusting your filters or browse different categories.'
+                  }
+                </p>
+                {debouncedSearchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    style={styles.clearFiltersButton}
+                  >
+                    Clear Search
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-// Helper function to get status colors
-const getStatusColor = (status) => {
-  const colors = {
-    pending: '#f39c12',
-    confirmed: '#3498db',
-    assigned: '#9b59b6',
-    picked_up: '#e67e22',
-    delivered: '#27ae60',
-    cancelled: '#e74c3c',
-    approved: '#27ae60',
-    rejected: '#e74c3c',
-    active: '#2ecc71',
-    returned: '#95a5a6',
-    overdue: '#e74c3c'
-  };
-  return colors[status] || '#95a5a6';
-};
-
 const styles = {
-  container: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '2rem',
-    backgroundColor: '#f8f9fa'
-  },
-  header: {
-    textAlign: 'center',
-    marginBottom: '2rem',
-    backgroundColor: '#fff',
-    padding: '2rem',
-    borderRadius: '12px',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-  },
-  loading: {
-    textAlign: 'center',
-    padding: '2rem',
-    fontSize: '1.2rem'
-  },
-  tabs: {
+  // Main Container
+  dashboardContainer: {
+    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    minHeight: '100vh',
+    background: '#EAF4FE',
     display: 'flex',
-    marginBottom: '2rem',
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    overflow: 'hidden',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    flexDirection: 'column'
   },
-  tab: {
-    flex: 1,
-    padding: '1rem 2rem',
-    border: 'none',
-    backgroundColor: 'transparent',
-    cursor: 'pointer',
-    fontSize: '1rem',
-    transition: 'all 0.3s ease'
-  },
-  activeTab: {
-    flex: 1,
-    padding: '1rem 2rem',
-    border: 'none',
-    backgroundColor: '#3498db',
-    color: '#fff',
-    cursor: 'pointer',
-    fontSize: '1rem',
-    fontWeight: 'bold'
-  },
-  filters: {
+
+  // Loading State
+  loadingContainer: {
     display: 'flex',
-    gap: '1rem',
-    marginBottom: '2rem',
-    backgroundColor: '#fff',
-    padding: '1.5rem',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '100vh',
+    background: '#EAF4FE',
+    fontFamily: 'Inter, sans-serif'
+  },
+  loadingSpinner: {
+    width: '40px',
+    height: '40px',
+    border: '4px solid rgba(248, 128, 0, 0.1)',
+    borderTop: '4px solid #F88000',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+    marginBottom: '16px'
+  },
+  loadingText: {
+    color: '#64748b',
+    fontSize: '1.1rem',
+    fontWeight: '500'
+  },
+
+  // Top Header Bar
+  topHeader: {
+    position: 'sticky',
+    top: 0,
+    zIndex: 1000,
+    background: '#FFFFFF',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+  },
+  headerContent: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '16px 24px',
+    maxWidth: '1400px',
+    margin: '0 auto'
+  },
+
+  // Brand Section
+  brandSection: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    minWidth: '200px'
+  },
+  brandIcon: {
+    fontSize: '24px',
+    background: '#F88000',
     borderRadius: '12px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    flexWrap: 'wrap',
-    alignItems: 'center'
+    padding: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  brandText: {
+    fontSize: '20px',
+    fontWeight: '700',
+    color: '#F88000'
+  },
+
+  // Search Pill
+  searchPill: {
+    display: 'flex',
+    alignItems: 'center',
+    background: '#FFFFFF',
+    border: '1px solid rgba(0, 0, 0, 0.1)',
+    borderRadius: '50px',
+    padding: '12px 20px',
+    gap: '12px',
+    minWidth: '400px',
+    maxWidth: '600px',
+    flex: 1,
+    margin: '0 24px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+  },
+  searchIcon: {
+    fontSize: '18px',
+    color: '#64748b'
   },
   searchInput: {
     flex: 1,
-    padding: '0.75rem',
-    border: '2px solid #e9ecef',
-    borderRadius: '8px',
-    fontSize: '1rem'
-  },
-  categorySelect: {
-    padding: '0.75rem',
-    border: '2px solid #e9ecef',
-    borderRadius: '8px',
-    fontSize: '1rem',
-    minWidth: '200px'
-  },
-  priceRangeSelect: {
-    padding: '0.75rem',
-    border: '2px solid #e9ecef',
-    borderRadius: '8px',
-    fontSize: '1rem',
-    minWidth: '180px',
-    backgroundColor: '#fff'
-  },
-  sortSelect: {
-    padding: '0.75rem',
-    border: '2px solid #e9ecef',
-    borderRadius: '8px',
-    fontSize: '1rem',
-    minWidth: '180px'
-  },
-  clearButton: {
-    padding: '0.75rem 1.5rem',
-    backgroundColor: '#95a5a6',
-    color: '#fff',
     border: 'none',
-    borderRadius: '8px',
+    outline: 'none',
+    background: 'transparent',
+    fontSize: '16px',
+    fontFamily: 'Inter, sans-serif',
+    color: '#000000',
+    fontWeight: '500'
+  },
+  clearSearchButton: {
+    background: 'none',
+    border: 'none',
+    color: '#64748b',
     cursor: 'pointer',
-    fontSize: '1rem',
-    fontWeight: '500',
-    transition: 'background-color 0.3s ease'
+    fontSize: '16px',
+    padding: '4px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s ease',
+    width: '24px',
+    height: '24px'
   },
-  itemsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-    gap: '2rem'
+
+  // Button Group
+  buttonGroup: {
+    display: 'flex',
+    background: '#FFFFFF',
+    borderRadius: '16px',
+    padding: '4px',
+    gap: '4px',
+    minWidth: '300px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
   },
-  itemCard: {
-    backgroundColor: '#fff',
+  segmentButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 20px',
+    border: 'none',
     borderRadius: '12px',
+    background: 'transparent',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
+    color: '#64748b',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    flex: 1,
+    justifyContent: 'center'
+  },
+  activeBuyerButton: {
+    background: '#F88000',
+    color: '#FFFFFF',
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
+  },
+  riderButton: {
+    background: '#F88000',
+    color: '#FFFFFF',
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
+  },
+  buttonIcon: {
+    fontSize: '16px'
+  },
+
+  // Main Layout
+  mainLayout: {
+    display: 'flex',
+    flex: 1,
+    gap: '0'
+  },
+
+  // Sidebar
+  sidebar: {
+    width: '320px',
+    background: '#FFFFFF',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    border: '1px solid rgba(0, 0, 0, 0.05)',
+    borderRadius: '0 16px 16px 0',
+    padding: '24px',
+    boxShadow: '2px 0 8px rgba(0, 0, 0, 0.05)',
+    position: 'sticky',
+    top: '88px',
+    height: 'calc(100vh - 88px)',
+    overflowY: 'auto'
+  },
+  sidebarHeader: {
+    marginBottom: '24px',
+    paddingBottom: '16px',
+    borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
+  },
+  sidebarTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#000000',
+    margin: '0 0 8px 0'
+  },
+  sidebarIcon: {
+    fontSize: '20px',
+    background: '#F88000',
+    borderRadius: '8px',
+    padding: '6px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+
+  // Categories Menu
+  categoriesMenu: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    marginBottom: '24px'
+  },
+  categoryItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '12px 16px',
+    background: 'transparent',
+    border: '1px solid rgba(0, 0, 0, 0.05)',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#64748b',
+    fontFamily: 'Inter, sans-serif',
+    textAlign: 'left',
+    width: '100%'
+  },
+  activeCategoryItem: {
+    background: '#EAF4FE',
+    color: '#F88000',
+    border: '1px solid rgba(248, 128, 0, 0.2)',
+    boxShadow: '0 2px 8px rgba(248, 128, 0, 0.15)',
+    transform: 'translateX(4px)'
+  },
+  categoryIcon: {
+    fontSize: '18px',
+    minWidth: '24px'
+  },
+  categoryText: {
+    flex: 1
+  },
+  categoryCount: {
+    background: 'rgba(255, 255, 255, 0.2)',
+    padding: '2px 8px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600'
+  },
+
+  // Filter Section
+  filterSection: {
+    marginBottom: '24px',
+    paddingTop: '16px',
+    borderTop: '1px solid rgba(0, 0, 0, 0.1)'
+  },
+  filterTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#000000',
+    margin: '0 0 12px 0'
+  },
+  filterIcon: {
+    fontSize: '16px',
+    background: '#F88000',
+    borderRadius: '6px',
+    padding: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  priceRangeDropdown: {
+    width: '100%',
+    padding: '12px 16px',
+    background: '#FFFFFF',
+    border: '1px solid rgba(0, 0, 0, 0.1)',
+    borderRadius: '50px',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#000000',
+    fontFamily: 'Inter, sans-serif',
+    cursor: 'pointer',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    outline: 'none',
+    appearance: 'none',
+    backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 12px center',
+    backgroundSize: '16px',
+    paddingRight: '40px'
+  },
+
+  // Main Content
+  mainContent: {
+    flex: 1,
+    padding: '24px',
+    overflowY: 'auto'
+  },
+
+  // Hero Section
+  heroSection: {
+    marginBottom: '32px'
+  },
+  carousel: {
+    position: 'relative',
+    height: '320px',
+    borderRadius: '24px',
     overflow: 'hidden',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1)'
+  },
+  carouselSlide: {
+    position: 'relative',
+    width: '100%',
+    height: '100%'
+  },
+  slideBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(135deg, #F88000 0%, #E67500 100%)',
+    zIndex: 1
+  },
+  slideOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    background: 'rgba(255, 255, 255, 0.15)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2
+  },
+  slideContent: {
+    textAlign: 'center',
+    color: 'white',
+    maxWidth: '600px',
+    padding: '0 24px'
+  },
+  slideTitle: {
+    fontSize: '32px',
+    fontWeight: '700',
+    marginBottom: '16px',
+    textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)'
+  },
+  slideSubtitle: {
+    fontSize: '18px',
+    fontWeight: '400',
+    marginBottom: '24px',
+    textShadow: '0 1px 4px rgba(0, 0, 0, 0.3)',
+    opacity: 0.9
+  },
+  slideStats: {
+    display: 'flex',
+    gap: '24px',
+    justifyContent: 'center'
+  },
+  statBadge: {
+    background: 'rgba(255, 255, 255, 0.25)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    padding: '16px 24px',
+    borderRadius: '16px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    textAlign: 'center'
+  },
+  statNumber: {
+    display: 'block',
+    fontSize: '24px',
+    fontWeight: '700',
+    lineHeight: '1'
+  },
+  statText: {
+    display: 'block',
+    fontSize: '12px',
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    marginTop: '4px',
+    opacity: 0.8
+  },
+
+  // Products Section
+  productsSection: {
+    marginBottom: '32px'
+  },
+  sectionTitle: {
+    fontSize: '24px',
+    fontWeight: '700',
+    color: '#000000',
+    margin: '0 0 24px 0'
+  },
+  priceRangeIndicator: {
+    fontSize: '16px',
+    fontWeight: '500',
+    color: '#F88000',
+    marginLeft: '8px'
+  },
+
+  // Products Grid
+  productsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gap: '24px'
+  },
+  productCard: {
+    background: '#FFFFFF',
+    borderRadius: '16px',
+    padding: '20px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    backdropFilter: 'blur(8px)',
+    border: '1px solid rgba(0, 0, 0, 0.05)',
     cursor: 'pointer'
   },
-  imageContainer: {
+  productImageContainer: {
     position: 'relative',
     height: '200px',
-    overflow: 'hidden'
+    borderRadius: '16px',
+    overflow: 'hidden',
+    marginBottom: '16px',
+    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'
   },
-  itemImage: {
+  productImage: {
     width: '100%',
     height: '100%',
     objectFit: 'cover'
   },
-  conditionBadge: {
-    position: 'absolute',
-    top: '10px',
-    right: '10px',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    color: '#fff',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    fontSize: '0.7rem',
-    fontWeight: 'bold'
-  },
-  itemContent: {
-    padding: '1.5rem'
-  },
-  itemTitle: {
-    margin: '0 0 0.5rem 0',
-    fontSize: '1.2rem',
-    fontWeight: 'bold',
-    color: '#2c3e50'
-  },
-  description: {
-    color: '#666',
-    marginBottom: '1rem',
-    fontSize: '0.9rem',
-    lineHeight: '1.4'
-  },
-  itemDetails: {
-    marginBottom: '1rem'
-  },
-  priceSection: {
+
+  // Product Info
+  productInfo: {
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '0.5rem'
+    flexDirection: 'column',
+    gap: '12px'
   },
-  price: {
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
-    color: '#27ae60'
+  productTitle: {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#000000',
+    margin: 0,
+    lineHeight: '1.3'
   },
-  category: {
-    backgroundColor: '#ecf0f1',
-    padding: '0.25rem 0.75rem',
-    borderRadius: '20px',
-    fontSize: '0.8rem',
-    color: '#2c3e50'
+  productDescription: {
+    color: '#64748b',
+    fontSize: '14px',
+    lineHeight: '1.5',
+    margin: 0
   },
-  borrowInfo: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff3cd',
-    padding: '0.5rem',
-    borderRadius: '6px',
-    border: '1px solid #ffeaa7'
+  productPricing: {
+    padding: '12px 0',
+    borderTop: '1px solid rgba(0, 0, 0, 0.05)',
+    borderBottom: '1px solid rgba(0, 0, 0, 0.05)'
   },
-  borrowPrice: {
-    color: '#f39c12',
-    fontWeight: 'bold',
-    fontSize: '0.9rem'
+  priceAmount: {
+    fontSize: '20px',
+    fontWeight: '700',
+    color: '#F88000',
+    lineHeight: '1'
   },
-  maxDays: {
-    color: '#666',
-    fontSize: '0.8rem'
-  },
-  seller: {
-    color: '#666',
-    fontSize: '0.9rem',
-    marginBottom: '1rem'
-  },
-  itemActions: {
-    display: 'flex',
-    gap: '0.5rem'
-  },
+
+  // Product Actions
   buyButton: {
-    flex: 1,
-    padding: '0.75rem',
-    backgroundColor: '#3498db',
-    color: '#fff',
+    width: '100%',
+    padding: '12px 16px',
+    background: '#F88000',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
     cursor: 'pointer',
-    fontWeight: 'bold',
-    fontSize: '0.9rem',
-    transition: 'background-color 0.3s ease'
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
   },
-  borrowButton: {
-    flex: 1,
-    padding: '0.75rem',
-    backgroundColor: '#f39c12',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    fontSize: '0.9rem',
-    transition: 'background-color 0.3s ease'
-  },
-  ordersSection: {
-    backgroundColor: '#fff',
-    padding: '2rem',
-    borderRadius: '12px',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-  },
-  ordersList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1.5rem'
-  },
-  orderCard: {
-    border: '1px solid #e9ecef',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    backgroundColor: '#f8f9fa'
-  },
-  orderHeader: {
-    display: 'flex',
-    gap: '1rem',
-    marginBottom: '1rem'
-  },
-  orderImage: {
-    width: '80px',
-    height: '80px',
-    objectFit: 'cover',
-    borderRadius: '8px'
-  },
-  orderInfo: {
-    flex: 1
-  },
-  orderStatus: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem'
-  },
-  statusBadge: {
-    padding: '0.25rem 0.75rem',
-    borderRadius: '20px',
-    fontSize: '0.7rem',
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center'
-  },
-  orderDetails: {
-    fontSize: '0.9rem',
-    color: '#666'
-  },
-  borrowsSection: {
-    backgroundColor: '#fff',
-    padding: '2rem',
-    borderRadius: '12px',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-  },
-  borrowsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1.5rem'
-  },
-  borrowCard: {
-    border: '1px solid #e9ecef',
-    borderRadius: '12px',
-    padding: '1.5rem',
-    backgroundColor: '#f8f9fa'
-  },
-  borrowHeader: {
-    display: 'flex',
-    gap: '1rem',
-    marginBottom: '1rem'
-  },
-  borrowImage: {
-    width: '80px',
-    height: '80px',
-    objectFit: 'cover',
-    borderRadius: '8px'
-  },
-  borrowCardInfo: {
-    flex: 1
-  },
-  borrowStatus: {
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  borrowDetailsText: {
-    fontSize: '0.9rem',
-    color: '#666'
-  },
+
+  // Empty State
   emptyState: {
     textAlign: 'center',
-    padding: '3rem',
-    backgroundColor: '#fff',
+    padding: '48px 24px',
+    background: '#FFFFFF',
+    borderRadius: '16px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+    backdropFilter: 'blur(8px)',
+    border: '1px solid rgba(0, 0, 0, 0.05)'
+  },
+  emptyIcon: {
+    fontSize: '48px',
+    marginBottom: '16px',
+    opacity: 0.5
+  },
+  clearFiltersButton: {
+    marginTop: '16px',
+    padding: '12px 24px',
+    background: '#F88000',
+    color: '#FFFFFF',
+    border: 'none',
     borderRadius: '12px',
-    color: '#666',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-  },
-  quickStats: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '2rem',
-    marginTop: '1.5rem'
-  },
-  statItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: '1rem',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '12px',
-    minWidth: '120px',
-    border: '2px solid #e9ecef'
-  },
-  statNumber: {
-    fontSize: '2rem',
-    fontWeight: 'bold',
-    color: '#3498db'
-  },
-  statLabel: {
-    fontSize: '0.9rem',
-    color: '#666',
-    marginTop: '0.5rem'
+    fontSize: '14px',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
+    cursor: 'pointer',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
   }
 };
+
+// Add CSS animations
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(styleSheet);

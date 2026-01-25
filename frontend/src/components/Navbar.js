@@ -17,51 +17,70 @@ const Navbar = () => {
     <nav style={styles.navbar}>
       <div style={styles.container}>
         <Link to="/dashboard" style={styles.logo}>
-          Campus Cart
+          <div style={styles.logoIcon}>🛒</div>
+          <span style={styles.logoText}>Campus Cart</span>
         </Link>
         
         <div style={styles.navLinks}>
-          <Link to="/dashboard" style={styles.link}>Dashboard</Link>
+          <Link to="/dashboard" style={styles.navLink}>
+            <span style={styles.navIcon}>🏠</span>
+            Dashboard
+          </Link>
           
-          {/* Universal navigation - works for all roles */}
-          <Link to="/dashboard?tab=browse" style={styles.link}>Browse Items</Link>
-          <Link to="/dashboard?tab=orders" style={styles.link}>My Orders</Link>
-          <Link to="/dashboard?tab=borrows" style={styles.link}>My Borrows</Link>
+          <Link to="/dashboard?tab=browse" style={styles.navLink}>
+            <span style={styles.navIcon}>🔍</span>
+            Browse
+          </Link>
           
-          {/* Show seller-specific links if user has seller role */}
+          <Link to="/dashboard?tab=orders" style={styles.navLink}>
+            <span style={styles.navIcon}>📦</span>
+            Orders
+          </Link>
+          
           {availableRoles?.includes('seller') && (
-            <Link to="/dashboard?mode=seller" style={styles.link}>Seller Mode</Link>
+            <Link to="/dashboard?mode=seller" style={styles.navLink}>
+              <span style={styles.navIcon}>🏪</span>
+              Sell
+            </Link>
           )}
           
-          {/* Show rider-specific links if user has rider role */}
           {availableRoles?.includes('rider') && (
-            <Link to="/dashboard?mode=rider" style={styles.link}>Rider Mode</Link>
+            <Link to="/dashboard?mode=rider" style={styles.navLink}>
+              <span style={styles.navIcon}>🚚</span>
+              Deliver
+            </Link>
           )}
           
-          {/* Show admin links if user has admin role */}
           {availableRoles?.includes('admin') && (
-            <Link to="/dashboard?mode=admin" style={styles.link}>Admin Panel</Link>
+            <Link to="/dashboard?mode=admin" style={styles.navLink}>
+              <span style={styles.navIcon}>⚙️</span>
+              Admin
+            </Link>
           )}
-          
-          <Link to="/messages" style={styles.link}>Messages</Link>
-          <Link to="/profile" style={styles.link}>Profile</Link>
         </div>
         
         <div style={styles.userSection}>
-          <span style={styles.userName}>
-            {user?.full_name}
-          </span>
-          <div style={styles.rolesBadges}>
-            {availableRoles?.map(role => (
-              <span key={role} style={{
-                ...styles.roleBadge,
-                backgroundColor: getRoleColor(role)
-              }}>
-                {role}
-              </span>
-            ))}
+          <div style={styles.userInfo}>
+            <div style={styles.userAvatar}>
+              {user?.full_name?.charAt(0)?.toUpperCase()}
+            </div>
+            <div style={styles.userDetails}>
+              <span style={styles.userName}>{user?.full_name}</span>
+              <div style={styles.rolesBadges}>
+                {availableRoles?.map(role => (
+                  <span key={role} style={{
+                    ...styles.roleBadge,
+                    backgroundColor: getRoleColor(role)
+                  }}>
+                    {role}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
+          
           <button onClick={handleLogout} style={styles.logoutBtn}>
+            <span style={styles.logoutIcon}>👋</span>
             Logout
           </button>
         </div>
@@ -72,76 +91,165 @@ const Navbar = () => {
 
 const getRoleColor = (role) => {
   const colors = {
-    buyer: '#3498db',
-    seller: '#27ae60',
-    rider: '#f39c12',
-    admin: '#e74c3c'
+    buyer: '#F88000',
+    seller: '#F88000',
+    rider: '#F88000',
+    admin: '#F88000'
   };
-  return colors[role] || '#95a5a6';
+  return colors[role] || '#F88000';
 };
 
 const styles = {
   navbar: {
-    backgroundColor: '#2c3e50',
-    padding: '1rem 0',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    position: 'fixed',
+    top: '20px',
+    left: '20px',
+    right: '20px',
+    zIndex: 1000,
+    background: 'rgba(255, 255, 255, 0.25)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255, 255, 255, 0.18)',
+    borderRadius: '24px',
+    boxShadow: '0 8px 32px rgba(31, 38, 135, 0.37)',
+    padding: '12px 24px',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
   },
   container: {
-    maxWidth: '1200px',
-    margin: '0 auto',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '0 1rem'
+    maxWidth: '1400px',
+    margin: '0 auto'
   },
   logo: {
-    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    textDecoration: 'none',
+    color: 'var(--text-primary)',
+    fontWeight: '700',
+    fontSize: '1.25rem'
+  },
+  logoIcon: {
     fontSize: '1.5rem',
-    fontWeight: 'bold',
-    textDecoration: 'none'
+    background: '#F88000',
+    borderRadius: '12px',
+    padding: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  logoText: {
+    color: '#F88000',
+    fontWeight: '700'
   },
   navLinks: {
     display: 'flex',
-    gap: '1.5rem'
+    gap: '8px',
+    alignItems: 'center'
   },
-  link: {
-    color: '#ecf0f1',
+  navLink: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 16px',
+    borderRadius: '16px',
     textDecoration: 'none',
-    padding: '0.5rem 1rem',
-    borderRadius: '4px',
-    transition: 'background-color 0.3s'
+    color: '#000000',
+    fontSize: '0.9rem',
+    fontWeight: '500',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    background: 'transparent'
+  },
+  navIcon: {
+    fontSize: '1rem'
   },
   userSection: {
     display: 'flex',
     alignItems: 'center',
-    gap: '1rem'
+    gap: '16px'
+  },
+  userInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px'
+  },
+  userAvatar: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '12px',
+    background: '#F88000',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: '1rem'
+  },
+  userDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px'
   },
   userName: {
-    color: '#ecf0f1',
+    color: 'var(--text-primary)',
     fontSize: '0.9rem',
-    fontWeight: '500'
+    fontWeight: '600',
+    lineHeight: '1.2'
   },
   rolesBadges: {
     display: 'flex',
-    gap: '0.25rem'
+    gap: '4px'
   },
   roleBadge: {
-    padding: '0.2rem 0.5rem',
-    borderRadius: '12px',
+    padding: '2px 8px',
+    borderRadius: '8px',
     fontSize: '0.7rem',
-    fontWeight: 'bold',
-    color: '#fff',
-    textTransform: 'uppercase'
+    fontWeight: '600',
+    color: 'white',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em'
   },
   logoutBtn: {
-    backgroundColor: '#e74c3c',
-    color: '#fff',
-    border: 'none',
-    padding: '0.5rem 1rem',
-    borderRadius: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'rgba(239, 68, 68, 0.1)',
+    color: '#ef4444',
+    border: '1px solid rgba(239, 68, 68, 0.2)',
+    padding: '10px 16px',
+    borderRadius: '16px',
     cursor: 'pointer',
-    fontSize: '0.9rem'
+    fontSize: '0.9rem',
+    fontWeight: '500',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    fontFamily: 'Inter, sans-serif'
+  },
+  logoutIcon: {
+    fontSize: '1rem'
   }
 };
+
+// Add hover effects with CSS-in-JS
+const hoverStyles = `
+  .nav-link:hover {
+    background: #EAF4FE !important;
+    color: #F88000 !important;
+    transform: translateY(-1px);
+  }
+  
+  .logout-btn:hover {
+    background: rgba(239, 68, 68, 0.15) !important;
+    transform: translateY(-1px);
+  }
+`;
+
+// Inject hover styles
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = hoverStyles;
+  document.head.appendChild(styleSheet);
+}
 
 export default Navbar;

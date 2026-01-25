@@ -560,15 +560,15 @@ const styles = {
     maxWidth: '1200px',
     margin: '0 auto',
     padding: '2rem',
-    backgroundColor: '#f8f9fa'
+    backgroundColor: '#EAF4FE'
   },
   header: {
     textAlign: 'center',
     marginBottom: '2rem',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: '2rem',
-    borderRadius: '12px',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+    borderRadius: '16px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
   loading: {
     textAlign: 'center',
@@ -578,10 +578,10 @@ const styles = {
   tabs: {
     display: 'flex',
     marginBottom: '2rem',
-    backgroundColor: '#fff',
-    borderRadius: '12px',
+    backgroundColor: '#FFFFFF',
+    borderRadius: '16px',
     overflow: 'hidden',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
   tab: {
     flex: 1,
@@ -590,14 +590,15 @@ const styles = {
     backgroundColor: 'transparent',
     cursor: 'pointer',
     fontSize: '1rem',
-    transition: 'all 0.3s ease'
+    transition: 'all 0.3s ease',
+    color: '#000000'
   },
   activeTab: {
     flex: 1,
     padding: '1rem 2rem',
     border: 'none',
-    backgroundColor: '#27ae60',
-    color: '#fff',
+    backgroundColor: '#F88000',
+    color: '#FFFFFF',
     cursor: 'pointer',
     fontSize: '1rem',
     fontWeight: 'bold'
@@ -607,17 +608,17 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '2rem',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: '1.5rem',
-    borderRadius: '12px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    borderRadius: '16px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
   addButton: {
     padding: '0.75rem 1.5rem',
-    backgroundColor: '#27ae60',
-    color: '#fff',
+    backgroundColor: '#F88000',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '12px',
     cursor: 'pointer',
     fontWeight: 'bold'
   },
@@ -634,13 +635,14 @@ const styles = {
     zIndex: 1000
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: '2rem',
-    borderRadius: '12px',
+    borderRadius: '16px',
     width: '90%',
     maxWidth: '500px',
     maxHeight: '90vh',
-    overflow: 'auto'
+    overflow: 'auto',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
   },
   form: {
     display: 'flex',
@@ -649,23 +651,26 @@ const styles = {
   },
   input: {
     padding: '0.75rem',
-    border: '2px solid #e9ecef',
-    borderRadius: '8px',
-    fontSize: '1rem'
+    border: '1px solid rgba(0, 0, 0, 0.1)',
+    borderRadius: '50px',
+    fontSize: '1rem',
+    backgroundColor: '#FFFFFF'
   },
   textarea: {
     padding: '0.75rem',
-    border: '2px solid #e9ecef',
-    borderRadius: '8px',
+    border: '1px solid rgba(0, 0, 0, 0.1)',
+    borderRadius: '16px',
     minHeight: '100px',
     resize: 'vertical',
-    fontSize: '1rem'
+    fontSize: '1rem',
+    backgroundColor: '#FFFFFF'
   },
   select: {
     padding: '0.75rem',
-    border: '2px solid #e9ecef',
-    borderRadius: '8px',
-    fontSize: '1rem'
+    border: '1px solid rgba(0, 0, 0, 0.1)',
+    borderRadius: '50px',
+    fontSize: '1rem',
+    backgroundColor: '#FFFFFF'
   },
   checkboxLabel: {
     display: 'flex',
@@ -681,10 +686,10 @@ const styles = {
   submitButton: {
     flex: 1,
     padding: '0.75rem',
-    backgroundColor: '#27ae60',
-    color: '#fff',
+    backgroundColor: '#F88000',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '12px',
     cursor: 'pointer',
     fontWeight: 'bold'
   },
@@ -704,10 +709,10 @@ const styles = {
     gap: '2rem'
   },
   itemCard: {
-    backgroundColor: '#fff',
-    borderRadius: '12px',
+    backgroundColor: '#FFFFFF',
+    borderRadius: '16px',
     overflow: 'hidden',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
     transition: 'transform 0.3s ease'
   },
   imageContainer: {
@@ -738,7 +743,7 @@ const styles = {
     margin: '0 0 0.5rem 0',
     fontSize: '1.2rem',
     fontWeight: 'bold',
-    color: '#2c3e50'
+    color: '#000000'
   },
   description: {
     color: '#666',
@@ -758,7 +763,7 @@ const styles = {
   price: {
     fontSize: '1.5rem',
     fontWeight: 'bold',
-    color: '#27ae60'
+    color: '#F88000'
   },
   category: {
     backgroundColor: '#ecf0f1',
@@ -792,10 +797,10 @@ const styles = {
     color: '#666'
   },
   ordersSection: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: '2rem',
-    borderRadius: '12px',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+    borderRadius: '16px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
   ordersList: {
     display: 'flex',
@@ -803,10 +808,11 @@ const styles = {
     gap: '1.5rem'
   },
   orderCard: {
-    border: '1px solid #e9ecef',
-    borderRadius: '12px',
+    border: '1px solid rgba(0, 0, 0, 0.05)',
+    borderRadius: '16px',
     padding: '1.5rem',
-    backgroundColor: '#f8f9fa'
+    backgroundColor: '#FFFFFF',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
   orderHeader: {
     display: 'flex',
@@ -846,18 +852,18 @@ const styles = {
   },
   confirmButton: {
     padding: '0.5rem 1rem',
-    backgroundColor: '#27ae60',
-    color: '#fff',
+    backgroundColor: '#F88000',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '12px',
     cursor: 'pointer',
     fontWeight: 'bold'
   },
   borrowsSection: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: '2rem',
-    borderRadius: '12px',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+    borderRadius: '16px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
   borrowsList: {
     display: 'flex',
@@ -865,10 +871,11 @@ const styles = {
     gap: '1.5rem'
   },
   borrowCard: {
-    border: '1px solid #e9ecef',
-    borderRadius: '12px',
+    border: '1px solid rgba(0, 0, 0, 0.05)',
+    borderRadius: '16px',
     padding: '1.5rem',
-    backgroundColor: '#f8f9fa'
+    backgroundColor: '#FFFFFF',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
   borrowHeader: {
     display: 'flex',
@@ -899,10 +906,10 @@ const styles = {
   },
   approveButton: {
     padding: '0.5rem 1rem',
-    backgroundColor: '#27ae60',
-    color: '#fff',
+    backgroundColor: '#F88000',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '12px',
     cursor: 'pointer',
     fontWeight: 'bold'
   },
@@ -936,10 +943,10 @@ const styles = {
   emptyState: {
     textAlign: 'center',
     padding: '3rem',
-    backgroundColor: '#fff',
-    borderRadius: '12px',
-    color: '#666',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    backgroundColor: '#FFFFFF',
+    borderRadius: '16px',
+    color: '#000000',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
   quickStats: {
     display: 'flex',
@@ -952,15 +959,16 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     padding: '1rem',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '12px',
+    backgroundColor: '#FFFFFF',
+    borderRadius: '16px',
     minWidth: '120px',
-    border: '2px solid #e9ecef'
+    border: '1px solid rgba(0, 0, 0, 0.05)',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
   statNumber: {
     fontSize: '2rem',
     fontWeight: 'bold',
-    color: '#27ae60'
+    color: '#F88000'
   },
   statLabel: {
     fontSize: '0.9rem',

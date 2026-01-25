@@ -320,7 +320,9 @@ const styles = {
   container: {
     maxWidth: '1200px',
     margin: '0 auto',
-    padding: '2rem'
+    padding: '2rem',
+    backgroundColor: '#EAF4FE',
+    minHeight: '100vh'
   },
   header: {
     textAlign: 'center',
@@ -334,23 +336,25 @@ const styles = {
   applySection: {
     textAlign: 'center',
     padding: '2rem',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '8px'
+    backgroundColor: '#FFFFFF',
+    borderRadius: '16px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
   applyButton: {
     padding: '1rem 2rem',
-    backgroundColor: '#3498db',
-    color: '#fff',
+    backgroundColor: '#F88000',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '12px',
     cursor: 'pointer',
-    fontSize: '1.1rem'
+    fontSize: '1.1rem',
+    fontWeight: '600'
   },
   statusCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: '2rem',
-    borderRadius: '8px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    borderRadius: '16px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
     textAlign: 'center'
   },
   statsGrid: {
@@ -360,16 +364,16 @@ const styles = {
     marginBottom: '2rem'
   },
   statCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: '1.5rem',
-    borderRadius: '8px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    borderRadius: '16px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
     textAlign: 'center'
   },
   statNumber: {
     fontSize: '2rem',
     fontWeight: 'bold',
-    color: '#3498db',
+    color: '#F88000',
     margin: '0.5rem 0'
   },
   tabs: {
@@ -387,10 +391,11 @@ const styles = {
   activeTab: {
     padding: '1rem 2rem',
     border: 'none',
-    backgroundColor: '#3498db',
-    color: '#fff',
+    backgroundColor: '#F88000',
+    color: '#FFFFFF',
     cursor: 'pointer',
-    fontSize: '1rem'
+    fontSize: '1rem',
+    fontWeight: 'bold'
   },
   deliveriesList: {
     display: 'grid',
@@ -409,27 +414,30 @@ const styles = {
   },
   acceptButton: {
     padding: '0.75rem 1.5rem',
-    backgroundColor: '#27ae60',
-    color: '#fff',
+    backgroundColor: '#F88000',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontWeight: '600'
   },
   pickupButton: {
     padding: '0.5rem 1rem',
-    backgroundColor: '#f39c12',
-    color: '#fff',
+    backgroundColor: '#F88000',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontWeight: '600'
   },
   deliverButton: {
     padding: '0.5rem 1rem',
-    backgroundColor: '#27ae60',
-    color: '#fff',
+    backgroundColor: '#F88000',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontWeight: '600'
   },
   status: {
     fontWeight: 'bold',
@@ -448,11 +456,12 @@ const styles = {
     zIndex: 1000
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     padding: '2rem',
-    borderRadius: '8px',
+    borderRadius: '16px',
     width: '90%',
-    maxWidth: '500px'
+    maxWidth: '500px',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
   },
   form: {
     display: 'flex',
@@ -461,8 +470,9 @@ const styles = {
   },
   input: {
     padding: '0.75rem',
-    border: '1px solid #ddd',
-    borderRadius: '4px'
+    border: '1px solid rgba(0, 0, 0, 0.1)',
+    borderRadius: '50px',
+    backgroundColor: '#FFFFFF'
   },
   modalActions: {
     display: 'flex',
@@ -472,11 +482,12 @@ const styles = {
   submitButton: {
     flex: 1,
     padding: '0.75rem',
-    backgroundColor: '#27ae60',
-    color: '#fff',
+    backgroundColor: '#F88000',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontWeight: '600'
   },
   cancelButton: {
     flex: 1,
