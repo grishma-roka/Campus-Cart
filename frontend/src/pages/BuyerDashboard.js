@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
+import CartSidebar from '../components/CartSidebar';
+import ProductDetailModal from '../components/ProductDetailModal';
 
 export default function BuyerDashboard() {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { addToCart, setIsCartOpen, getCartCount, cartItems } = useCart();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,6 +18,10 @@ export default function BuyerDashboard() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [priceRange, setPriceRange] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [showMessages, setShowMessages] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
 
   // Debounce search term
   useEffect(() => {
@@ -34,6 +43,18 @@ export default function BuyerDashboard() {
     }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Close messages panel when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showMessages && !event.target.closest('[data-messages-panel]') && !event.target.closest('[data-messages-button]')) {
+        setShowMessages(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMessages]);
 
   const fetchData = async () => {
     try {
@@ -68,6 +89,95 @@ export default function BuyerDashboard() {
     return icons[category] || icons.default;
   };
 
+  const handleAddToCart = (item) => {
+    // Check if item is already in cart
+    const isInCart = cartItems.some(cartItem => cartItem.id === item.id);
+    
+    if (isInCart) {
+      // If already in cart, just open the cart sidebar
+      setIsCartOpen(true);
+      return;
+    }
+    
+    // Flash animation
+    setAddingToCart(item.id);
+    
+    const success = addToCart({
+      id: item.id,
+      title: item.title,
+      price: item.price,
+      image: item.images ? JSON.parse(item.images)[0] : null
+    });
+    
+    if (success) {
+      // Create flying cart icon animation
+      createFlyingIcon();
+      
+      // Revert flash animation after 2 seconds
+      setTimeout(() => setAddingToCart(null), 2000);
+    }
+  };
+
+  const createFlyingIcon = () => {
+    const icon = document.createElement('div');
+    icon.innerHTML = '🛒';
+    icon.style.cssText = `
+      position: fixed;
+      font-size: 32px;
+      z-index: 10000;
+      pointer-events: none;
+      animation: flyToCart 0.8s ease-in-out forwards;
+    `;
+    
+    // Position at center of screen
+    icon.style.left = '50%';
+    icon.style.top = '50%';
+    
+    document.body.appendChild(icon);
+    
+    // Remove after animation
+    setTimeout(() => {
+      document.body.removeChild(icon);
+    }, 800);
+  };
+
+  const handleBuyNow = (item) => {
+    handleAddToCart(item);
+    // Navigate to checkout or show checkout modal
+    setTimeout(() => {
+      setIsCartOpen(true);
+    }, 300);
+  };
+
+  const isItemInCart = (itemId) => {
+    return cartItems.some(cartItem => cartItem.id === itemId);
+  };
+
+  const handleProductClick = async (product) => {
+    setSelectedProduct(product);
+    
+    // Fetch related products (same category, different item)
+    try {
+      const response = await axios.get(`/items?category=${product.category}&limit=5`);
+      const related = response.data.filter(item => item.id !== product.id).slice(0, 4);
+      setRelatedProducts(related);
+    } catch (error) {
+      console.error('Error fetching related products:', error);
+      setRelatedProducts([]);
+    }
+  };
+
+  const handleModalAddToCart = (product, quantity) => {
+    for (let i = 0; i < quantity; i++) {
+      addToCart({
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        image: product.images ? JSON.parse(product.images)[0] : null
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div style={styles.loadingContainer}>
@@ -79,6 +189,9 @@ export default function BuyerDashboard() {
 
   return (
     <div style={styles.dashboardContainer}>
+      {/* Cart Sidebar */}
+      <CartSidebar />
+      
       {/* Top Header Bar */}
       <div style={styles.topHeader}>
         <div style={styles.headerContent}>
@@ -124,8 +237,91 @@ export default function BuyerDashboard() {
               Apply as Rider
             </button>
           </div>
+
+          {/* Messages Icon */}
+          <div style={styles.messagesContainer}>
+            <button 
+              onClick={() => setShowMessages(!showMessages)}
+              style={styles.messagesButton}
+              title="Messages"
+              data-messages-button
+            >
+              <div style={styles.messagesIcon}>💬</div>
+              <span style={styles.messagesText}>Messages</span>
+              <div style={styles.messagesBadge}>3</div>
+            </button>
+          </div>
+
+          {/* Cart Icon */}
+          <div style={styles.cartContainer}>
+            <button 
+              onClick={() => setIsCartOpen(true)}
+              style={styles.cartButton}
+              title="Shopping Cart"
+            >
+              <div style={styles.cartIconButton}>🛒</div>
+              {getCartCount() > 0 && (
+                <div style={styles.cartBadge}>{getCartCount()}</div>
+              )}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Messages Panel */}
+      {showMessages && (
+        <div style={styles.messagesPanel} data-messages-panel>
+          <div style={styles.messagesPanelHeader}>
+            <h3 style={styles.messagesPanelTitle}>
+              <span style={styles.messagesPanelIcon}>💬</span>
+              Messages
+            </h3>
+            <button 
+              onClick={() => setShowMessages(false)}
+              style={styles.closePanelButton}
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div style={styles.messagesList}>
+            <div style={styles.messageItem}>
+              <div style={styles.messageAvatar}>👤</div>
+              <div style={styles.messageContent}>
+                <div style={styles.messageSender}>John Doe</div>
+                <div style={styles.messagePreview}>Hi! Is the calculator still available?</div>
+                <div style={styles.messageTime}>2 min ago</div>
+              </div>
+              <div style={styles.unreadBadge}></div>
+            </div>
+            
+            <div style={styles.messageItem}>
+              <div style={styles.messageAvatar}>👩</div>
+              <div style={styles.messageContent}>
+                <div style={styles.messageSender}>Sarah Wilson</div>
+                <div style={styles.messagePreview}>Thanks for the quick delivery!</div>
+                <div style={styles.messageTime}>1 hour ago</div>
+              </div>
+            </div>
+            
+            <div style={styles.messageItem}>
+              <div style={styles.messageAvatar}>👨</div>
+              <div style={styles.messageContent}>
+                <div style={styles.messageSender}>Mike Chen</div>
+                <div style={styles.messagePreview}>Can we meet tomorrow for the textbook?</div>
+                <div style={styles.messageTime}>3 hours ago</div>
+              </div>
+              <div style={styles.unreadBadge}></div>
+            </div>
+          </div>
+          
+          <div style={styles.messagesPanelFooter}>
+            <button style={styles.viewAllMessagesButton}>
+              View All Messages
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Layout */}
       <div style={styles.mainLayout}>
@@ -247,7 +443,10 @@ export default function BuyerDashboard() {
                 
                 return (
                   <div key={item.id} style={styles.productCard}>
-                    <div style={styles.productImageContainer}>
+                    <div 
+                      style={styles.productImageContainer}
+                      onClick={() => handleProductClick(item)}
+                    >
                       <img 
                         src={imageUrl} 
                         alt={item.title}
@@ -268,9 +467,31 @@ export default function BuyerDashboard() {
                         <span style={styles.priceAmount}>रू {item.price.toLocaleString()}</span>
                       </div>
                       
-                      <button style={styles.buyButton}>
-                        Buy Now
-                      </button>
+                      {/* Button Group */}
+                      <div style={styles.productButtonGroup}>
+                        <button 
+                          onClick={() => handleAddToCart(item)}
+                          style={{
+                            ...styles.addToCartButton,
+                            ...(addingToCart === item.id ? styles.flashingButton : {}),
+                            ...(isItemInCart(item.id) && addingToCart !== item.id ? styles.inCartButton : {})
+                          }}
+                          disabled={isItemInCart(item.id) && addingToCart !== item.id}
+                        >
+                          {addingToCart === item.id 
+                            ? '✓ Added!' 
+                            : isItemInCart(item.id) 
+                              ? '✓ In Cart' 
+                              : '🛒 Add to Cart'
+                          }
+                        </button>
+                        <button 
+                          onClick={() => handleBuyNow(item)}
+                          style={styles.buyNowButton}
+                        >
+                          Buy Now
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -304,6 +525,22 @@ export default function BuyerDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Product Detail Modal */}
+      {selectedProduct && (
+        <ProductDetailModal
+          product={{
+            ...selectedProduct,
+            image: selectedProduct.images ? JSON.parse(selectedProduct.images)[0] : null
+          }}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={handleModalAddToCart}
+          relatedProducts={relatedProducts.map(item => ({
+            ...item,
+            image: item.images ? JSON.parse(item.images)[0] : null
+          }))}
+        />
+      )}
     </div>
   );
 }
@@ -470,6 +707,193 @@ const styles = {
   },
   buttonIcon: {
     fontSize: '16px'
+  },
+
+  // Messages Container
+  messagesContainer: {
+    minWidth: '120px'
+  },
+  messagesButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 16px',
+    background: 'rgba(255, 255, 255, 0.9)',
+    border: '1px solid rgba(0, 0, 0, 0.1)',
+    borderRadius: '16px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
+    color: '#1e293b',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    position: 'relative',
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
+  },
+  messagesIcon: {
+    fontSize: '18px',
+    background: 'linear-gradient(135deg, #10b981, #059669)',
+    borderRadius: '8px',
+    padding: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  messagesText: {
+    fontSize: '14px',
+    fontWeight: '600'
+  },
+  messagesBadge: {
+    position: 'absolute',
+    top: '-4px',
+    right: '-4px',
+    background: '#ef4444',
+    color: 'white',
+    fontSize: '10px',
+    fontWeight: '700',
+    padding: '2px 6px',
+    borderRadius: '10px',
+    minWidth: '18px',
+    height: '18px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
+  },
+
+  // Messages Panel
+  messagesPanel: {
+    position: 'fixed',
+    top: '88px',
+    right: '24px',
+    width: '380px',
+    maxHeight: '500px',
+    background: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    borderRadius: '24px',
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    zIndex: 1001,
+    overflow: 'hidden'
+  },
+  messagesPanelHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '20px 24px 16px',
+    borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
+  },
+  messagesPanelTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#1e293b',
+    margin: 0
+  },
+  messagesPanelIcon: {
+    fontSize: '20px',
+    background: 'linear-gradient(135deg, #10b981, #059669)',
+    borderRadius: '8px',
+    padding: '6px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  closePanelButton: {
+    background: 'none',
+    border: 'none',
+    color: '#64748b',
+    cursor: 'pointer',
+    fontSize: '18px',
+    padding: '4px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s ease',
+    width: '28px',
+    height: '28px'
+  },
+
+  // Messages List
+  messagesList: {
+    maxHeight: '320px',
+    overflowY: 'auto',
+    padding: '8px 0'
+  },
+  messageItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '12px 24px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    position: 'relative',
+    borderBottom: '1px solid rgba(0, 0, 0, 0.05)'
+  },
+  messageAvatar: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '18px',
+    flexShrink: 0
+  },
+  messageContent: {
+    flex: 1,
+    minWidth: 0
+  },
+  messageSender: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: '2px'
+  },
+  messagePreview: {
+    fontSize: '13px',
+    color: '#64748b',
+    lineHeight: '1.4',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap'
+  },
+  messageTime: {
+    fontSize: '11px',
+    color: '#94a3b8',
+    marginTop: '2px'
+  },
+  unreadBadge: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: '#10b981',
+    flexShrink: 0
+  },
+
+  // Messages Panel Footer
+  messagesPanelFooter: {
+    padding: '16px 24px 20px',
+    borderTop: '1px solid rgba(0, 0, 0, 0.1)'
+  },
+  viewAllMessagesButton: {
+    width: '100%',
+    padding: '12px 16px',
+    background: '#10b981',
+    color: 'white',
+    border: 'none',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
+    cursor: 'pointer',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)'
   },
 
   // Main Layout
@@ -743,7 +1167,9 @@ const styles = {
     borderRadius: '16px',
     overflow: 'hidden',
     marginBottom: '16px',
-    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'
+    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+    cursor: 'pointer',
+    transition: 'transform 0.3s ease'
   },
   productImage: {
     width: '100%',
@@ -783,11 +1209,50 @@ const styles = {
   },
 
   // Product Actions
-  buyButton: {
-    width: '100%',
+  productButtonGroup: {
+    display: 'flex',
+    gap: '8px',
+    width: '100%'
+  },
+  addToCartButton: {
+    flex: 1,
     padding: '12px 16px',
-    background: '#F88000',
-    color: '#FFFFFF',
+    background: '#fff',
+    color: '#f97316',
+    border: '2px solid #f97316',
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
+    cursor: 'pointer',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+  },
+  flashingButton: {
+    background: '#10b981',
+    color: '#fff',
+    border: '2px solid #10b981',
+    transform: 'scale(1.05)',
+    boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)',
+    animation: 'pulse 0.5s ease-in-out'
+  },
+  inCartButton: {
+    background: '#e5e7eb',
+    color: '#6b7280',
+    border: '2px solid #d1d5db',
+    cursor: 'not-allowed',
+    opacity: 0.7
+  },
+  addingToCart: {
+    background: '#10b981',
+    color: '#fff',
+    border: '2px solid #10b981',
+    transform: 'scale(0.95)'
+  },
+  buyNowButton: {
+    flex: 1,
+    padding: '12px 16px',
+    background: '#f97316',
+    color: 'white',
     border: 'none',
     borderRadius: '12px',
     fontSize: '14px',
@@ -795,7 +1260,48 @@ const styles = {
     fontFamily: 'Inter, sans-serif',
     cursor: 'pointer',
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
+    boxShadow: '0 4px 16px rgba(249, 115, 22, 0.3)'
+  },
+  
+  // Cart Container
+  cartContainer: {
+    minWidth: '60px'
+  },
+  cartButton: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '12px',
+    background: 'rgba(255, 255, 255, 0.9)',
+    border: '1px solid rgba(0, 0, 0, 0.1)',
+    borderRadius: '16px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
+  },
+  cartIconButton: {
+    fontSize: '24px'
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: '-4px',
+    right: '-4px',
+    background: '#f97316',
+    color: 'white',
+    fontSize: '10px',
+    fontWeight: '700',
+    padding: '2px 6px',
+    borderRadius: '10px',
+    minWidth: '18px',
+    height: '18px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 8px rgba(249, 115, 22, 0.4)'
   },
 
   // Empty State
@@ -835,6 +1341,26 @@ styleSheet.textContent = `
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1.05); }
+    50% { transform: scale(1.1); }
+  }
+  
+  @keyframes flyToCart {
+    0% {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: translate(200px, -200px) scale(0.8);
+      opacity: 0.8;
+    }
+    100% {
+      transform: translate(400px, -400px) scale(0.3);
+      opacity: 0;
+    }
   }
 `;
 document.head.appendChild(styleSheet);

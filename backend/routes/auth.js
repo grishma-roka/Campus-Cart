@@ -3,13 +3,22 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const authMiddleware = require('../middlewares/authMiddleware');
+const upload = require('../config/upload');
 
 const router = express.Router();
 
 /* ---------------------- REGISTER ---------------------- */
 router.post('/register', async (req, res) => {
   try {
-    const { full_name, email, password, student_id, role, license_number, license_image } = req.body;
+    const { full_name, email, password, student_id, role } = req.body;
+
+    // Validate Herald College email format (stricter pattern starting with 'np')
+    const emailPattern = /^np[0-9]{2}[a-z0-9]+@heraldcollege\.edu\.np$/;
+    if (!emailPattern.test(email)) {
+      return res.status(400).json({ 
+        error: "Invalid email! Please use your Herald College institutional email starting with 'np' (e.g., np03cs4a230143@heraldcollege.edu.np)" 
+      });
+    }
 
     // Check existing email
     const [existing] = await db.query(
@@ -24,61 +33,18 @@ router.post('/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // If user selected rider role, create as buyer first and let them apply later
-    if (role === 'rider' && license_number) {
-      // Create user as active buyer first
-      const [result] = await db.query(
-        "INSERT INTO users (full_name, email, password, student_id, role, is_active) VALUES (?, ?, ?, ?, ?, ?)",
-        [full_name, email, hashedPassword, student_id, 'buyer', true]
-      );
+    // Create user (riders will be created as buyers first)
+    const userRole = role === 'rider' ? 'buyer' : (role || 'buyer');
+    const [result] = await db.query(
+      "INSERT INTO users (full_name, email, password, student_id, role, is_active) VALUES (?, ?, ?, ?, ?, ?)",
+      [full_name, email, hashedPassword, student_id, userRole, true]
+    );
 
-      const userId = result.insertId;
-
-      // Create rider request
-      await db.query(
-        "INSERT INTO rider_requests (user_id, license_number, license_image) VALUES (?, ?, ?)",
-        [userId, license_number, license_image || null]
-      );
-
-      // Send email notification to admin
-      const sendMail = require('../utils/sendEmail');
-      await sendMail(
-        'New Rider Application - Campus Cart',
-        `New rider application received:
-        
-Name: ${full_name}
-Email: ${email}
-Student ID: ${student_id}
-License Number: ${license_number}
-${license_image ? `License Image: ${license_image}` : 'No license image provided'}
-
-Please review this application in the admin panel.
-
-Login to admin panel: http://localhost:3000/login
-Admin Email: ${process.env.ADMIN_EMAIL}
-Admin Password: password
-
-Note: The applicant cannot login until you approve their rider application.`
-      );
-
-      res.json({ 
-        message: "Rider application submitted successfully! You cannot login until admin approves your application. You will receive an email notification once approved.", 
-        userId: userId,
-        riderApplicationSubmitted: true,
-        loginBlocked: true
-      });
-    } else {
-      // Regular user registration (buyer/seller)
-      const [result] = await db.query(
-        "INSERT INTO users (full_name, email, password, student_id, role) VALUES (?, ?, ?, ?, ?)",
-        [full_name, email, hashedPassword, student_id, role || 'buyer']
-      );
-
-      res.json({ 
-        message: "User registered successfully", 
-        userId: result.insertId 
-      });
-    }
+    res.json({ 
+      message: "User registered successfully", 
+      userId: result.insertId,
+      requiresRiderApplication: role === 'rider'
+    });
 
   } catch (error) {
     console.error(error);
@@ -86,9 +52,85 @@ Note: The applicant cannot login until you approve their rider application.`
   }
 });
 
+/* ---------------------- RIDER APPLICATION WITH FILE UPLOAD ---------------------- */
+router.post('/register-rider', upload.single('license_image'), async (req, res) => {
+  try {
+    const { user_id, license_number } = req.body;
+    
+    console.log('🏍️ Rider application received:', { user_id, license_number, hasFile: !!req.file });
+    
+    // Validate user_id
+    if (!user_id || user_id === 'undefined') {
+      return res.status(400).json({ 
+        error: "User ID is required. Please register first." 
+      });
+    }
+    
+    // Validate license number format
+    const licensePattern = /^[0-9]{2}-[0-9]{2}-[0-9]{8}$/;
+    if (!licensePattern.test(license_number)) {
+      return res.status(400).json({ 
+        error: "Invalid license format! Use format: XX-XX-XXXXXXXX (e.g., 03-06-00354234)" 
+      });
+    }
+
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ 
+        error: "License image is required" 
+      });
+    }
+
+    const license_image = `/uploads/licenses/${req.file.filename}`;
+
+    console.log('💾 Inserting rider request into database...');
+    
+    // Create rider request
+    await db.query(
+      "INSERT INTO rider_requests (user_id, license_number, license_image) VALUES (?, ?, ?)",
+      [user_id, license_number, license_image]
+    );
+
+    console.log('✅ Rider request created successfully');
+
+    // Send email notification to admin
+    const sendMail = require('../utils/sendEmail');
+    const [user] = await db.query("SELECT * FROM users WHERE id = ?", [user_id]);
+    
+    if (user.length > 0) {
+      console.log('📧 Sending email notification to admin...');
+      await sendMail(
+        'New Rider Application - Campus Cart',
+        `New rider application received:
+        
+Name: ${user[0].full_name}
+Email: ${user[0].email}
+Student ID: ${user[0].student_id}
+License Number: ${license_number}
+License Image: Uploaded successfully
+
+Please review this application in the admin panel.
+
+Login to admin panel: http://localhost:3000/login`
+      );
+      console.log('✅ Email sent successfully');
+    }
+
+    res.json({ 
+      message: "Rider application submitted successfully! Admin will review and notify you via email.",
+      license_image: license_image
+    });
+
+  } catch (error) {
+    console.error('❌ Rider registration error:', error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 /* ---------------------- LOGIN ---------------------- */
 router.post('/login', async (req, res) => {
   try {
+    console.log('🔐 Login attempt received:', { email: req.body.email });
     const { email, password } = req.body;
 
     const [rows] = await db.query(
@@ -96,14 +138,19 @@ router.post('/login', async (req, res) => {
       [email]
     );
 
+    console.log('📊 Database query result:', rows.length > 0 ? 'User found' : 'User not found');
+
     if (rows.length === 0) {
+      console.log('❌ Login failed: User not found');
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
     const user = rows[0];
+    console.log('👤 User details:', { id: user.id, email: user.email, role: user.role, is_active: user.is_active });
 
     // Check if user is active (only for deactivated accounts, not for pending rider applications)
     if (!user.is_active) {
+      console.log('❌ Login failed: Account deactivated');
       return res.status(403).json({ 
         error: "Your account has been deactivated. Please contact admin.",
         accountDeactivated: true
@@ -112,7 +159,10 @@ router.post('/login', async (req, res) => {
 
     // Compare password
     const match = await bcrypt.compare(password, user.password);
+    console.log('🔑 Password match:', match ? 'Yes' : 'No');
+    
     if (!match) {
+      console.log('❌ Login failed: Invalid password');
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
@@ -122,6 +172,8 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
+
+    console.log('✅ Login successful for user:', user.email);
 
     res.json({
       message: "Login successful",
@@ -135,7 +187,7 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error('❌ Login error:', error);
     res.status(500).json({ error: "Server error" });
   }
 });

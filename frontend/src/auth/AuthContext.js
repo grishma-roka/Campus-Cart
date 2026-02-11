@@ -59,7 +59,12 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      console.log('🔐 Attempting login for:', email);
+      console.log('📡 API endpoint:', axios.defaults.baseURL + '/auth/login');
+      
       const response = await axios.post('/auth/login', { email, password });
+      console.log('✅ Login response received:', response.data);
+      
       const { token, user } = response.data;
       
       localStorage.setItem('token', token);
@@ -76,6 +81,9 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true, user };
     } catch (error) {
+      console.error('❌ Login error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
       return { 
         success: false, 
         error: error.response?.data?.error || 'Login failed' 
@@ -86,7 +94,12 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await axios.post('/auth/register', userData);
-      return { success: true, message: response.data.message };
+      return { 
+        success: true, 
+        message: response.data.message,
+        userId: response.data.userId,
+        requiresRiderApplication: response.data.requiresRiderApplication
+      };
     } catch (error) {
       return { 
         success: false, 

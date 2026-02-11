@@ -269,12 +269,37 @@ export default function AdminDashboard() {
                       <strong>Applied:</strong> {new Date(request.created_at).toLocaleDateString()}
                     </div>
                     
-                    {request.license_image && (
+                    {request.license_image && request.license_image !== 'pending_upload' && (
+                      <div style={styles.licenseImageSection}>
+                        <strong>License Image:</strong>
+                        <div style={styles.licenseImageContainer}>
+                          <img 
+                            src={`http://localhost:5000${request.license_image}`} 
+                            alt="License" 
+                            style={styles.licenseImage}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'block';
+                            }}
+                          />
+                          <div style={{...styles.imageError, display: 'none'}}>
+                            Image not available
+                          </div>
+                          <a 
+                            href={`http://localhost:5000${request.license_image}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            style={styles.viewFullImageLink}
+                          >
+                            🔍 View Full Size
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {(!request.license_image || request.license_image === 'pending_upload') && (
                       <div style={styles.detailRow}>
-                        <strong>License Image:</strong> 
-                        <a href={request.license_image} target="_blank" rel="noopener noreferrer" style={styles.imageLink}>
-                          View License Image
-                        </a>
+                        <strong>License Image:</strong> <span style={styles.pendingText}>Pending upload</span>
                       </div>
                     )}
                     
@@ -665,6 +690,45 @@ const styles = {
     padding: '1rem',
     borderRadius: '4px',
     marginTop: '1rem',
+    fontStyle: 'italic'
+  },
+  licenseImageSection: {
+    marginTop: '1rem',
+    padding: '1rem',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+    border: '1px solid #e9ecef'
+  },
+  licenseImageContainer: {
+    marginTop: '0.5rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem'
+  },
+  licenseImage: {
+    maxWidth: '100%',
+    maxHeight: '300px',
+    objectFit: 'contain',
+    borderRadius: '8px',
+    border: '2px solid #dee2e6',
+    backgroundColor: '#fff'
+  },
+  viewFullImageLink: {
+    color: '#3498db',
+    textDecoration: 'none',
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.25rem'
+  },
+  imageError: {
+    color: '#e74c3c',
+    fontSize: '0.9rem',
+    fontStyle: 'italic'
+  },
+  pendingText: {
+    color: '#f39c12',
     fontStyle: 'italic'
   },
   completedActions: {

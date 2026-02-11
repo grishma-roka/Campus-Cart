@@ -10,11 +10,12 @@ export default function Register() {
     student_id: "",
     role: "buyer",
     license_number: "",
-    license_image: ""
+    license_image: null
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [imagePreview, setImagePreview] = useState(null);
 
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -23,18 +24,75 @@ export default function Register() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
+        setError("Please upload only JPG or PNG images");
+        return;
+      }
+      
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setError("File size must be less than 5MB");
+        return;
+      }
+      
+      setForm({ ...form, license_image: file });
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+      setError("");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     setSuccess("");
 
+    // Validate Herald College email format (stricter pattern)
+    const emailPattern = /^np[0-9]{2}[a-z0-9]+@heraldcollege\.edu\.np$/;
+    if (!emailPattern.test(form.email)) {
+      setError("Invalid email! Please use your Herald College institutional email starting with 'np' (e.g., np03cs4a230143@heraldcollege.edu.np)");
+      setLoading(false);
+      return;
+    }
+
+    // Validate license number format for riders
+    if (form.role === 'rider') {
+      const licensePattern = /^[0-9]{2}-[0-9]{2}-[0-9]{8}$/;
+      if (!form.license_number) {
+        setError("License number is required for rider registration");
+        setLoading(false);
+        return;
+      }
+      if (!licensePattern.test(form.license_number)) {
+        setError("Invalid license format! Use format: XX-XX-XXXXXXXX (e.g., 03-06-00354234)");
+        setLoading(false);
+        return;
+      }
+      // Note: License image is optional for now, can be uploaded later
+    }
+
     try {
-      // First register the user
-      const result = await register(form);
+      // Step 1: Register the user
+      const result = await register({
+        full_name: form.full_name,
+        email: form.email,
+        password: form.password,
+        student_id: form.student_id,
+        role: form.role
+      });
       
       if (result.success) {
-        // If user selected rider role, submit rider application
+        // Step 2: If rider, submit rider application with file
         if (form.role === 'rider') {
           if (!form.license_number) {
             setError("License number is required for rider registration");
@@ -42,23 +100,38 @@ export default function Register() {
             return;
           }
 
-          // Submit rider application
-          const response = await fetch('http://localhost:5000/api/rider/request', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              user_email: form.email,
-              license_number: form.license_number,
-              license_image: form.license_image
-            })
-          });
+          if (!form.license_image) {
+            setError("License image is required for rider registration");
+            setLoading(false);
+            return;
+          }
 
-          if (response.ok) {
-            setSuccess("Registration successful! Rider application submitted. Admin will review and notify you via email.");
-          } else {
-            setSuccess("Registration successful! Please login and apply for rider role from your dashboard.");
+          // Create FormData for file upload
+          const formData = new FormData();
+          formData.append('user_id', result.userId || result.user?.id);
+          formData.append('license_number', form.license_number);
+          formData.append('license_image', form.license_image);
+
+          // Submit rider application with file
+          try {
+            const response = await fetch('http://localhost:5000/api/auth/register-rider', {
+              method: 'POST',
+              body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+              setSuccess("Registration successful! Rider application submitted. Admin will review your license and notify you via email.");
+            } else {
+              setError(data.error || "Failed to submit rider application");
+              setLoading(false);
+              return;
+            }
+          } catch (err) {
+            setError("Failed to upload license image. Please try again.");
+            setLoading(false);
+            return;
           }
         } else {
           setSuccess("Registration successful! Please login.");
@@ -69,6 +142,7 @@ export default function Register() {
         setError(result.error);
       }
     } catch (error) {
+      console.error('Registration error:', error);
       setError("Registration failed. Please try again.");
     }
     
@@ -79,6 +153,29 @@ export default function Register() {
     <div style={styles.container}>
       <div style={styles.formCard}>
         <h2 style={styles.title}>Join Campus Cart</h2>
+        
+        {/* Institutional Email Notice */}
+        <div style={styles.noticeBox}>
+          <div style={styles.noticeIcon}>🎓</div>
+          <div style={styles.noticeContent}>
+            <h4 style={styles.noticeTitle}>Herald College Students Only</h4>
+            <p style={styles.noticeText}>
+              To keep this community safe and exclusive to our student body, we require a valid institutional email to get started.
+            </p>
+            <p style={styles.noticeText}>
+              Whether you're here to buy, sell, or ride, you must register using the format:
+            </p>
+            <div style={styles.emailExample}>
+              <strong>your-id@heraldcollege.edu.np</strong>
+            </div>
+            <p style={styles.noticeExample}>
+              Example: <code style={styles.codeText}>np03cs4a230143@heraldcollege.edu.np</code>
+            </p>
+            <p style={styles.noticeWarning}>
+              ⚠️ If your email doesn't match this pattern, the system won't let you through. Let's keep it within the campus family!
+            </p>
+          </div>
+        </div>
         
         {error && <div style={styles.error}>{error}</div>}
         {success && <div style={styles.success}>{success}</div>}
@@ -151,35 +248,54 @@ export default function Register() {
           {/* Show license fields only when rider is selected */}
           {form.role === 'rider' && (
             <>
-              <div style={styles.riderSection}>
-                <h4 style={styles.riderTitle}>Rider License Information</h4>
-                <p style={styles.riderNote}>
-                  As a rider applicant, please provide your license details. 
-                  Admin will review and approve your application.
-                </p>
-              </div>
-              
               <div style={styles.inputGroup}>
-                <label style={styles.label}>License Number *</label>
+                <label style={styles.label}>License Number * (Format: XX-XX-XXXXXXXX)</label>
                 <input
                   name="license_number"
-                  placeholder="Enter your driving license number"
+                  placeholder="e.g., 03-06-00354234"
                   value={form.license_number}
                   onChange={handleChange}
                   required={form.role === 'rider'}
                   style={styles.input}
+                  pattern="[0-9]{2}-[0-9]{2}-[0-9]{8}"
                 />
+                <small style={styles.helpText}>Enter your license number exactly as shown on your card</small>
               </div>
               
               <div style={styles.inputGroup}>
-                <label style={styles.label}>License Image URL (Optional)</label>
-                <input
-                  name="license_image"
-                  placeholder="Enter URL of your license image"
-                  value={form.license_image}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
+                <label style={styles.label}>License Image * (JPG or PNG, Max 5MB)</label>
+                <div style={styles.fileUploadContainer}>
+                  <input
+                    type="file"
+                    id="license_image"
+                    accept="image/jpeg,image/jpg,image/png"
+                    onChange={handleFileChange}
+                    required={form.role === 'rider'}
+                    style={styles.fileInput}
+                  />
+                  <label htmlFor="license_image" style={styles.fileLabel}>
+                    <span style={styles.uploadIcon}>📸</span>
+                    <span style={styles.uploadText}>
+                      {form.license_image ? form.license_image.name : 'Tap to upload license photo'}
+                    </span>
+                  </label>
+                </div>
+                {imagePreview && (
+                  <div style={styles.imagePreviewContainer}>
+                    <img src={imagePreview} alt="License preview" style={styles.imagePreview} />
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setForm({ ...form, license_image: null });
+                        setImagePreview(null);
+                      }}
+                      style={styles.removeImageButton}
+                    >
+                      ✕ Remove
+                    </button>
+                  </div>
+                )}
+                <small style={styles.helpText}>Upload a clear photo of your driving license</small>
               </div>
             </>
           )}
@@ -217,12 +333,72 @@ const styles = {
     borderRadius: '8px',
     boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
     width: '100%',
-    maxWidth: '500px'
+    maxWidth: '500px',
+    maxHeight: '90vh',
+    overflowY: 'auto'
   },
   title: {
     textAlign: 'center',
     marginBottom: '1.5rem',
     color: '#333'
+  },
+  noticeBox: {
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    borderRadius: '12px',
+    padding: '1.5rem',
+    marginBottom: '1.5rem',
+    color: 'white',
+    boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)'
+  },
+  noticeIcon: {
+    fontSize: '32px',
+    textAlign: 'center',
+    marginBottom: '0.5rem'
+  },
+  noticeContent: {
+    textAlign: 'center'
+  },
+  noticeTitle: {
+    margin: '0 0 0.75rem 0',
+    fontSize: '1.2rem',
+    fontWeight: '700',
+    color: 'white'
+  },
+  noticeText: {
+    margin: '0 0 0.75rem 0',
+    fontSize: '0.9rem',
+    lineHeight: '1.5',
+    opacity: 0.95
+  },
+  emailExample: {
+    background: 'rgba(255, 255, 255, 0.2)',
+    padding: '0.75rem',
+    borderRadius: '8px',
+    margin: '0.75rem 0',
+    fontSize: '1rem',
+    fontFamily: 'monospace',
+    backdropFilter: 'blur(10px)'
+  },
+  noticeExample: {
+    margin: '0.75rem 0',
+    fontSize: '0.85rem',
+    opacity: 0.9
+  },
+  codeText: {
+    background: 'rgba(255, 255, 255, 0.25)',
+    padding: '2px 8px',
+    borderRadius: '4px',
+    fontFamily: 'monospace',
+    fontSize: '0.9rem'
+  },
+  noticeWarning: {
+    margin: '0.75rem 0 0 0',
+    fontSize: '0.85rem',
+    fontWeight: '600',
+    background: 'rgba(255, 255, 255, 0.15)',
+    padding: '0.5rem',
+    borderRadius: '6px',
+    backdropFilter: 'blur(10px)'
   },
   form: {
     display: 'flex',
@@ -231,7 +407,14 @@ const styles = {
   },
   inputGroup: {
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    marginBottom: '0.5rem'
+  },
+  label: {
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: '0.5rem'
   },
   input: {
     padding: '0.75rem',
@@ -246,22 +429,69 @@ const styles = {
     fontSize: '1rem',
     backgroundColor: '#fff'
   },
-  riderSection: {
-    backgroundColor: '#e8f4fd',
+  helpText: {
+    fontSize: '0.8rem',
+    color: '#666',
+    marginTop: '0.25rem',
+    display: 'block'
+  },
+  fileUploadContainer: {
+    position: 'relative',
+    marginBottom: '0.5rem'
+  },
+  fileInput: {
+    position: 'absolute',
+    opacity: 0,
+    width: '0.1px',
+    height: '0.1px',
+    overflow: 'hidden',
+    zIndex: -1
+  },
+  fileLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
     padding: '1rem',
-    borderRadius: '4px',
-    border: '1px solid #3498db'
+    background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+    border: '2px dashed #d1d5db',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    textAlign: 'center',
+    justifyContent: 'center'
   },
-  riderTitle: {
-    margin: '0 0 0.5rem 0',
-    color: '#2980b9',
-    fontSize: '1rem'
+  uploadIcon: {
+    fontSize: '24px'
   },
-  riderNote: {
-    margin: 0,
+  uploadText: {
     fontSize: '0.9rem',
-    color: '#34495e',
-    lineHeight: '1.4'
+    color: '#374151',
+    fontWeight: '500'
+  },
+  imagePreviewContainer: {
+    marginTop: '1rem',
+    position: 'relative',
+    display: 'inline-block',
+    width: '100%'
+  },
+  imagePreview: {
+    width: '100%',
+    maxHeight: '200px',
+    objectFit: 'contain',
+    borderRadius: '8px',
+    border: '2px solid #e5e7eb'
+  },
+  removeImageButton: {
+    marginTop: '0.5rem',
+    padding: '0.5rem 1rem',
+    background: '#ef4444',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '0.85rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    width: '100%'
   },
   button: {
     padding: '0.75rem',
