@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import CartSidebar from '../components/CartSidebar';
 import ProductDetailModal from '../components/ProductDetailModal';
+import SmartSearchBar from '../components/SmartSearchBar';
 
 export default function BuyerDashboard() {
   const { user } = useAuth();
@@ -201,26 +202,11 @@ export default function BuyerDashboard() {
             <span style={styles.brandText}>Campus Cart</span>
           </div>
 
-          {/* Search Pill */}
-          <div style={styles.searchPill}>
-            <div style={styles.searchIcon}>🔍</div>
-            <input
-              type="text"
-              placeholder="Search for items, books, electronics..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={styles.searchInput}
-            />
-            {searchTerm && (
-              <button 
-                onClick={() => setSearchTerm('')}
-                style={styles.clearSearchButton}
-                title="Clear search"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+          {/* Smart Search Bar */}
+          <SmartSearchBar 
+            onSearch={(term) => setSearchTerm(term)}
+            currentSearchTerm={searchTerm}
+          />
 
           {/* Button Group */}
           <div style={styles.buttonGroup}>
