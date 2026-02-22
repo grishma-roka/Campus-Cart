@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '../api/axios';
-import { useNavigate } from 'react-router-dom';
 
 const SmartSearchBar = ({ onSearch, currentSearchTerm = '' }) => {
   const [searchTerm, setSearchTerm] = useState(currentSearchTerm);
@@ -11,7 +10,6 @@ const SmartSearchBar = ({ onSearch, currentSearchTerm = '' }) => {
   
   const searchRef = useRef(null);
   const debounceTimer = useRef(null);
-  const navigate = useNavigate();
 
   // Fetch all available items on component mount
   useEffect(() => {
@@ -30,7 +28,18 @@ const SmartSearchBar = ({ onSearch, currentSearchTerm = '' }) => {
     }
 
     debounceTimer.current = setTimeout(() => {
-      filterItems(searchTerm);
+      if (!searchTerm.trim()) {
+        // No search term - show first 10 items
+        setFilteredItems(allItems.slice(0, 10));
+      } else {
+        // Filter items based on search term
+        const filtered = allItems.filter(item => 
+          item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.category.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setFilteredItems(filtered.slice(0, 10)); // Limit to 10 results
+      }
     }, 300);
 
     return () => {
@@ -64,21 +73,6 @@ const SmartSearchBar = ({ onSearch, currentSearchTerm = '' }) => {
       setFilteredItems([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const filterItems = (term) => {
-    if (!term.trim()) {
-      // No search term - show first 10 items
-      setFilteredItems(allItems.slice(0, 10));
-    } else {
-      // Filter items based on search term
-      const filtered = allItems.filter(item => 
-        item.title.toLowerCase().includes(term.toLowerCase()) ||
-        item.description.toLowerCase().includes(term.toLowerCase()) ||
-        item.category.toLowerCase().includes(term.toLowerCase())
-      );
-      setFilteredItems(filtered.slice(0, 10)); // Limit to 10 results
     }
   };
 
@@ -464,241 +458,6 @@ if (typeof document !== 'undefined') {
     
     .items-list::-webkit-scrollbar-thumb:hover {
       background: #94a3b8;
-    }
-  `;
-  document.head.appendChild(styleSheet);
-}
-
-export default SmartSearchBar;
-
-const styles = {
-  container: {
-    position: 'relative',
-    width: '100%',
-    fontFamily: 'Inter, sans-serif'
-  },
-  searchPill: {
-    display: 'flex',
-    alignItems: 'center',
-    background: '#FFFFFF',
-    border: '1px solid rgba(0, 0, 0, 0.1)',
-    borderRadius: '50px',
-    padding: '12px 20px',
-    gap: '12px',
-    minWidth: '400px',
-    maxWidth: '600px',
-    flex: 1,
-    margin: '0 24px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-  },
-  searchIcon: {
-    fontSize: '18px',
-    color: '#64748b'
-  },
-  searchInput: {
-    flex: 1,
-    border: 'none',
-    outline: 'none',
-    background: 'transparent',
-    fontSize: '16px',
-    fontFamily: 'Inter, sans-serif',
-    color: '#000000',
-    fontWeight: '500'
-  },
-  clearSearchButton: {
-    background: 'none',
-    border: 'none',
-    color: '#64748b',
-    cursor: 'pointer',
-    fontSize: '16px',
-    padding: '4px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.2s ease',
-    width: '24px',
-    height: '24px'
-  },
-
-  // Dropdown
-  dropdown: {
-    position: 'absolute',
-    top: 'calc(100% + 8px)',
-    left: '24px',
-    right: '24px',
-    background: '#FFFFFF',
-    borderRadius: '16px',
-    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
-    border: '1px solid rgba(0, 0, 0, 0.1)',
-    zIndex: 1000,
-    maxHeight: '500px',
-    overflowY: 'auto',
-    animation: 'slideDown 0.3s ease'
-  },
-
-  // Sections
-  section: {
-    padding: '12px 0',
-    borderBottom: '1px solid rgba(0, 0, 0, 0.05)'
-  },
-  sectionHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '12px 20px 8px',
-    fontSize: '12px',
-    fontWeight: '700',
-    color: '#64748b',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em'
-  },
-  sectionIcon: {
-    fontSize: '14px'
-  },
-
-  // Suggestion Items
-  suggestionItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px 20px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    borderLeft: '3px solid transparent'
-  },
-  itemIcon: {
-    fontSize: '20px',
-    width: '32px',
-    height: '32px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#f1f5f9',
-    borderRadius: '8px'
-  },
-  itemText: {
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#000'
-  },
-
-  // Result Items (with images)
-  resultItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px 20px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    borderLeft: '3px solid transparent'
-  },
-  resultImage: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '8px',
-    objectFit: 'cover',
-    background: '#f1f5f9'
-  },
-  resultContent: {
-    flex: 1,
-    minWidth: 0
-  },
-  resultTitle: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: '4px',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap'
-  },
-  resultMeta: {
-    display: 'flex',
-    gap: '12px',
-    fontSize: '12px'
-  },
-  resultPrice: {
-    color: '#FF8C00',
-    fontWeight: '700'
-  },
-  resultCategory: {
-    color: '#64748b'
-  },
-
-  // Loading State
-  loadingState: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '12px',
-    padding: '24px',
-    color: '#64748b'
-  },
-  loadingSpinner: {
-    width: '20px',
-    height: '20px',
-    border: '3px solid rgba(255, 140, 0, 0.1)',
-    borderTop: '3px solid #FF8C00',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite'
-  },
-  loadingText: {
-    fontSize: '14px',
-    fontWeight: '500'
-  },
-
-  // No Results
-  noResults: {
-    padding: '32px 20px',
-    textAlign: 'center'
-  },
-  noResultsIcon: {
-    fontSize: '48px',
-    opacity: 0.3,
-    marginBottom: '12px',
-    display: 'block'
-  },
-  noResultsText: {
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: '4px'
-  },
-  noResultsHint: {
-    fontSize: '14px',
-    color: '#64748b'
-  }
-};
-
-// Add CSS animations and hover effects
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = `
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    .suggestion-item:hover {
-      background: #f8f9fa !important;
-      border-left-color: #FF8C00 !important;
-    }
-    
-    .clear-search-button:hover {
-      background: rgba(100, 116, 139, 0.1) !important;
     }
   `;
   document.head.appendChild(styleSheet);
