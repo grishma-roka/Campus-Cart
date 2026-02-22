@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import ErrorModal from "../components/ErrorModal";
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -16,6 +17,13 @@ export default function Register() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    title: "",
+    message: "",
+    icon: "",
+    actionButton: null
+  });
 
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -82,64 +90,107 @@ export default function Register() {
     }
 
     try {
-      // Step 1: Register the user
-      const result = await register({
-        full_name: form.full_name,
-        email: form.email,
-        password: form.password,
-        student_id: form.student_id,
-        role: form.role
-      });
-      
-      if (result.success) {
-        // Step 2: If rider, submit rider application with file
-        if (form.role === 'rider') {
-          if (!form.license_number) {
-            setError("License number is required for rider registration");
-            setLoading(false);
-            return;
-          }
+      // For riders: Skip user registration, go directly to rider application
+      if (form.role === 'rider') {
+        if (!form.license_number) {
+          setError("License number is required for rider registration");
+          setLoading(false);
+          return;
+        }
 
-          if (!form.license_image) {
-            setError("License image is required for rider registration");
-            setLoading(false);
-            return;
-          }
+        if (!form.license_image) {
+          setError("License image is required for rider registration");
+          setLoading(false);
+          return;
+        }
 
-          // Create FormData for file upload
-          const formData = new FormData();
-          formData.append('user_id', result.userId || result.user?.id);
-          formData.append('license_number', form.license_number);
-          formData.append('license_image', form.license_image);
+        // Create FormData with all registration data
+        const formData = new FormData();
+        formData.append('full_name', form.full_name);
+        formData.append('email', form.email);
+        formData.append('password', form.password);
+        formData.append('student_id', form.student_id);
+        formData.append('license_number', form.license_number);
+        formData.append('license_image', form.license_image);
 
-          // Submit rider application with file
-          try {
-            const response = await fetch('http://localhost:5000/api/auth/register-rider', {
-              method: 'POST',
-              body: formData
-            });
+        // Submit rider application directly
+        try {
+          const response = await fetch('http://localhost:5000/api/auth/register-rider', {
+            method: 'POST',
+            body: formData
+          });
 
-            const data = await response.json();
+          const data = await response.json();
 
-            if (response.ok) {
-              setSuccess("Registration successful! Rider application submitted. Admin will review your license and notify you via email.");
+          if (response.ok && data.success) {
+            setSuccess("Rider application submitted successfully! Admin will review your license and notify you via email. You'll be able to login after approval.");
+            setTimeout(() => navigate("/login"), 4000);
+          } else {
+            // Handle specific error types
+            if (data.error === 'LICENSE_EXPIRED') {
+              setModalConfig({
+                title: "License Expired",
+                message: data.message || "Your license has already expired. Please upload a valid license.",
+                icon: "⚠️",
+                actionButton: {
+                  label: "Upload Again",
+                  onClick: () => {
+                    setShowErrorModal(false);
+                    setForm({ ...form, license_image: null });
+                    setImagePreview(null);
+                    document.getElementById('license_image')?.click();
+                  }
+                }
+              });
+              setShowErrorModal(true);
+              setLoading(false);
+              return;
+            } else if (data.error === 'OCR_FAILED') {
+              setModalConfig({
+                title: "License Verification Failed",
+                message: data.message || "We couldn't verify your license automatically. Please ensure the image is clear and all text is readable.",
+                icon: "🔍",
+                actionButton: {
+                  label: "Try Again",
+                  onClick: () => {
+                    setShowErrorModal(false);
+                    setForm({ ...form, license_image: null });
+                    setImagePreview(null);
+                    document.getElementById('license_image')?.click();
+                  }
+                }
+              });
+              setShowErrorModal(true);
+              setLoading(false);
+              return;
             } else {
-              setError(data.error || "Failed to submit rider application");
+              setError(data.message || data.error || "Failed to submit rider application");
               setLoading(false);
               return;
             }
-          } catch (err) {
-            setError("Failed to upload license image. Please try again.");
-            setLoading(false);
-            return;
           }
-        } else {
-          setSuccess("Registration successful! Please login.");
+        } catch (err) {
+          console.error('Rider application error:', err);
+          setError("Failed to submit rider application. Please try again.");
+          setLoading(false);
+          return;
         }
-        
-        setTimeout(() => navigate("/login"), 3000);
       } else {
-        setError(result.error);
+        // For buyers and sellers: Normal registration flow
+        const result = await register({
+          full_name: form.full_name,
+          email: form.email,
+          password: form.password,
+          student_id: form.student_id,
+          role: form.role
+        });
+        
+        if (result.success) {
+          setSuccess("Registration successful! Please login.");
+          setTimeout(() => navigate("/login"), 3000);
+        } else {
+          setError(result.error);
+        }
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -150,9 +201,20 @@ export default function Register() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.formCard}>
-        <h2 style={styles.title}>Join Campus Cart</h2>
+    <>
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        icon={modalConfig.icon}
+        actionButton={modalConfig.actionButton}
+      />
+      
+      <div style={styles.container}>
+        <div style={styles.formCard}>
+          <h2 style={styles.title}>Join Campus Cart</h2>
         
         {/* Institutional Email Notice */}
         <div style={styles.noticeBox}>
@@ -315,6 +377,7 @@ export default function Register() {
         </p>
       </div>
     </div>
+    </>
   );
 }
 

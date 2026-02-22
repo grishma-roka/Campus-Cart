@@ -84,9 +84,14 @@ export const AuthProvider = ({ children }) => {
       console.error('❌ Login error:', error);
       console.error('Error response:', error.response?.data);
       console.error('Error status:', error.response?.status);
+      
+      // Extract rider status if present
+      const riderStatus = error.response?.data?.riderStatus;
+      
       return { 
         success: false, 
-        error: error.response?.data?.error || 'Login failed' 
+        error: error.response?.data?.error || 'Login failed',
+        riderStatus: riderStatus
       };
     }
   };

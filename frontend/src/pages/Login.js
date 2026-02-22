@@ -21,7 +21,16 @@ export default function Login() {
     if (result.success) {
       navigate("/dashboard");
     } else {
-      setError(result.error);
+      // Check for rider-specific errors
+      if (result.riderStatus === 'pending') {
+        setError("⏳ Your rider account is awaiting admin approval. You'll receive an email once your application is reviewed.");
+      } else if (result.riderStatus === 'rejected') {
+        setError("❌ Your rider request was rejected. Please contact admin for more information.");
+      } else if (result.riderStatus === 'no_application') {
+        setError("⚠️ No rider application found. Please apply to become a rider first.");
+      } else {
+        setError(result.error);
+      }
     }
     
     setLoading(false);

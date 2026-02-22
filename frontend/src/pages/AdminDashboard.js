@@ -269,6 +269,57 @@ export default function AdminDashboard() {
                       <strong>Applied:</strong> {new Date(request.created_at).toLocaleDateString()}
                     </div>
                     
+                    {/* OCR Verification Section */}
+                    {request.verification_status && (
+                      <div style={styles.ocrSection}>
+                        <div style={styles.ocrHeader}>
+                          <strong>🤖 OCR Verification</strong>
+                          <span style={{
+                            ...styles.verificationBadge,
+                            backgroundColor: 
+                              request.verification_status === 'verified' ? '#27ae60' :
+                              request.verification_status === 'expired' ? '#e74c3c' :
+                              request.verification_status === 'needs_manual_review' ? '#f39c12' : '#95a5a6'
+                          }}>
+                            {request.verification_status}
+                          </span>
+                        </div>
+                        
+                        {request.extracted_license_number && (
+                          <div style={styles.ocrDetailRow}>
+                            <strong>Extracted License:</strong> {request.extracted_license_number}
+                          </div>
+                        )}
+                        
+                        {request.extracted_expiry_date && (
+                          <div style={styles.ocrDetailRow}>
+                            <strong>Extracted Expiry:</strong> {new Date(request.extracted_expiry_date).toLocaleDateString()}
+                            {new Date(request.extracted_expiry_date) < new Date() && (
+                              <span style={styles.expiredTag}> ⚠️ EXPIRED</span>
+                            )}
+                          </div>
+                        )}
+                        
+                        {request.ocr_confidence && (
+                          <div style={styles.ocrDetailRow}>
+                            <strong>OCR Confidence:</strong> {request.ocr_confidence}%
+                          </div>
+                        )}
+                        
+                        {request.rejection_reason && (
+                          <div style={styles.rejectionReason}>
+                            <strong>⚠️ Reason:</strong> {request.rejection_reason}
+                          </div>
+                        )}
+                        
+                        {request.auto_rejected && (
+                          <div style={styles.autoRejectedTag}>
+                            🤖 Automatically Rejected by System
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     {request.license_image && request.license_image !== 'pending_upload' && (
                       <div style={styles.licenseImageSection}>
                         <strong>License Image:</strong>
@@ -740,5 +791,59 @@ const styles = {
   completedText: {
     color: '#666',
     fontSize: '0.9rem'
+  },
+  // OCR Verification Styles
+  ocrSection: {
+    marginTop: '1rem',
+    padding: '1rem',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+    border: '2px solid #e9ecef'
+  },
+  ocrHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '0.75rem',
+    paddingBottom: '0.5rem',
+    borderBottom: '1px solid #dee2e6'
+  },
+  verificationBadge: {
+    padding: '0.25rem 0.75rem',
+    borderRadius: '12px',
+    color: '#fff',
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    textTransform: 'uppercase'
+  },
+  ocrDetailRow: {
+    marginBottom: '0.5rem',
+    fontSize: '0.9rem',
+    color: '#495057'
+  },
+  expiredTag: {
+    color: '#e74c3c',
+    fontWeight: '700',
+    marginLeft: '0.5rem'
+  },
+  rejectionReason: {
+    marginTop: '0.75rem',
+    padding: '0.75rem',
+    backgroundColor: '#fff3cd',
+    border: '1px solid #ffc107',
+    borderRadius: '4px',
+    color: '#856404',
+    fontSize: '0.9rem'
+  },
+  autoRejectedTag: {
+    marginTop: '0.75rem',
+    padding: '0.5rem',
+    backgroundColor: '#f8d7da',
+    border: '1px solid #f5c6cb',
+    borderRadius: '4px',
+    color: '#721c24',
+    fontSize: '0.85rem',
+    fontWeight: '600',
+    textAlign: 'center'
   }
 };

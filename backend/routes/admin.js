@@ -11,9 +11,8 @@ router.get('/rider-requests', authMiddleware, roleMiddleware(['admin']), async (
   try {
     console.log('📋 Admin fetching rider requests...');
     const [rows] = await db.query(`
-      SELECT rr.*, u.full_name, u.email, u.student_id, u.phone
+      SELECT rr.*
       FROM rider_requests rr
-      JOIN users u ON rr.user_id = u.id
       ORDER BY rr.created_at DESC
     `);
 
@@ -39,10 +38,7 @@ router.put('/rider-requests/:id', authMiddleware, roleMiddleware(['admin']), asy
 
     // Get request details
     const [requestRows] = await db.query(`
-      SELECT rr.*, u.full_name, u.email 
-      FROM rider_requests rr
-      JOIN users u ON rr.user_id = u.id
-      WHERE rr.id = ?
+      SELECT * FROM rider_requests WHERE id = ?
     `, [requestId]);
 
     if (!requestRows.length) {
@@ -51,32 +47,35 @@ router.put('/rider-requests/:id', authMiddleware, roleMiddleware(['admin']), asy
 
     const request = requestRows[0];
 
-    // Update request status - use only columns that exist
-    try {
-      await db.query(`
-        UPDATE rider_requests 
-        SET status = ?
-        WHERE id = ?
-      `, [status, requestId]);
-      
-      console.log(`✅ Updated rider request ${requestId} to ${status}`);
-      
-    } catch (updateErr) {
-      console.error('❌ Error updating rider request:', updateErr);
-      return res.status(500).json({ error: "Failed to update rider request" });
-    }
-
     if (status === 'approved') {
-      // Update user role to rider and activate account
+      // Check if user already exists
+      const [existingUser] = await db.query("SELECT id FROM users WHERE email = ?", [request.email]);
+      
+      if (existingUser.length > 0) {
+        return res.status(400).json({ 
+          error: "User with this email already exists. Cannot create duplicate account." 
+        });
+      }
+
+      // Create user account with rider role
       try {
-        await db.query(
-          "UPDATE users SET role = 'rider', is_active = TRUE WHERE id = ?",
-          [request.user_id]
+        const [userResult] = await db.query(
+          "INSERT INTO users (full_name, email, password, student_id, phone, role, is_active) VALUES (?, ?, ?, ?, ?, 'rider', TRUE)",
+          [request.full_name, request.email, request.password, request.student_id, request.phone]
         );
 
-        console.log(`✅ User ${request.user_id} (${request.full_name}) approved as rider`);
+        const newUserId = userResult.insertId;
+        console.log(`✅ User account created for rider: ${request.email} (ID: ${newUserId})`);
 
-        // Send approval email to rider
+        // Update rider request with user_id and status
+        await db.query(
+          "UPDATE rider_requests SET status = 'approved', user_id = ? WHERE id = ?",
+          [newUserId, requestId]
+        );
+
+        console.log(`✅ Rider request ${requestId} approved`);
+
+        // Send approval email
         try {
           await sendMail(
             'Rider Application Approved - Campus Cart',
@@ -86,22 +85,19 @@ router.put('/rider-requests/:id', authMiddleware, roleMiddleware(['admin']), asy
 
 🚚 You are now an official Campus Cart rider!
 
-🔑 What you can do now:
-• Login to your account at: http://localhost:3000/login
-• Switch to "Rider Mode" using the role switcher
-• Accept delivery requests from buyers and sellers
-• Earn money by completing deliveries
-• Build your rider rating and reputation
-
-📧 Your login credentials:
+🔑 Your Login Credentials:
 Email: ${request.email}
-(Use your existing password)
+Password: (the password you set during registration)
 
 🎯 Getting Started:
-1. Login to your account
-2. Click on "Rider Mode" in the dashboard
-3. View available delivery requests
-4. Accept deliveries and start earning!
+1. Login to your account at: http://localhost:3000/login
+2. Start accepting delivery requests
+3. Earn money by completing deliveries
+4. Build your rider rating and reputation
+
+📋 Your License Details:
+License Number: ${request.license_number}
+Expiry Date: ${request.extracted_expiry_date || 'See your license'}
 
 📞 Need help? Contact support or check the rider guidelines in your dashboard.
 
@@ -114,12 +110,30 @@ Campus Cart Team`
         } catch (emailErr) {
           console.log('⚠️ Rider email sending failed:', emailErr.message);
         }
-      } catch (userUpdateErr) {
-        console.error('❌ Error updating user role:', userUpdateErr);
-        return res.status(500).json({ error: "Failed to update user role" });
+
+        res.json({ 
+          message: `Rider request approved successfully. User account created.`,
+          userCreated: true,
+          userId: newUserId,
+          requestId: requestId,
+          userName: request.full_name
+        });
+
+      } catch (userCreateErr) {
+        console.error('❌ Error creating user account:', userCreateErr);
+        return res.status(500).json({ error: "Failed to create user account: " + userCreateErr.message });
       }
+
     } else {
-      // For rejected applications, send rejection email to rider
+      // Rejected - just update status, don't create user
+      await db.query(
+        "UPDATE rider_requests SET status = 'rejected' WHERE id = ?",
+        [requestId]
+      );
+
+      console.log(`❌ Rider request ${requestId} rejected`);
+
+      // Send rejection email
       try {
         await sendMail(
           'Rider Application Update - Campus Cart',
@@ -150,14 +164,15 @@ Campus Cart Team`
       } catch (emailErr) {
         console.log('⚠️ Rider email sending failed:', emailErr.message);
       }
+
+      res.json({ 
+        message: `Rider request rejected successfully`,
+        userCreated: false,
+        requestId: requestId,
+        userName: request.full_name
+      });
     }
 
-    res.json({ 
-      message: `Rider request ${status} successfully`,
-      userActivated: status === 'approved',
-      requestId: requestId,
-      userName: request.full_name
-    });
   } catch (err) {
     console.error('❌ Error processing rider request:', err);
     res.status(500).json({ error: "Failed to process rider request: " + err.message });
