@@ -8,6 +8,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import UnifiedDashboard from "./pages/UnifiedDashboard";
 import ProductDetail from "./pages/ProductDetail";
+import ProductDetailPage from "./pages/ProductDetailPage";
+import CheckoutPage from "./pages/CheckoutPage";
 import Profile from "./pages/Profile";
 import Messages from "./pages/Messages";
 import './App.css';
@@ -31,7 +33,13 @@ export default function App() {
             
             <Route path="/product/:id" element={
               <ProtectedRoute>
-                <ProductDetail />
+                <ProductDetailPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/checkout/:id" element={
+              <ProtectedRoute>
+                <CheckoutPage />
               </ProtectedRoute>
             } />
             

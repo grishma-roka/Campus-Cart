@@ -143,11 +143,8 @@ export default function BuyerDashboard() {
   };
 
   const handleBuyNow = (item) => {
-    handleAddToCart(item);
-    // Navigate to checkout or show checkout modal
-    setTimeout(() => {
-      setIsCartOpen(true);
-    }, 300);
+    // Navigate directly to checkout
+    navigate(`/checkout/${item.id}`);
   };
 
   const isItemInCart = (itemId) => {
@@ -155,17 +152,8 @@ export default function BuyerDashboard() {
   };
 
   const handleProductClick = async (product) => {
-    setSelectedProduct(product);
-    
-    // Fetch related products (same category, different item)
-    try {
-      const response = await axios.get(`/items?category=${product.category}&limit=5`);
-      const related = response.data.filter(item => item.id !== product.id).slice(0, 4);
-      setRelatedProducts(related);
-    } catch (error) {
-      console.error('Error fetching related products:', error);
-      setRelatedProducts([]);
-    }
+    // Navigate to product detail page
+    navigate(`/product/${product.id}`);
   };
 
   const handleModalAddToCart = (product, quantity) => {
