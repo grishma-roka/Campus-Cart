@@ -4,46 +4,64 @@ const db = require('../config/db');
 const auth = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/roleMiddleware');
 
-// CREATE ORDER
+// CREATE ORDER (BUY ITEM)
 router.post('/create', auth, async (req, res) => {
   try {
-    const { item_id, quantity, delivery_address } = req.body;
+    const { item_id, delivery_address } = req.body;
     const buyer_id = req.user.id;
 
-    // Get item details
+    // Get item details with lock to prevent race conditions
     const [itemRows] = await db.query(
-      "SELECT * FROM items WHERE id = ? AND is_available = TRUE",
+      "SELECT * FROM items WHERE id = ? AND is_available = TRUE AND is_sold = FALSE FOR UPDATE",
       [item_id]
     );
 
     if (!itemRows.length) {
-      return res.status(404).json({ error: "Item not available" });
+      return res.status(404).json({ error: "Item not available or already sold" });
     }
 
     const item = itemRows[0];
-    const total_amount = item.price * (quantity || 1);
+
+    // Check if buyer is trying to buy their own item
+    if (item.seller_id === buyer_id) {
+      return res.status(400).json({ error: "You cannot buy your own item" });
+    }
+
+    // Fixed quantity of 1
+    const quantity = 1;
+    const total_amount = item.price;
+
+    // Mark item as sold
+    await db.query(`
+      UPDATE items 
+      SET is_sold = TRUE, sold_at = CURRENT_TIMESTAMP, buyer_id = ?, is_available = FALSE
+      WHERE id = ?
+    `, [buyer_id, item_id]);
 
     // Create order
     const [result] = await db.query(`
-      INSERT INTO orders (buyer_id, seller_id, item_id, quantity, total_amount, delivery_address)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `, [buyer_id, item.seller_id, item_id, quantity || 1, total_amount, delivery_address]);
+      INSERT INTO orders (buyer_id, seller_id, item_id, quantity, total_amount, delivery_address, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'confirmed')
+    `, [buyer_id, item.seller_id, item_id, quantity, total_amount, delivery_address]);
 
     // Create delivery record
     await db.query(`
-      INSERT INTO deliveries (order_id, pickup_address, delivery_address)
-      VALUES (?, ?, ?)
+      INSERT INTO deliveries (order_id, pickup_address, delivery_address, status)
+      VALUES (?, ?, ?, 'pending')
     `, [result.insertId, 'Seller Location', delivery_address]);
 
+    console.log(`✅ Item ${item_id} sold to buyer ${buyer_id}`);
+
     res.json({ 
-      message: "Order created successfully", 
+      message: "Item purchased successfully!", 
       orderId: result.insertId,
-      total_amount
+      total_amount,
+      item_title: item.title
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to create order" });
+    console.error('❌ Purchase error:', err);
+    res.status(500).json({ error: "Failed to purchase item" });
   }
 });
 

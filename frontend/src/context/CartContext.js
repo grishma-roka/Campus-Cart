@@ -37,14 +37,10 @@ export const CartProvider = ({ children }) => {
       const existingItem = prevItems.find(i => i.id === item.id);
       
       if (existingItem) {
-        // Increment quantity
-        return prevItems.map(i =>
-          i.id === item.id
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
-        );
+        // Item already in cart, don't add again (fixed quantity of 1)
+        return prevItems;
       } else {
-        // Add new item with quantity 1
+        // Add new item with fixed quantity of 1
         return [...prevItems, { ...item, quantity: 1 }];
       }
     });
@@ -60,31 +56,16 @@ export const CartProvider = ({ children }) => {
     setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
   };
 
-  const updateQuantity = (itemId, quantity) => {
-    if (quantity <= 0) {
-      removeFromCart(itemId);
-      return;
-    }
-    
-    setCartItems(prevItems =>
-      prevItems.map(item =>
-        item.id === itemId
-          ? { ...item, quantity }
-          : item
-      )
-    );
-  };
-
   const clearCart = () => {
     setCartItems([]);
   };
 
   const getCartTotal = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+    return cartItems.reduce((total, item) => total + item.price, 0);
   };
 
   const getCartCount = () => {
-    return cartItems.reduce((count, item) => count + item.quantity, 0);
+    return cartItems.length;
   };
 
   const value = {
@@ -93,7 +74,6 @@ export const CartProvider = ({ children }) => {
     setIsCartOpen,
     addToCart,
     removeFromCart,
-    updateQuantity,
     clearCart,
     getCartTotal,
     getCartCount

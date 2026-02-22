@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
       FROM items i 
       JOIN users u ON i.seller_id = u.id 
       LEFT JOIN ratings r ON r.rated_user_id = u.id
-      WHERE i.is_available = TRUE
+      WHERE i.is_available = TRUE AND i.is_sold = FALSE
     `;
     const params = [];
 

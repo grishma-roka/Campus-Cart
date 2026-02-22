@@ -2,7 +2,7 @@ import React from 'react';
 import { useCart } from '../context/CartContext';
 
 export default function CartSidebar() {
-  const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, updateQuantity, getCartTotal, clearCart } = useCart();
+  const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, getCartTotal, clearCart } = useCart();
 
   if (!isCartOpen) return null;
 
@@ -49,23 +49,7 @@ export default function CartSidebar() {
                   <div style={styles.itemDetails}>
                     <h4 style={styles.itemTitle}>{item.title}</h4>
                     <p style={styles.itemPrice}>रू {item.price.toLocaleString()}</p>
-                    
-                    {/* Quantity Controls */}
-                    <div style={styles.quantityControls}>
-                      <button 
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        style={styles.quantityButton}
-                      >
-                        −
-                      </button>
-                      <span style={styles.quantity}>{item.quantity}</span>
-                      <button 
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        style={styles.quantityButton}
-                      >
-                        +
-                      </button>
-                    </div>
+                    <p style={styles.quantityText}>Quantity: 1</p>
                   </div>
                   
                   <button 
@@ -238,38 +222,12 @@ const styles = {
     fontWeight: '700',
     color: '#FF8C00'
   },
-  quantityControls: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '12px',
-    marginTop: '8px',
-    border: '2px solid #E0E0E0',
-    borderRadius: '50px',
-    padding: '4px 12px',
-    backgroundColor: '#fff',
-    width: 'fit-content'
-  },
-  quantityButton: {
-    width: '28px',
-    height: '28px',
-    border: 'none',
-    borderRadius: '50%',
-    background: 'none',
-    cursor: 'pointer',
-    fontSize: '18px',
-    fontWeight: '700',
-    color: '#FF8C00',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'background-color 0.2s ease'
-  },
-  quantity: {
-    fontSize: '15px',
-    fontWeight: '600',
-    color: '#000',
-    minWidth: '24px',
-    textAlign: 'center'
+  quantityText: {
+    margin: 0,
+    fontSize: '13px',
+    fontWeight: '500',
+    color: '#666',
+    marginTop: '4px'
   },
   removeButton: {
     position: 'absolute',

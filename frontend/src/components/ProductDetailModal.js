@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 
 const ProductDetailModal = ({ product, onClose, onAddToCart, relatedProducts }) => {
-  const [quantity, setQuantity] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
 
   const handleAddToCart = () => {
-    onAddToCart(product, quantity);
+    onAddToCart(product, 1); // Fixed quantity of 1
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
   };
 
   const handleBuyNow = () => {
-    onAddToCart(product, quantity);
+    onAddToCart(product, 1); // Fixed quantity of 1
     // Navigate to checkout
     window.location.href = '/checkout';
   };
+
+  // Check if item is sold
+  const isSold = product.is_sold || false;
 
   return (
     <div style={styles.overlay} onClick={onClose}>
@@ -31,6 +33,11 @@ const ProductDetailModal = ({ product, onClose, onAddToCart, relatedProducts }) 
               alt={product.title}
               style={styles.productImage}
             />
+            {isSold && (
+              <div style={styles.soldOverlay}>
+                <span style={styles.soldBadge}>SOLD</span>
+              </div>
+            )}
           </div>
 
           {/* Right Side - Details */}
@@ -39,38 +46,35 @@ const ProductDetailModal = ({ product, onClose, onAddToCart, relatedProducts }) 
             <h2 style={styles.title}>{product.title}</h2>
             <div style={styles.price}>रू{parseFloat(product.price).toFixed(2)}</div>
 
-            {/* Quantity Selector */}
-            <div style={styles.quantitySection}>
-              <label style={styles.label}>Quantity</label>
-              <div style={styles.quantitySelector}>
-                <button 
-                  style={styles.quantityBtn}
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                >
-                  −
-                </button>
-                <span style={styles.quantityValue}>{quantity}</span>
-                <button 
-                  style={styles.quantityBtn}
-                  onClick={() => setQuantity(quantity + 1)}
-                >
-                  +
-                </button>
-              </div>
+            {/* Availability Status */}
+            <div style={styles.statusSection}>
+              {isSold ? (
+                <span style={styles.soldStatusBadge}>❌ Sold Out</span>
+              ) : (
+                <span style={styles.availableStatusBadge}>✅ Available</span>
+              )}
             </div>
 
             {/* Action Buttons */}
-            <div style={styles.buttonGroup}>
-              <button 
-                style={{...styles.addToCartBtn, ...(addedToCart ? styles.addedBtn : {})}}
-                onClick={handleAddToCart}
-              >
-                {addedToCart ? '✓ Added to Cart' : 'Add to Cart'}
-              </button>
-              <button style={styles.buyNowBtn} onClick={handleBuyNow}>
-                Buy Now
-              </button>
-            </div>
+            {!isSold && (
+              <div style={styles.buttonGroup}>
+                <button 
+                  style={{...styles.addToCartBtn, ...(addedToCart ? styles.addedBtn : {})}}
+                  onClick={handleAddToCart}
+                >
+                  {addedToCart ? '✓ Added to Cart' : 'Add to Cart'}
+                </button>
+                <button style={styles.buyNowBtn} onClick={handleBuyNow}>
+                  Buy Now
+                </button>
+              </div>
+            )}
+
+            {isSold && (
+              <div style={styles.soldMessage}>
+                This item has been sold and is no longer available.
+              </div>
+            )}
 
             {/* Collapsible Sections */}
             <CollapsibleSection title="Product Info">
@@ -81,6 +85,7 @@ const ProductDetailModal = ({ product, onClose, onAddToCart, relatedProducts }) 
                 <li>Category: {product.category || 'General'}</li>
                 <li>Condition: {product.condition || 'Excellent'}</li>
                 <li>Seller: {product.seller_name || 'Campus Cart Seller'}</li>
+                <li>Quantity: 1 (Fixed)</li>
               </ul>
             </CollapsibleSection>
 
@@ -105,6 +110,9 @@ const ProductDetailModal = ({ product, onClose, onAddToCart, relatedProducts }) 
                     alt={item.title}
                     style={styles.relatedImage}
                   />
+                  {item.is_sold && (
+                    <div style={styles.relatedSoldBadge}>SOLD</div>
+                  )}
                   <div style={styles.relatedInfo}>
                     <div style={styles.relatedTitle}>{item.title}</div>
                     <div style={styles.relatedPrice}>रू{parseFloat(item.price).toFixed(2)}</div>
@@ -228,6 +236,62 @@ const styles = {
     fontWeight: '700',
     color: '#FF8C00',
     marginBottom: '10px',
+  },
+  statusSection: {
+    marginTop: '10px',
+    marginBottom: '20px',
+  },
+  availableStatusBadge: {
+    display: 'inline-block',
+    padding: '8px 16px',
+    backgroundColor: '#27ae60',
+    color: '#fff',
+    borderRadius: '20px',
+    fontSize: '14px',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
+  },
+  soldStatusBadge: {
+    display: 'inline-block',
+    padding: '8px 16px',
+    backgroundColor: '#e74c3c',
+    color: '#fff',
+    borderRadius: '20px',
+    fontSize: '14px',
+    fontWeight: '600',
+    fontFamily: 'Inter, sans-serif',
+  },
+  soldOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '24px',
+  },
+  soldBadge: {
+    fontSize: '48px',
+    fontWeight: '900',
+    color: '#fff',
+    textTransform: 'uppercase',
+    letterSpacing: '4px',
+    textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)',
+  },
+  soldMessage: {
+    padding: '16px',
+    backgroundColor: '#fff3cd',
+    border: '2px solid #ffc107',
+    borderRadius: '12px',
+    color: '#856404',
+    fontSize: '14px',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: '20px',
+    fontFamily: 'Inter, sans-serif',
   },
   quantitySection: {
     marginTop: '10px',
@@ -366,6 +430,19 @@ const styles = {
     width: '100%',
     height: '200px',
     objectFit: 'cover',
+    position: 'relative',
+  },
+  relatedSoldBadge: {
+    position: 'absolute',
+    top: '10px',
+    right: '10px',
+    backgroundColor: '#e74c3c',
+    color: '#fff',
+    padding: '4px 12px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   relatedInfo: {
     padding: '16px',

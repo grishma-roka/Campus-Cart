@@ -441,6 +441,8 @@ export default function BuyerDashboard() {
                 const imageUrl = images.length > 0 ? images[0] : 
                   `https://dummyimage.com/400x300/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 15))}`;
                 
+                const isSold = item.is_sold || false;
+                
                 return (
                   <div key={item.id} style={styles.productCard}>
                     <div 
@@ -452,6 +454,11 @@ export default function BuyerDashboard() {
                         alt={item.title}
                         style={styles.productImage}
                       />
+                      {isSold && (
+                        <div style={styles.soldOverlay}>
+                          <span style={styles.soldBadge}>SOLD</span>
+                        </div>
+                      )}
                     </div>
                     
                     <div style={styles.productInfo}>
@@ -465,33 +472,46 @@ export default function BuyerDashboard() {
                       
                       <div style={styles.productPricing}>
                         <span style={styles.priceAmount}>रू {item.price.toLocaleString()}</span>
+                        {isSold ? (
+                          <span style={styles.soldStatusBadge}>Sold</span>
+                        ) : (
+                          <span style={styles.availableStatusBadge}>Available</span>
+                        )}
                       </div>
                       
                       {/* Button Group */}
-                      <div style={styles.productButtonGroup}>
-                        <button 
-                          onClick={() => handleAddToCart(item)}
-                          style={{
-                            ...styles.addToCartButton,
-                            ...(addingToCart === item.id ? styles.flashingButton : {}),
-                            ...(isItemInCart(item.id) && addingToCart !== item.id ? styles.inCartButton : {})
-                          }}
-                          disabled={isItemInCart(item.id) && addingToCart !== item.id}
-                        >
-                          {addingToCart === item.id 
-                            ? '✓ Added!' 
-                            : isItemInCart(item.id) 
-                              ? '✓ In Cart' 
-                              : '🛒 Add to Cart'
-                          }
-                        </button>
-                        <button 
-                          onClick={() => handleBuyNow(item)}
-                          style={styles.buyNowButton}
-                        >
-                          Buy Now
-                        </button>
-                      </div>
+                      {!isSold && (
+                        <div style={styles.productButtonGroup}>
+                          <button 
+                            onClick={() => handleAddToCart(item)}
+                            style={{
+                              ...styles.addToCartButton,
+                              ...(addingToCart === item.id ? styles.flashingButton : {}),
+                              ...(isItemInCart(item.id) && addingToCart !== item.id ? styles.inCartButton : {})
+                            }}
+                            disabled={isItemInCart(item.id) && addingToCart !== item.id}
+                          >
+                            {addingToCart === item.id 
+                              ? '✓ Added!' 
+                              : isItemInCart(item.id) 
+                                ? '✓ In Cart' 
+                                : '🛒 Add to Cart'
+                            }
+                          </button>
+                          <button 
+                            onClick={() => handleBuyNow(item)}
+                            style={styles.buyNowButton}
+                          >
+                            Buy Now
+                          </button>
+                        </div>
+                      )}
+                      
+                      {isSold && (
+                        <div style={styles.soldMessage}>
+                          This item has been sold
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -1199,13 +1219,65 @@ const styles = {
   productPricing: {
     padding: '12px 0',
     borderTop: '1px solid rgba(0, 0, 0, 0.05)',
-    borderBottom: '1px solid rgba(0, 0, 0, 0.05)'
+    borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
   priceAmount: {
     fontSize: '20px',
     fontWeight: '700',
     color: '#F88000',
     lineHeight: '1'
+  },
+  availableStatusBadge: {
+    padding: '4px 12px',
+    backgroundColor: '#27ae60',
+    color: '#fff',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  soldStatusBadge: {
+    padding: '4px 12px',
+    backgroundColor: '#e74c3c',
+    color: '#fff',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  soldOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '24px',
+  },
+  soldBadge: {
+    fontSize: '32px',
+    fontWeight: '900',
+    color: '#fff',
+    textTransform: 'uppercase',
+    letterSpacing: '3px',
+    textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)',
+  },
+  soldMessage: {
+    padding: '12px',
+    backgroundColor: '#fff3cd',
+    border: '2px solid #ffc107',
+    borderRadius: '12px',
+    color: '#856404',
+    fontSize: '13px',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: '8px',
   },
 
   // Product Actions
