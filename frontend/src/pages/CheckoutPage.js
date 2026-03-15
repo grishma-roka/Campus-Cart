@@ -23,6 +23,7 @@ export default function CheckoutPage() {
   });
   
   const [errors, setErrors] = useState({});
+  const [deliveryCoords, setDeliveryCoords] = useState({ lat: null, lng: null });
 
   useEffect(() => {
     if (!user) {
@@ -30,6 +31,13 @@ export default function CheckoutPage() {
       return;
     }
     fetchItemDetails();
+    // Capture buyer's current location for delivery proximity
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setDeliveryCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {} // silently fail — coords are optional
+      );
+    }
   }, [id, user]);
 
   useEffect(() => {
@@ -123,6 +131,8 @@ export default function CheckoutPage() {
       const orderData = {
         item_id: parseInt(id),
         delivery_address: formData.deliveryLocation,
+        delivery_lat: deliveryCoords.lat,
+        delivery_lng: deliveryCoords.lng,
         phone: formData.phone,
         payment_method: formData.paymentMethod,
         notes: formData.notes,

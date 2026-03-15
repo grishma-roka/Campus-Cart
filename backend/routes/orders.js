@@ -7,7 +7,7 @@ const requireRole = require('../middlewares/roleMiddleware');
 // CREATE ORDER (BUY ITEM)
 router.post('/create', auth, async (req, res) => {
   try {
-    const { item_id, delivery_address } = req.body;
+    const { item_id, delivery_address, delivery_lat, delivery_lng, payment_method, phone, notes } = req.body;
     const buyer_id = req.user.id;
 
     // Get item details with lock to prevent race conditions
@@ -22,14 +22,12 @@ router.post('/create', auth, async (req, res) => {
 
     const item = itemRows[0];
 
-    // Check if buyer is trying to buy their own item
     if (item.seller_id === buyer_id) {
       return res.status(400).json({ error: "You cannot buy your own item" });
     }
 
-    // Fixed quantity of 1
-    const quantity = 1;
     const total_amount = item.price;
+    const pm = payment_method || 'cod';
 
     // Mark item as sold
     await db.query(`
@@ -38,17 +36,19 @@ router.post('/create', auth, async (req, res) => {
       WHERE id = ?
     `, [buyer_id, item_id]);
 
-    // Create order
+    // Create order — store coords + payment method
     const [result] = await db.query(`
-      INSERT INTO orders (buyer_id, seller_id, item_id, quantity, total_amount, delivery_address, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'confirmed')
-    `, [buyer_id, item.seller_id, item_id, quantity, total_amount, delivery_address]);
+      INSERT INTO orders (buyer_id, seller_id, item_id, quantity, total_amount, delivery_address,
+                          delivery_lat, delivery_lng, payment_method, phone, status)
+      VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 'confirmed')
+    `, [buyer_id, item.seller_id, item_id, total_amount, delivery_address,
+        delivery_lat || null, delivery_lng || null, pm, phone || null]);
 
-    // Create delivery record
+    // Create delivery record with coords
     await db.query(`
-      INSERT INTO deliveries (order_id, pickup_address, delivery_address, status)
-      VALUES (?, ?, ?, 'pending')
-    `, [result.insertId, 'Seller Location', delivery_address]);
+      INSERT INTO deliveries (order_id, pickup_address, delivery_address, delivery_lat, delivery_lng, status)
+      VALUES (?, 'Seller Location', ?, ?, ?, 'pending')
+    `, [result.insertId, delivery_address, delivery_lat || null, delivery_lng || null]);
 
     console.log(`✅ Item ${item_id} sold to buyer ${buyer_id}`);
 

@@ -70,7 +70,7 @@ router.get("/stats", auth, requireRole(['rider']), async (req, res) => {
         COUNT(*) as total_deliveries,
         COUNT(CASE WHEN status = 'delivered' THEN 1 END) as completed_deliveries,
         COUNT(CASE WHEN status IN ('assigned', 'picked_up') THEN 1 END) as active_deliveries,
-        SUM(delivery_fee) as total_earnings
+        SUM(CASE WHEN status = 'delivered' THEN delivery_fee ELSE 0 END) as total_earnings
       FROM deliveries 
       WHERE rider_id = ?
     `, [req.user.id]);
@@ -88,6 +88,55 @@ router.get("/stats", auth, requireRole(['rider']), async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error fetching rider stats" });
+  }
+});
+
+// GET RIDER INCOME BREAKDOWN
+router.get("/income", auth, requireRole(['rider']), async (req, res) => {
+  try {
+    const riderId = req.user.id;
+
+    // Period summaries
+    const [periods] = await db.query(`
+      SELECT
+        SUM(CASE WHEN DATE(delivery_time) = CURDATE() THEN delivery_fee ELSE 0 END)                          AS today,
+        SUM(CASE WHEN delivery_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN delivery_fee ELSE 0 END)     AS this_week,
+        SUM(CASE WHEN MONTH(delivery_time) = MONTH(CURDATE()) AND YEAR(delivery_time) = YEAR(CURDATE()) THEN delivery_fee ELSE 0 END) AS this_month,
+        SUM(delivery_fee)                                                                                     AS all_time,
+        COUNT(*)                                                                                              AS total_completed
+      FROM deliveries
+      WHERE rider_id = ? AND status = 'delivered'
+    `, [riderId]);
+
+    // Per-delivery history (last 30)
+    const [history] = await db.query(`
+      SELECT d.id, d.delivery_fee, d.delivery_time, d.delivery_address,
+             i.title AS item_title,
+             ub.full_name AS buyer_name,
+             o.payment_method
+      FROM deliveries d
+      JOIN orders o ON d.order_id = o.id
+      JOIN items i ON o.item_id = i.id
+      JOIN users ub ON o.buyer_id = ub.id
+      WHERE d.rider_id = ? AND d.status = 'delivered'
+      ORDER BY d.delivery_time DESC
+      LIMIT 30
+    `, [riderId]);
+
+    // Daily earnings for the last 7 days (for mini chart)
+    const [daily] = await db.query(`
+      SELECT DATE(delivery_time) AS day, SUM(delivery_fee) AS earned
+      FROM deliveries
+      WHERE rider_id = ? AND status = 'delivered'
+        AND delivery_time >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      GROUP BY DATE(delivery_time)
+      ORDER BY day ASC
+    `, [riderId]);
+
+    res.json({ periods: periods[0], history, daily });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error fetching income data" });
   }
 });
 

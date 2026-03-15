@@ -4,6 +4,71 @@ const db = require('../config/db');
 const auth = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/roleMiddleware');
 
+// ADVANCED SEARCH ENDPOINT
+router.get('/search', async (req, res) => {
+  try {
+    const { keyword, category, minPrice, maxPrice, condition, availability, sort } = req.query;
+
+    let query = `
+      SELECT i.*, u.full_name as seller_name,
+             COALESCE(AVG(r.rating), 0) as seller_rating
+      FROM items i
+      JOIN users u ON i.seller_id = u.id
+      LEFT JOIN ratings r ON r.rated_user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    // Availability filter (default: only available)
+    if (availability === 'sold') {
+      query += ' AND i.is_sold = TRUE';
+    } else {
+      query += ' AND i.is_sold = FALSE AND i.is_available = TRUE';
+    }
+
+    if (keyword) {
+      query += ' AND (i.title LIKE ? OR i.description LIKE ? OR i.category LIKE ? OR u.full_name LIKE ?)';
+      const kw = `%${keyword}%`;
+      params.push(kw, kw, kw, kw);
+    }
+
+    if (category) {
+      query += ' AND i.category = ?';
+      params.push(category);
+    }
+
+    if (minPrice) {
+      query += ' AND i.price >= ?';
+      params.push(parseFloat(minPrice));
+    }
+
+    if (maxPrice) {
+      query += ' AND i.price <= ?';
+      params.push(parseFloat(maxPrice));
+    }
+
+    if (condition) {
+      query += ' AND i.condition_status = ?';
+      params.push(condition);
+    }
+
+    query += ' GROUP BY i.id';
+
+    switch (sort) {
+      case 'price_low':  query += ' ORDER BY i.price ASC'; break;
+      case 'price_high': query += ' ORDER BY i.price DESC'; break;
+      case 'oldest':     query += ' ORDER BY i.created_at ASC'; break;
+      default:           query += ' ORDER BY i.created_at DESC';
+    }
+
+    const [rows] = await db.query(query, params);
+    res.json({ results: rows, count: rows.length });
+  } catch (err) {
+    console.error('Search error:', err);
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 // ADD ITEM (seller only)
 router.post('/add', auth, requireRole(['seller']), async (req, res) => {
   try {
