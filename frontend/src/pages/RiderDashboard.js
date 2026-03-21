@@ -13,13 +13,22 @@ export default function RiderDashboard() {
   const [activeTab, setActiveTab] = useState('available');
   const [showRiderRequest, setShowRiderRequest] = useState(false);
   const [riderRequest, setRiderRequest] = useState({ license_number: '', license_image: '' });
-  const [locationStatus, setLocationStatus] = useState('idle');
+  const [locationStatus, setLocationStatus] = useState('idle'); // idle|locating|ok|error
+  const [locationPermission, setLocationPermission] = useState('pending'); // pending|granted|denied
   const [riderAvailability, setRiderAvailability] = useState('available');
   const [accepting, setAccepting] = useState(null);
 
+  const setOffline = useCallback(async () => {
+    try {
+      await axios.put('/delivery/location', { rider_availability: 'offline' });
+    } catch { /* best-effort */ }
+  }, []);
+
   const updateLocation = useCallback(async (availability = riderAvailability) => {
     if (!navigator.geolocation) {
+      setLocationPermission('denied');
       setLocationStatus('error');
+      setOffline();
       return;
     }
     setLocationStatus('locating');
@@ -31,15 +40,20 @@ export default function RiderDashboard() {
             longitude: pos.coords.longitude,
             rider_availability: availability,
           });
+          setLocationPermission('granted');
           setLocationStatus('ok');
         } catch {
           setLocationStatus('error');
         }
       },
-      () => setLocationStatus('error'),
+      async () => {
+        setLocationPermission('denied');
+        setLocationStatus('error');
+        await setOffline();
+      },
       { timeout: 8000 }
     );
-  }, [riderAvailability]);
+  }, [riderAvailability, setOffline]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -53,7 +67,13 @@ export default function RiderDashboard() {
           axios.get('/rider/stats'),
           axios.get('/rider/income'),
         ]);
-        setAvailableDeliveries(availableRes.data);
+        // Backend returns { locationRequired: true, deliveries: [] } when offline/no-location
+        const availData = availableRes.data;
+        if (Array.isArray(availData)) {
+          setAvailableDeliveries(availData);
+        } else {
+          setAvailableDeliveries(availData.deliveries || []);
+        }
         setMyDeliveries(myDeliveriesRes.data);
         setStats(statsRes.data);
         setIncome(incomeRes.data);
@@ -72,10 +92,26 @@ export default function RiderDashboard() {
   // Auto-update location on mount for approved riders, then poll deliveries every 15s
   useEffect(() => {
     if (user?.role !== 'rider') return;
-    updateLocation();
+
+    // Check existing permission state first, then request
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+        if (result.state === 'denied') {
+          setLocationPermission('denied');
+          setLocationStatus('error');
+          setOffline();
+        } else {
+          // 'granted' or 'prompt' — try to get position
+          updateLocation();
+        }
+      }).catch(() => updateLocation()); // fallback if permissions API unavailable
+    } else {
+      updateLocation();
+    }
+
     const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
-  }, [user, updateLocation, fetchData]);
+  }, [user, updateLocation, fetchData, setOffline]);
 
   const handleAvailabilityChange = async (val) => {
     setRiderAvailability(val);
@@ -225,8 +261,8 @@ export default function RiderDashboard() {
             <option value="offline">🔴 Offline</option>
           </select>
           <button onClick={() => updateLocation()} style={s.locationBtn} title="Refresh location">
-            {locationStatus === 'locating' ? '⏳' : locationStatus === 'ok' ? '📍' : locationStatus === 'error' ? '⚠️' : '📍'}
-            {locationStatus === 'ok' ? ' Location updated' : locationStatus === 'error' ? ' Location failed' : ' Update location'}
+            {locationStatus === 'locating' ? '⏳' : locationPermission === 'denied' ? '🚫' : locationStatus === 'ok' ? '📍' : '⚠️'}
+            {locationPermission === 'denied' ? ' Location denied' : locationStatus === 'ok' ? ' Location updated' : locationStatus === 'error' ? ' Location failed' : ' Update location'}
           </button>
         </div>
       </div>
@@ -266,7 +302,26 @@ export default function RiderDashboard() {
       {/* Available Deliveries */}
       {activeTab === 'available' && (
         <div>
-          {availableDeliveries.length === 0 ? (
+          {locationPermission === 'denied' ? (
+            <div style={s.locationBanner}>
+              <div style={s.locationBannerIcon}>📍</div>
+              <div style={s.locationBannerTitle}>Location access required</div>
+              <p style={s.locationBannerText}>
+                Enable location to receive delivery requests. Without it, you won't appear to buyers.
+              </p>
+              <button
+                onClick={() => updateLocation()}
+                style={s.primaryBtn}
+              >
+                Enable Location
+              </button>
+            </div>
+          ) : locationPermission === 'pending' ? (
+            <div style={s.emptyState}>
+              <div style={s.emptyIcon}>📍</div>
+              <p>Requesting your location...</p>
+            </div>
+          ) : availableDeliveries.length === 0 ? (
             <div style={s.emptyState}>
               <div style={s.emptyIcon}>📭</div>
               <p>No deliveries available near you right now.</p>
@@ -569,4 +624,10 @@ const s = {
   historyTitle: { fontSize: '14px', fontWeight: '600', color: '#000', marginBottom: '4px' },
   historyMeta: { fontSize: '12px', color: '#64748b', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   historyFee: { fontSize: '16px', fontWeight: '700', color: '#10b981', marginLeft: '16px', flexShrink: 0 },
+
+  // Location banner
+  locationBanner: { background: '#fff', borderRadius: '16px', padding: '48px 32px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', maxWidth: '480px', margin: '0 auto' },
+  locationBannerIcon: { fontSize: '56px', marginBottom: '16px' },
+  locationBannerTitle: { fontSize: '20px', fontWeight: '700', color: '#000', marginBottom: '8px' },
+  locationBannerText: { color: '#64748b', fontSize: '14px', marginBottom: '24px', lineHeight: '1.6' },
 };

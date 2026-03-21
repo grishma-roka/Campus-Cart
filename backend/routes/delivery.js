@@ -21,13 +21,24 @@ function haversine(lat1, lng1, lat2, lng2) {
 router.put('/location', auth, requireRole(['rider']), async (req, res) => {
   try {
     const { latitude, longitude, rider_availability } = req.body;
-    if (latitude == null || longitude == null) {
+    const availability = rider_availability || 'available';
+
+    // Allow null coords when going offline
+    if (availability !== 'offline' && (latitude == null || longitude == null)) {
       return res.status(400).json({ error: 'latitude and longitude are required' });
     }
-    await db.query(
-      `UPDATE users SET latitude = ?, longitude = ?, rider_availability = ? WHERE id = ?`,
-      [latitude, longitude, rider_availability || 'available', req.user.id]
-    );
+
+    if (availability === 'offline' || latitude == null) {
+      await db.query(
+        `UPDATE users SET rider_availability = 'offline' WHERE id = ?`,
+        [req.user.id]
+      );
+    } else {
+      await db.query(
+        `UPDATE users SET latitude = ?, longitude = ?, rider_availability = ? WHERE id = ?`,
+        [latitude, longitude, availability, req.user.id]
+      );
+    }
     res.json({ message: 'Location updated' });
   } catch (err) {
     console.error(err);
@@ -45,6 +56,11 @@ router.get('/available', auth, requireRole(['rider']), async (req, res) => {
     );
     const rider = riderRows[0];
 
+    // Block offline riders or riders with no location
+    if (!rider || rider.rider_availability === 'offline' || rider.latitude == null || rider.longitude == null) {
+      return res.json({ locationRequired: true, deliveries: [] });
+    }
+
     const [rows] = await db.query(`
       SELECT d.*, o.total_amount, o.delivery_address, o.payment_method,
              o.delivery_lat, o.delivery_lng,
@@ -58,8 +74,8 @@ router.get('/available', auth, requireRole(['rider']), async (req, res) => {
       ORDER BY d.created_at ASC
     `);
 
-    const riderLat = parseFloat(rider?.latitude);
-    const riderLng = parseFloat(rider?.longitude);
+    const riderLat = parseFloat(rider.latitude);
+    const riderLng = parseFloat(rider.longitude);
     const hasLocation = !isNaN(riderLat) && !isNaN(riderLng);
 
     // Attach distance to each delivery
