@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
+import LiveMap from '../components/LiveMap';
 
 export default function RiderDashboard() {
   const { user } = useAuth();
@@ -13,47 +14,80 @@ export default function RiderDashboard() {
   const [activeTab, setActiveTab] = useState('available');
   const [showRiderRequest, setShowRiderRequest] = useState(false);
   const [riderRequest, setRiderRequest] = useState({ license_number: '', license_image: '' });
-  const [locationStatus, setLocationStatus] = useState('idle'); // idle|locating|ok|error
+
+  // Location state
   const [locationPermission, setLocationPermission] = useState('pending'); // pending|granted|denied
+  const [coords, setCoords] = useState(null);       // { lat, lng }
+  const [address, setAddress] = useState('');
   const [riderAvailability, setRiderAvailability] = useState('available');
   const [accepting, setAccepting] = useState(null);
 
-  const setOffline = useCallback(async () => {
+  const watchIdRef = useRef(null);
+  const lastSentRef = useRef(0); // throttle backend updates
+
+  // Reverse geocode using Nominatim (free, no key)
+  const reverseGeocode = useCallback(async (lat, lng) => {
     try {
-      await axios.put('/delivery/location', { rider_availability: 'offline' });
-    } catch { /* best-effort */ }
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+        { headers: { 'Accept-Language': 'en' } }
+      );
+      const data = await res.json();
+      setAddress(data.display_name?.split(',').slice(0, 3).join(', ') || '');
+    } catch { /* silent */ }
   }, []);
 
-  const updateLocation = useCallback(async (availability = riderAvailability) => {
+  // Send location to backend (throttled to once every 5s)
+  const sendLocation = useCallback(async (lat, lng, availability) => {
+    const now = Date.now();
+    if (now - lastSentRef.current < 5000) return;
+    lastSentRef.current = now;
+    try {
+      await axios.put('/delivery/location', {
+        latitude: lat,
+        longitude: lng,
+        rider_availability: availability,
+      });
+    } catch { /* silent */ }
+  }, []);
+
+  const setOffline = useCallback(async () => {
+    try { await axios.put('/delivery/location', { rider_availability: 'offline' }); } catch { /* best-effort */ }
+  }, []);
+
+  // Start watchPosition — called once on mount (or on retry)
+  const startTracking = useCallback((availability = 'available') => {
     if (!navigator.geolocation) {
       setLocationPermission('denied');
-      setLocationStatus('error');
       setOffline();
       return;
     }
-    setLocationStatus('locating');
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          await axios.put('/delivery/location', {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            rider_availability: availability,
-          });
-          setLocationPermission('granted');
-          setLocationStatus('ok');
-        } catch {
-          setLocationStatus('error');
-        }
+    if (watchIdRef.current != null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+    }
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setCoords({ lat, lng });
+        setLocationPermission('granted');
+        reverseGeocode(lat, lng);
+        sendLocation(lat, lng, availability);
       },
-      async () => {
+      () => {
         setLocationPermission('denied');
-        setLocationStatus('error');
-        await setOffline();
+        setOffline();
       },
-      { timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
     );
-  }, [riderAvailability, setOffline]);
+  }, [reverseGeocode, sendLocation, setOffline]);
+
+  const stopTracking = useCallback(() => {
+    if (watchIdRef.current != null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setOffline();
+  }, [setOffline]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -67,13 +101,8 @@ export default function RiderDashboard() {
           axios.get('/rider/stats'),
           axios.get('/rider/income'),
         ]);
-        // Backend returns { locationRequired: true, deliveries: [] } when offline/no-location
         const availData = availableRes.data;
-        if (Array.isArray(availData)) {
-          setAvailableDeliveries(availData);
-        } else {
-          setAvailableDeliveries(availData.deliveries || []);
-        }
+        setAvailableDeliveries(Array.isArray(availData) ? availData : (availData.deliveries || []));
         setMyDeliveries(myDeliveriesRes.data);
         setStats(statsRes.data);
         setIncome(incomeRes.data);
@@ -85,37 +114,46 @@ export default function RiderDashboard() {
     }
   }, [user]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Auto-update location on mount for approved riders, then poll deliveries every 15s
+  // On mount: check permission then start tracking
   useEffect(() => {
     if (user?.role !== 'rider') return;
 
-    // Check existing permission state first, then request
+    const init = () => startTracking(riderAvailability);
+
     if (navigator.permissions) {
       navigator.permissions.query({ name: 'geolocation' }).then((result) => {
         if (result.state === 'denied') {
           setLocationPermission('denied');
-          setLocationStatus('error');
           setOffline();
         } else {
-          // 'granted' or 'prompt' — try to get position
-          updateLocation();
+          init();
         }
-      }).catch(() => updateLocation()); // fallback if permissions API unavailable
+        // Listen for permission changes
+        result.onchange = () => {
+          if (result.state === 'denied') { setLocationPermission('denied'); stopTracking(); }
+          else { init(); }
+        };
+      }).catch(init);
     } else {
-      updateLocation();
+      init();
     }
 
     const interval = setInterval(fetchData, 15000);
-    return () => clearInterval(interval);
-  }, [user, updateLocation, fetchData, setOffline]);
+    return () => {
+      clearInterval(interval);
+      if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current);
+    };
+  }, [user]); // eslint-disable-line
 
   const handleAvailabilityChange = async (val) => {
     setRiderAvailability(val);
-    await updateLocation(val);
+    if (val === 'offline') {
+      stopTracking();
+    } else {
+      startTracking(val);
+    }
   };
 
   const handleRiderRequest = async (e) => {
@@ -249,7 +287,7 @@ export default function RiderDashboard() {
           <p style={s.pageSubtitle}>Welcome, {user?.full_name}</p>
         </div>
 
-        {/* Availability + Location */}
+        {/* Availability */}
         <div style={s.locationBar}>
           <select
             value={riderAvailability}
@@ -260,12 +298,17 @@ export default function RiderDashboard() {
             <option value="busy">🟡 Busy</option>
             <option value="offline">🔴 Offline</option>
           </select>
-          <button onClick={() => updateLocation()} style={s.locationBtn} title="Refresh location">
-            {locationStatus === 'locating' ? '⏳' : locationPermission === 'denied' ? '🚫' : locationStatus === 'ok' ? '📍' : '⚠️'}
-            {locationPermission === 'denied' ? ' Location denied' : locationStatus === 'ok' ? ' Location updated' : locationStatus === 'error' ? ' Location failed' : ' Update location'}
-          </button>
         </div>
       </div>
+
+      {/* Live Location Panel */}
+      <LocationPanel
+        locationPermission={locationPermission}
+        coords={coords}
+        address={address}
+        riderAvailability={riderAvailability}
+        onRetry={() => startTracking(riderAvailability)}
+      />
 
       {/* Stats */}
       {stats && (
@@ -304,15 +347,12 @@ export default function RiderDashboard() {
         <div>
           {locationPermission === 'denied' ? (
             <div style={s.locationBanner}>
-              <div style={s.locationBannerIcon}>📍</div>
-              <div style={s.locationBannerTitle}>Location access required</div>
+              <div style={s.locationBannerIcon}>🚫</div>
+              <div style={s.locationBannerTitle}>Location Off — Enable location to receive delivery requests</div>
               <p style={s.locationBannerText}>
-                Enable location to receive delivery requests. Without it, you won't appear to buyers.
+                Without location access, you won't appear to buyers and won't receive any orders.
               </p>
-              <button
-                onClick={() => updateLocation()}
-                style={s.primaryBtn}
-              >
+              <button onClick={() => startTracking(riderAvailability)} style={s.primaryBtn}>
                 Enable Location
               </button>
             </div>
@@ -362,6 +402,75 @@ export default function RiderDashboard() {
 
       {/* Income */}
       {activeTab === 'income' && <IncomePanel income={income} />}
+    </div>
+  );
+}
+
+// ─── Location Panel ────────────────────────────────────────────────────────────
+function LocationPanel({ locationPermission, coords, address, riderAvailability, onRetry }) {
+  const isActive = locationPermission === 'granted' && riderAvailability !== 'offline';
+
+  return (
+    <div style={s.locationPanel}>
+      {/* Status row */}
+      <div style={s.locationStatusRow}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ ...s.locationDot, backgroundColor: isActive ? '#10b981' : '#ef4444', boxShadow: isActive ? '0 0 0 4px rgba(16,185,129,0.2)' : 'none' }} />
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: isActive ? '#10b981' : '#ef4444' }}>
+              {isActive ? 'Location Active' : locationPermission === 'denied' ? 'Location Off' : 'Location Off (Offline)'}
+            </div>
+            {isActive && (
+              <div style={{ fontSize: '12px', color: '#10b981', marginTop: '2px' }}>
+                📡 Receiving Orders Nearby
+              </div>
+            )}
+            {locationPermission === 'denied' && (
+              <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '2px' }}>
+                Enable location to receive delivery requests
+              </div>
+            )}
+          </div>
+        </div>
+        {locationPermission === 'denied' && (
+          <button onClick={onRetry} style={{ ...s.primaryBtn, padding: '8px 16px', fontSize: '13px' }}>
+            Enable Location
+          </button>
+        )}
+      </div>
+
+      {/* Map + coords */}
+      {isActive && coords ? (
+        <>
+          <div style={{ marginBottom: '12px' }}>
+            <LiveMap lat={coords.lat} lng={coords.lng} address={address} />
+          </div>
+          <div style={s.coordsRow}>
+            <div style={s.coordItem}>
+              <span style={s.coordLabel}>Latitude</span>
+              <span style={s.coordValue}>{coords.lat.toFixed(6)}</span>
+            </div>
+            <div style={s.coordDivider} />
+            <div style={s.coordItem}>
+              <span style={s.coordLabel}>Longitude</span>
+              <span style={s.coordValue}>{coords.lng.toFixed(6)}</span>
+            </div>
+            {address && (
+              <>
+                <div style={s.coordDivider} />
+                <div style={{ ...s.coordItem, flex: 2 }}>
+                  <span style={s.coordLabel}>Location</span>
+                  <span style={{ ...s.coordValue, fontSize: '12px' }}>{address}</span>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      ) : locationPermission === 'pending' ? (
+        <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '14px' }}>
+          ⏳ Requesting location...
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -630,4 +739,14 @@ const s = {
   locationBannerIcon: { fontSize: '56px', marginBottom: '16px' },
   locationBannerTitle: { fontSize: '20px', fontWeight: '700', color: '#000', marginBottom: '8px' },
   locationBannerText: { color: '#64748b', fontSize: '14px', marginBottom: '24px', lineHeight: '1.6' },
+
+  // Location panel
+  locationPanel: { background: '#fff', borderRadius: '16px', padding: '20px', marginBottom: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' },
+  locationStatusRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' },
+  locationDot: { width: '14px', height: '14px', borderRadius: '50%', flexShrink: 0, transition: 'background 0.3s' },
+  coordsRow: { display: 'flex', alignItems: 'center', gap: '0', background: '#f8fafc', borderRadius: '12px', padding: '12px 16px', flexWrap: 'wrap', gap: '8px' },
+  coordItem: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: '120px' },
+  coordLabel: { fontSize: '11px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  coordValue: { fontSize: '14px', fontWeight: '700', color: '#000', fontFamily: 'monospace' },
+  coordDivider: { width: '1px', height: '36px', background: '#e2e8f0', flexShrink: 0 },
 };
