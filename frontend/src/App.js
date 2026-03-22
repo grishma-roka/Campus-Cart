@@ -12,6 +12,7 @@ import ProductDetailPage from "./pages/ProductDetailPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import Profile from "./pages/Profile";
 import Messages from "./pages/Messages";
+import BorrowPage from "./pages/BorrowPage";
 import './App.css';
 
 export default function App() {
@@ -52,6 +53,12 @@ export default function App() {
             <Route path="/messages" element={
               <ProtectedRoute>
                 <Messages />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/borrow" element={
+              <ProtectedRoute>
+                <BorrowPage />
               </ProtectedRoute>
             } />
             

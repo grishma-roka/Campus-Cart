@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function SellerDashboard() {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [orders, setOrders] = useState([]);
   const [borrowRequests, setBorrowRequests] = useState([]);
@@ -204,6 +205,12 @@ export default function SellerDashboard() {
           onClick={() => setActiveTab('borrows')}
         >
           Borrow Requests ({borrowRequests.length})
+        </button>
+        <button
+          onClick={() => navigate('/borrow')}
+          style={{ ...styles.tab, background: '#F88000', color: '#fff', border: 'none', fontWeight: '700' }}
+        >
+          🤝 Borrow Page
         </button>
       </div>
 

@@ -4,6 +4,71 @@ const db = require('../config/db');
 const auth = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/roleMiddleware');
 
+// ─── BORROW ITEMS ──────────────────────────────────────────────────────────────
+
+// GET all borrowable items (public-ish, just needs auth)
+router.get('/items', auth, async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT i.id, i.title, i.description, i.images, i.borrow_price_per_day as deposit,
+             i.max_borrow_days as duration, i.is_available, i.seller_id,
+             u.full_name as owner_name, u.phone as owner_phone
+      FROM items i
+      JOIN users u ON i.seller_id = u.id
+      WHERE i.is_borrowable = TRUE
+      ORDER BY i.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch borrow items' });
+  }
+});
+
+// ADD borrow item (seller only)
+router.post('/items', auth, requireRole(['seller']), async (req, res) => {
+  try {
+    const { title, description, image, duration, deposit, location, is_available } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+
+    const [result] = await db.query(`
+      INSERT INTO items (seller_id, title, description, price, category, images,
+                         is_borrowable, borrow_price_per_day, max_borrow_days, is_available)
+      VALUES (?, ?, ?, 0, 'Borrow', ?, TRUE, ?, ?, ?)
+    `, [
+      req.user.id,
+      title,
+      description || '',
+      image ? JSON.stringify([image]) : JSON.stringify([]),
+      parseFloat(deposit) || 0,
+      parseInt(duration) || 7,
+      is_available !== false ? 1 : 0,
+    ]);
+
+    res.json({ message: 'Borrow item added', id: result.insertId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to add borrow item' });
+  }
+});
+
+// DELETE borrow item (seller, own items only)
+router.delete('/items/:id', auth, requireRole(['seller']), async (req, res) => {
+  try {
+    const [result] = await db.query(
+      'DELETE FROM items WHERE id = ? AND seller_id = ? AND is_borrowable = TRUE',
+      [req.params.id, req.user.id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Item not found' });
+    res.json({ message: 'Item deleted' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete item' });
+  }
+});
+
+// ─── BORROW REQUESTS ───────────────────────────────────────────────────────────
+
 // CREATE BORROW REQUEST
 router.post('/request', auth, async (req, res) => {
   try {
@@ -105,29 +170,30 @@ router.put('/respond/:id', auth, requireRole(['seller']), async (req, res) => {
     const { status, admin_notes } = req.body; // status: 'approved' or 'rejected'
     const requestId = req.params.id;
 
-    if (!['approved', 'rejected'].includes(status)) {
+    if (!['approved', 'rejected', 'accepted'].includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
     }
+    const normalizedStatus = status === 'accepted' ? 'approved' : status;
 
     const [result] = await db.query(`
       UPDATE borrow_requests 
       SET status = ?, admin_notes = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND seller_id = ?
-    `, [status, admin_notes, requestId, req.user.id]);
+    `, [normalizedStatus, admin_notes, requestId, req.user.id]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Borrow request not found" });
     }
 
     // If approved, mark item as temporarily unavailable
-    if (status === 'approved') {
+    if (normalizedStatus === 'approved') {
       const [requestData] = await db.query("SELECT item_id FROM borrow_requests WHERE id = ?", [requestId]);
       if (requestData.length > 0) {
         await db.query("UPDATE items SET is_available = FALSE WHERE id = ?", [requestData[0].item_id]);
       }
     }
 
-    res.json({ message: `Borrow request ${status} successfully` });
+    res.json({ message: `Borrow request ${normalizedStatus} successfully` });
 
   } catch (err) {
     console.error(err);

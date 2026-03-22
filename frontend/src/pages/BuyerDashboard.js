@@ -361,6 +361,25 @@ export default function BuyerDashboard() {
               <option value="5000-above">रू 5,000+</option>
             </select>
           </div>
+
+          {/* Borrow Instead of Buy */}
+          <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+            <button
+              onClick={() => navigate('/borrow')}
+              style={{
+                width: '100%', padding: '14px 16px', background: 'linear-gradient(135deg, #F88000, #ff9f2e)',
+                color: '#fff', border: 'none', borderRadius: '14px', cursor: 'pointer',
+                fontSize: '14px', fontWeight: '700', fontFamily: 'Inter, sans-serif',
+                display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(248,128,0,0.3)',
+              }}
+            >
+              🤝 Borrow Instead of Buy
+            </button>
+            <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', marginTop: '8px' }}>
+              Borrow items temporarily from students
+            </p>
+          </div>
         </div>
 
         {/* Main Content */}
