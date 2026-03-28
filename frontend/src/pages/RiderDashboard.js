@@ -653,7 +653,7 @@ function MyDeliveryCard({ delivery: d, onUpdateStatus }) {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 function paymentLabel(pm) {
-  return pm === 'esewa' ? '📱 eSewa' : '💵 COD';
+  return pm === 'esewa' ? '✅ Paid Online (eSewa)' : '💵 Collect Cash (COD)';
 }
 function statusIcon(st) {
   return { assigned: '🚴', picked_up: '📦', delivered: '✅', cancelled: '❌' }[st] || '⏳';

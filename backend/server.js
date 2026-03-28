@@ -27,6 +27,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/delivery', require('./routes/delivery'));
 app.use('/api/ratings', require('./routes/ratings'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/payment', require('./routes/payment'));
 
 app.get('/api/test/items', async (req, res) => {
   try {

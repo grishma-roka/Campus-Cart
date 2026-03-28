@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
@@ -24,6 +24,7 @@ export default function CheckoutPage() {
   
   const [errors, setErrors] = useState({});
   const [deliveryCoords, setDeliveryCoords] = useState({ lat: null, lng: null });
+  const esewaFormRef = useRef(null);
 
   useEffect(() => {
     if (!user) {
@@ -93,67 +94,66 @@ export default function CheckoutPage() {
 
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
-    }
-    
+    if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
     if (!formData.phone.trim()) {
       newErrors.phone = 'Phone number is required';
     } else if (!/^\d{10}$/.test(formData.phone.replace(/\s/g, ''))) {
       newErrors.phone = 'Please enter a valid 10-digit phone number';
     }
-    
-    if (!formData.deliveryLocation.trim()) {
-      newErrors.deliveryLocation = 'Delivery location is required';
-    }
-    
-    if (formData.paymentMethod === 'esewa' && !formData.esewaNumber.trim()) {
-      newErrors.esewaNumber = 'eSewa number is required';
-    } else if (formData.paymentMethod === 'esewa' && !/^\d{10}$/.test(formData.esewaNumber.replace(/\s/g, ''))) {
-      newErrors.esewaNumber = 'Please enter a valid 10-digit eSewa number';
-    }
-    
+    if (!formData.deliveryLocation.trim()) newErrors.deliveryLocation = 'Delivery location is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
+    if (!validateForm()) return;
+
     try {
       setSubmitting(true);
-      
+
       const orderData = {
         item_id: parseInt(id),
         delivery_address: formData.deliveryLocation,
         delivery_lat: deliveryCoords.lat,
         delivery_lng: deliveryCoords.lng,
         phone: formData.phone,
-        payment_method: formData.paymentMethod,
         notes: formData.notes,
-        esewa_number: formData.paymentMethod === 'esewa' ? formData.esewaNumber : null
       };
-      
-      const response = await axios.post('/orders/create', orderData);
-      
-      // Show success message
-      alert('Order placed successfully! The seller has been notified.');
-      
-      // Redirect to orders page
-      navigate('/dashboard?tab=orders');
-      
-    } catch (error) {
-      console.error('Error creating order:', error);
-      if (error.response?.data?.error) {
-        alert(error.response.data.error);
+
+      if (formData.paymentMethod === 'esewa') {
+        // Initiate eSewa payment — get form data from backend
+        const res = await axios.post('/payment/esewa/initiate', orderData);
+        const { formUrl, formData: esewaFields, checkoutContext } = res.data;
+
+        // Save checkout context to sessionStorage so verify page can use it
+        sessionStorage.setItem('esewa_checkout', JSON.stringify(checkoutContext));
+
+        // Build and auto-submit a hidden form to eSewa
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = formUrl;
+        Object.entries(esewaFields).forEach(([key, val]) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = val;
+          form.appendChild(input);
+        });
+        document.body.appendChild(form);
+        form.submit();
       } else {
-        alert('Failed to place order. Please try again.');
+        // COD — create order directly
+        const response = await axios.post('/orders/create', {
+          ...orderData,
+          payment_method: 'cod',
+        });
+        alert('Order placed successfully! The seller has been notified.');
+        navigate('/dashboard?tab=orders');
       }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert(error.response?.data?.error || 'Failed to place order. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -286,24 +286,15 @@ export default function CheckoutPage() {
                       style={styles.radio}
                     />
                     <div style={styles.radioContent}>
-                      <span style={styles.radioTitle}>📱 eSewa</span>
-                      <span style={styles.radioDesc}>Digital wallet payment</span>
+                      <span style={styles.radioTitle}>📱 Pay with eSewa</span>
+                      <span style={styles.radioDesc}>Redirect to eSewa gateway — secure online payment</span>
                     </div>
                   </label>
                 </div>
 
                 {formData.paymentMethod === 'esewa' && (
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>eSewa Number *</label>
-                    <input
-                      type="tel"
-                      name="esewaNumber"
-                      value={formData.esewaNumber}
-                      onChange={handleInputChange}
-                      style={{...styles.input, ...(errors.esewaNumber ? styles.inputError : {})}}
-                      placeholder="9812345678"
-                    />
-                    {errors.esewaNumber && <span style={styles.errorText}>{errors.esewaNumber}</span>}
+                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '12px 16px', fontSize: '13px', color: '#166534' }}>
+                    📲 You will be redirected to eSewa to complete payment. After payment, your order will be confirmed automatically.
                   </div>
                 )}
               </div>
@@ -314,7 +305,11 @@ export default function CheckoutPage() {
                 style={{...styles.submitButton, ...(submitting ? styles.submitButtonDisabled : {})}}
                 disabled={submitting}
               >
-                {submitting ? 'Processing...' : '✅ Confirm Order'}
+                {submitting
+                  ? 'Processing...'
+                  : formData.paymentMethod === 'esewa'
+                    ? '📱 Pay with eSewa →'
+                    : '✅ Place Order (COD)'}
               </button>
             </form>
           </div>

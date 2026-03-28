@@ -13,6 +13,8 @@ import CheckoutPage from "./pages/CheckoutPage";
 import Profile from "./pages/Profile";
 import Messages from "./pages/Messages";
 import BorrowPage from "./pages/BorrowPage";
+import PaymentVerifyPage from "./pages/PaymentVerifyPage";
+import PaymentFailedPage from "./pages/PaymentFailedPage";
 import './App.css';
 
 export default function App() {
@@ -59,6 +61,18 @@ export default function App() {
             <Route path="/borrow" element={
               <ProtectedRoute>
                 <BorrowPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/payment/verify" element={
+              <ProtectedRoute>
+                <PaymentVerifyPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/payment/failed" element={
+              <ProtectedRoute>
+                <PaymentFailedPage />
               </ProtectedRoute>
             } />
             

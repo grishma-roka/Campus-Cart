@@ -8,6 +8,7 @@ export default function AdminDashboard() {
   const [riderRequests, setRiderRequests] = useState([]);
   const [users, setUsers] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -32,6 +33,12 @@ export default function AdminDashboard() {
       setRiderRequests(riderRequestsRes.data);
       setUsers(usersRes.data);
       setActivities(activitiesRes.data);
+
+      // Fetch transactions (may fail if no esewa payments yet)
+      try {
+        const txRes = await axios.get('/payment/transactions');
+        setTransactions(txRes.data);
+      } catch { /* silent if no transactions */ }
     } catch (error) {
       console.error('Error fetching admin data:', error);
       if (error.response) {
@@ -128,6 +135,12 @@ export default function AdminDashboard() {
           onClick={() => setActiveTab('activities')}
         >
           Activities
+        </button>
+        <button
+          style={activeTab === 'transactions' ? styles.activeTab : styles.tab}
+          onClick={() => setActiveTab('transactions')}
+        >
+          💳 Transactions ({transactions.length})
         </button>
       </div>
 
@@ -459,6 +472,77 @@ export default function AdminDashboard() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'transactions' && (
+        <div>
+          <h2 style={{ marginBottom: '8px' }}>💳 eSewa Transactions</h2>
+          <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>
+            Platform income from online payments
+          </p>
+          {transactions.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: '#94a3b8' }}>
+              No eSewa transactions yet.
+            </div>
+          ) : (
+            <>
+              {/* Summary */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+                {[
+                  { label: 'Total Transactions', value: transactions.length, icon: '📊' },
+                  { label: 'Total Income', value: `रू ${transactions.filter(t => t.status === 'success').reduce((s, t) => s + parseFloat(t.amount), 0).toLocaleString()}`, icon: '💰' },
+                  { label: 'Successful', value: transactions.filter(t => t.status === 'success').length, icon: '✅' },
+                  { label: 'Failed', value: transactions.filter(t => t.status === 'failed').length, icon: '❌' },
+                ].map(c => (
+                  <div key={c.label} style={{ background: '#fff', borderRadius: '14px', padding: '20px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                    <div style={{ fontSize: '24px', marginBottom: '6px' }}>{c.icon}</div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', color: '#F88000' }}>{c.value}</div>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>{c.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Table */}
+              <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid rgba(0,0,0,0.07)' }}>
+                      {['Order ID', 'Buyer', 'Item', 'Amount', 'Method', 'Transaction ID', 'Date', 'Status'].map(h => (
+                        <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '700', color: '#374151', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions.map(t => (
+                      <tr key={t.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                        <td style={{ padding: '12px 16px', fontWeight: '600' }}>#{t.order_id}</td>
+                        <td style={{ padding: '12px 16px' }}>{t.buyer_name}</td>
+                        <td style={{ padding: '12px 16px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.item_title}</td>
+                        <td style={{ padding: '12px 16px', fontWeight: '700', color: '#10b981' }}>रू {parseFloat(t.amount).toLocaleString()}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' }}>
+                            📱 {t.payment_method}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '11px', color: '#64748b', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.transaction_id}</td>
+                        <td style={{ padding: '12px 16px', color: '#64748b', whiteSpace: 'nowrap' }}>{new Date(t.created_at).toLocaleDateString()}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{
+                            background: t.status === 'success' ? '#d1fae5' : t.status === 'failed' ? '#fee2e2' : '#fef3c7',
+                            color: t.status === 'success' ? '#065f46' : t.status === 'failed' ? '#991b1b' : '#92400e',
+                            padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', textTransform: 'capitalize'
+                          }}>
+                            {t.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
