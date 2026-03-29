@@ -42,23 +42,6 @@ router.post('/esewa/initiate', auth, async (req, res) => {
     const signatureMessage = `total_amount=${amount},transaction_uuid=${transaction_uuid},product_code=${product_code}`;
     const signature = generateSignature(signatureMessage);
 
-    // Store pending payment intent in DB so we can verify later
-    await db.query(
-      `INSERT INTO transactions (order_id, buyer_id, amount, payment_method, transaction_id, status)
-       VALUES (0, ?, ?, 'esewa', ?, 'pending')
-       ON DUPLICATE KEY UPDATE status='pending'`,
-      [buyer_id, amount, transaction_uuid]
-    );
-
-    // We store checkout data in a temp table-less way: encode in transaction_uuid context
-    // Save pending order data to a temp store (we'll use a simple DB approach)
-    await db.query(
-      `INSERT INTO pending_payments (transaction_uuid, buyer_id, item_id, delivery_address, delivery_lat, delivery_lng, phone, notes, amount)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE buyer_id=VALUES(buyer_id)`,
-      [transaction_uuid, buyer_id, item_id, delivery_address, delivery_lat || null, delivery_lng || null, phone || null, notes || null, amount]
-    ).catch(() => {}); // table may not exist yet — handled below
-
     res.json({
       formUrl: `${API_URL}/v2/form`,
       formData: {
