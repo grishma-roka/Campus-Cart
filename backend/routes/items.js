@@ -171,6 +171,27 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET ITEMS BY SELLER (seller only) — must be before /:id
+router.get('/my-items', auth, requireRole(['seller']), async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT i.*, 
+             COUNT(DISTINCT o.id) as total_orders,
+             COUNT(DISTINCT br.id) as total_borrows
+      FROM items i 
+      LEFT JOIN orders o ON i.id = o.item_id
+      LEFT JOIN borrow_requests br ON i.id = br.item_id
+      WHERE i.seller_id = ?
+      GROUP BY i.id
+      ORDER BY i.created_at DESC
+    `, [req.user.id]);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error fetching seller items" });
+  }
+});
+
 // GET SINGLE ITEM
 router.get('/:id', async (req, res) => {
   try {
@@ -192,27 +213,6 @@ router.get('/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error fetching item" });
-  }
-});
-
-// GET ITEMS BY SELLER (seller only)
-router.get('/my-items', auth, requireRole(['seller']), async (req, res) => {
-  try {
-    const [rows] = await db.query(`
-      SELECT i.*, 
-             COUNT(DISTINCT o.id) as total_orders,
-             COUNT(DISTINCT br.id) as total_borrows
-      FROM items i 
-      LEFT JOIN orders o ON i.id = o.item_id
-      LEFT JOIN borrow_requests br ON i.id = br.item_id
-      WHERE i.seller_id = ?
-      GROUP BY i.id
-      ORDER BY i.created_at DESC
-    `, [req.user.id]);
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error fetching seller items" });
   }
 });
 

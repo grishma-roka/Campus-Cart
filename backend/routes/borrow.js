@@ -185,15 +185,36 @@ router.put('/respond/:id', auth, requireRole(['seller']), async (req, res) => {
       return res.status(404).json({ error: "Borrow request not found" });
     }
 
-    // If approved, mark item as temporarily unavailable
+    let conversation_id = null;
+
+    // If approved, mark item as temporarily unavailable and create a conversation
     if (normalizedStatus === 'approved') {
-      const [requestData] = await db.query("SELECT item_id FROM borrow_requests WHERE id = ?", [requestId]);
+      const [requestData] = await db.query("SELECT item_id, borrower_id, seller_id FROM borrow_requests WHERE id = ?", [requestId]);
       if (requestData.length > 0) {
-        await db.query("UPDATE items SET is_available = FALSE WHERE id = ?", [requestData[0].item_id]);
+        const reqInfo = requestData[0];
+        await db.query("UPDATE items SET is_available = FALSE WHERE id = ?", [reqInfo.item_id]);
+
+        // Auto-create chat conversation if one doesn't exist for this pair + item
+        await db.query(`
+          INSERT INTO conversations (buyer_id, seller_id, item_id)
+          SELECT ?, ?, ?
+          WHERE NOT EXISTS (
+            SELECT id FROM conversations 
+            WHERE buyer_id = ? AND seller_id = ? AND item_id = ?
+          )
+        `, [reqInfo.borrower_id, reqInfo.seller_id, reqInfo.item_id, reqInfo.borrower_id, reqInfo.seller_id, reqInfo.item_id]);
+
+        const [existingConv] = await db.query(
+          "SELECT id FROM conversations WHERE buyer_id = ? AND seller_id = ? AND item_id = ?",
+          [reqInfo.borrower_id, reqInfo.seller_id, reqInfo.item_id]
+        );
+        if (existingConv.length > 0) {
+          conversation_id = existingConv[0].id;
+        }
       }
     }
 
-    res.json({ message: `Borrow request ${normalizedStatus} successfully` });
+    res.json({ message: `Borrow request ${normalizedStatus} successfully`, conversation_id });
 
   } catch (err) {
     console.error(err);

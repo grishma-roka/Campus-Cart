@@ -46,8 +46,8 @@ router.post('/create', auth, async (req, res) => {
 
     // Create delivery record with coords
     await db.query(`
-      INSERT INTO deliveries (order_id, pickup_address, delivery_address, delivery_lat, delivery_lng, status)
-      VALUES (?, 'Seller Location', ?, ?, ?, 'pending')
+      INSERT INTO deliveries (order_id, transaction_id, pickup_address, delivery_address, delivery_lat, delivery_lng, status)
+      VALUES (?, NULL, 'Seller Location', ?, ?, ?, 'pending')
     `, [result.insertId, delivery_address, delivery_lat || null, delivery_lng || null]);
 
     console.log(`✅ Item ${item_id} sold to buyer ${buyer_id}`);

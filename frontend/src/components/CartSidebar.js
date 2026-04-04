@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCart } from '../context/CartContext';
+import { ShoppingBag, X, Trash2 } from 'lucide-react';
 
 export default function CartSidebar() {
   const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, getCartTotal, clearCart } = useCart();
@@ -25,7 +26,7 @@ export default function CartSidebar() {
             onClick={() => setIsCartOpen(false)}
             style={styles.closeButton}
           >
-            ✕
+            <X size={24} color="#64748b" strokeWidth={1.5} />
           </button>
         </div>
 
@@ -33,7 +34,7 @@ export default function CartSidebar() {
         <div style={styles.cartContent}>
           {cartItems.length === 0 ? (
             <div style={styles.emptyCart}>
-              <div style={styles.emptyIcon}>🛒</div>
+              <div style={styles.emptyIcon}><ShoppingBag size={64} strokeWidth={1.5} color="#cbd5e1" /></div>
               <h3 style={styles.emptyTitle}>Your cart is lonely!</h3>
               <p style={styles.emptyText}>Add some gadgets to keep it company.</p>
             </div>
@@ -54,10 +55,10 @@ export default function CartSidebar() {
                   
                   <button 
                     onClick={() => removeFromCart(item.id)}
-                    style={styles.removeButton}
+                    style={{...styles.removeButton, display: 'flex', alignItems: 'center', justifyContent: 'center'}}
                     title="Remove from cart"
                   >
-                    🗑️
+                    <Trash2 size={18} color="#ef4444" strokeWidth={1.5} />
                   </button>
                 </div>
               ))}
@@ -113,7 +114,7 @@ const styles = {
     maxWidth: '90vw',
     height: '100vh',
     backgroundColor: '#fff',
-    boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.15)',
+    boxShadow: '-8px 0 30px rgba(0, 0, 0, 0.04)',
     zIndex: 9999,
     display: 'flex',
     flexDirection: 'column',
@@ -171,9 +172,10 @@ const styles = {
     padding: '48px 24px'
   },
   emptyIcon: {
-    fontSize: '64px',
     marginBottom: '16px',
-    opacity: 0.5
+    display: 'flex',
+    justifyContent: 'center',
+    opacity: 0.8
   },
   emptyTitle: {
     fontSize: '20px',
@@ -220,7 +222,7 @@ const styles = {
     margin: 0,
     fontSize: '18px',
     fontWeight: '700',
-    color: '#FF8C00'
+    color: '#F88000'
   },
   quantityText: {
     margin: 0,
@@ -235,7 +237,6 @@ const styles = {
     right: '12px',
     background: 'none',
     border: 'none',
-    fontSize: '18px',
     cursor: 'pointer',
     padding: '4px',
     opacity: 0.6,
@@ -255,7 +256,7 @@ const styles = {
   promoButton: {
     background: 'none',
     border: 'none',
-    color: '#FF8C00',
+    color: '#F88000',
     fontSize: '14px',
     fontWeight: '500',
     cursor: 'pointer',
@@ -299,7 +300,7 @@ const styles = {
   estimatedAmount: {
     fontSize: '24px',
     fontWeight: '700',
-    color: '#FF8C00'
+    color: '#F88000'
   },
   totalLabel: {
     fontSize: '18px',
@@ -309,12 +310,12 @@ const styles = {
   totalAmount: {
     fontSize: '24px',
     fontWeight: '700',
-    color: '#FF8C00'
+    color: '#F88000'
   },
   checkoutButton: {
     width: '100%',
     padding: '16px',
-    backgroundColor: '#FF8C00',
+    backgroundColor: '#F88000',
     color: '#fff',
     border: 'none',
     borderRadius: '24px',
@@ -329,8 +330,8 @@ const styles = {
     width: '100%',
     padding: '16px',
     backgroundColor: '#fff',
-    color: '#FF8C00',
-    border: '2px solid #FF8C00',
+    color: '#F88000',
+    border: '2px solid #F88000',
     borderRadius: '24px',
     fontSize: '16px',
     fontWeight: '600',

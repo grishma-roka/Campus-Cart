@@ -6,6 +6,8 @@ import { useCart } from '../context/CartContext';
 import CartSidebar from '../components/CartSidebar';
 import ProductDetailModal from '../components/ProductDetailModal';
 import SmartSearchBar from '../components/SmartSearchBar';
+import NotificationBell from '../components/NotificationBell';
+import { ShoppingBag, Store, Bike, LayoutGrid, BookOpen, Laptop, Shirt, Trophy, Package, MessageCircle, Handshake, Tag, Armchair, Watch, Search, ChevronDown, User } from 'lucide-react';
 
 export default function BuyerDashboard() {
   const { user } = useAuth();
@@ -79,15 +81,16 @@ export default function BuyerDashboard() {
 
   const categories = [...new Set(items.map(item => item.category))];
 
-  const getCategoryIcon = (category) => {
-    const icons = {
-      'Books': '📚',
-      'Electronics': '💻',
-      'Clothing': '👕',
-      'Sports': '⚽',
-      'default': '📦'
-    };
-    return icons[category] || icons.default;
+  const getCategoryIcon = (category, isActive = false) => {
+    const iconProps = { size: 20, strokeWidth: 1.5, color: isActive ? '#F88000' : '#1e293b' };
+    switch(category) {
+      case 'Books': return <BookOpen {...iconProps} />;
+      case 'Electronics': return <Laptop {...iconProps} />;
+      case 'Clothing': return <Shirt {...iconProps} />;
+      case 'Furniture': return <Armchair {...iconProps} />;
+      case 'Sports': return <Trophy {...iconProps} />;
+      default: return <Package {...iconProps} />;
+    }
   };
 
   const handleAddToCart = (item) => {
@@ -121,10 +124,9 @@ export default function BuyerDashboard() {
 
   const createFlyingIcon = () => {
     const icon = document.createElement('div');
-    icon.innerHTML = '🛒';
+    icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#F88000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>';
     icon.style.cssText = `
       position: fixed;
-      font-size: 32px;
       z-index: 10000;
       pointer-events: none;
       animation: flyToCart 0.8s ease-in-out forwards;
@@ -186,7 +188,9 @@ export default function BuyerDashboard() {
         <div style={styles.headerContent}>
           {/* Brand Section */}
           <div style={styles.brandSection}>
-            <div style={styles.brandIcon}>🛒</div>
+            <div style={styles.brandIcon}>
+              <ShoppingBag size={24} color="#FFFFFF" strokeWidth={1.5} />
+            </div>
             <span style={styles.brandText}>Campus Cart</span>
           </div>
 
@@ -199,15 +203,14 @@ export default function BuyerDashboard() {
           {/* Button Group */}
           <div style={styles.buttonGroup}>
             <button style={{...styles.segmentButton, ...styles.activeBuyerButton}}>
-              <span style={styles.buttonIcon}>🛒</span>
+              <ShoppingBag size={18} strokeWidth={1.5} />
               Buyer
             </button>
             <button style={styles.segmentButton}>
-              <span style={styles.buttonIcon}>🏪</span>
+              <Store size={18} strokeWidth={1.5} />
               Seller
             </button>
-            <button style={{...styles.segmentButton, ...styles.riderButton}}>
-              <span style={styles.buttonIcon}>🏍️</span>
+            <button style={{...styles.segmentButton, ...styles.riderButton, background: '#F88000', color: '#FFFFFF'}}>
               Apply as Rider
             </button>
           </div>
@@ -220,11 +223,16 @@ export default function BuyerDashboard() {
               title="Messages"
               data-messages-button
             >
-              <div style={styles.messagesIcon}>💬</div>
+              <div style={styles.messagesIcon}>
+                <MessageCircle size={18} color="#FFFFFF" strokeWidth={1.5} />
+              </div>
               <span style={styles.messagesText}>Messages</span>
               <div style={styles.messagesBadge}>3</div>
             </button>
           </div>
+
+          {/* Notification Bell */}
+          <NotificationBell />
 
           {/* Cart Icon */}
           <div style={styles.cartContainer}>
@@ -233,7 +241,9 @@ export default function BuyerDashboard() {
               style={styles.cartButton}
               title="Shopping Cart"
             >
-              <div style={styles.cartIconButton}>🛒</div>
+              <div style={styles.cartIconButton}>
+                <ShoppingBag size={20} color="#F88000" strokeWidth={1.5} />
+              </div>
               {getCartCount() > 0 && (
                 <div style={styles.cartBadge}>{getCartCount()}</div>
               )}
@@ -247,7 +257,7 @@ export default function BuyerDashboard() {
         <div style={styles.messagesPanel} data-messages-panel>
           <div style={styles.messagesPanelHeader}>
             <h3 style={styles.messagesPanelTitle}>
-              <span style={styles.messagesPanelIcon}>💬</span>
+              <MessageCircle size={20} color="#F88000" strokeWidth={1.5} />
               Messages
             </h3>
             <button 
@@ -260,7 +270,7 @@ export default function BuyerDashboard() {
           
           <div style={styles.messagesList}>
             <div style={styles.messageItem}>
-              <div style={styles.messageAvatar}>👤</div>
+              <div style={styles.messageAvatar}><User size={20} color="#64748b" /></div>
               <div style={styles.messageContent}>
                 <div style={styles.messageSender}>John Doe</div>
                 <div style={styles.messagePreview}>Hi! Is the calculator still available?</div>
@@ -270,7 +280,7 @@ export default function BuyerDashboard() {
             </div>
             
             <div style={styles.messageItem}>
-              <div style={styles.messageAvatar}>👩</div>
+              <div style={styles.messageAvatar}><User size={20} color="#64748b" /></div>
               <div style={styles.messageContent}>
                 <div style={styles.messageSender}>Sarah Wilson</div>
                 <div style={styles.messagePreview}>Thanks for the quick delivery!</div>
@@ -279,7 +289,7 @@ export default function BuyerDashboard() {
             </div>
             
             <div style={styles.messageItem}>
-              <div style={styles.messageAvatar}>👨</div>
+              <div style={styles.messageAvatar}><User size={20} color="#64748b" /></div>
               <div style={styles.messageContent}>
                 <div style={styles.messageSender}>Mike Chen</div>
                 <div style={styles.messagePreview}>Can we meet tomorrow for the textbook?</div>
@@ -300,10 +310,10 @@ export default function BuyerDashboard() {
       {/* Main Layout */}
       <div style={styles.mainLayout}>
         {/* Sidebar */}
-        <div style={styles.sidebar}>
+        <div style={{...styles.sidebar}}>
           <div style={styles.sidebarHeader}>
             <h3 style={styles.sidebarTitle}>
-              <span style={styles.sidebarIcon}>📂</span>
+              <LayoutGrid size={20} color="#1e293b" strokeWidth={1.5} />
               Categories
             </h3>
           </div>
@@ -313,10 +323,10 @@ export default function BuyerDashboard() {
               onClick={() => setCategoryFilter('')}
               style={{
                 ...styles.categoryItem,
-                ...(categoryFilter === '' ? styles.activeCategoryItem : {})
+                color: categoryFilter === '' ? '#F88000' : '#1e293b'
               }}
             >
-              <span style={styles.categoryIcon}>🏪</span>
+              <LayoutGrid size={20} strokeWidth={1.5} color={categoryFilter === '' ? '#F88000' : '#1e293b'} />
               <span style={styles.categoryText}>All Items</span>
               <span style={styles.categoryCount}>{items.length}</span>
             </button>
@@ -327,10 +337,10 @@ export default function BuyerDashboard() {
                 onClick={() => setCategoryFilter(category)}
                 style={{
                   ...styles.categoryItem,
-                  ...(categoryFilter === category ? styles.activeCategoryItem : {})
+                  color: categoryFilter === category ? '#F88000' : '#1e293b'
                 }}
               >
-                <span style={styles.categoryIcon}>{getCategoryIcon(category)}</span>
+                {getCategoryIcon(category, categoryFilter === category)}
                 <span style={styles.categoryText}>{category}</span>
                 <span style={styles.categoryCount}>
                   {items.filter(item => item.category === category).length}
@@ -342,28 +352,31 @@ export default function BuyerDashboard() {
           {/* Price Range Filter */}
           <div style={styles.filterSection}>
             <h4 style={styles.filterTitle}>
-              <span style={styles.filterIcon}>💰</span>
               Price Range
             </h4>
-            <select
-              value={priceRange}
-              onChange={(e) => setPriceRange(e.target.value)}
-              style={styles.priceRangeDropdown}
-            >
-              <option value="">All Prices</option>
-              <option value="1-100">रू 1 - रू 100</option>
-              <option value="100-300">रू 100 - रू 300</option>
-              <option value="300-500">रू 300 - रू 500</option>
-              <option value="500-1000">रू 500 - रू 1,000</option>
-              <option value="1000-2000">रू 1,000 - रू 2,000</option>
-              <option value="2000-3000">रू 2,000 - रू 3,000</option>
-              <option value="3000-5000">रू 3,000 - रू 5,000</option>
-              <option value="5000-above">रू 5,000+</option>
-            </select>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <Tag size={20} color="#64748b" strokeWidth={1.5} style={{ position: 'absolute', left: '16px', pointerEvents: 'none' }} />
+              <select
+                value={priceRange}
+                onChange={(e) => setPriceRange(e.target.value)}
+                style={styles.priceRangeDropdown}
+              >
+                <option value="">All Prices</option>
+                <option value="1-100">रू 1 - रू 100</option>
+                <option value="100-300">रू 100 - रू 300</option>
+                <option value="300-500">रू 300 - रू 500</option>
+                <option value="500-1000">रू 500 - रू 1,000</option>
+                <option value="1000-2000">रू 1,000 - रू 2,000</option>
+                <option value="2000-3000">रू 2,000 - रू 3,000</option>
+                <option value="3000-5000">रू 3,000 - रू 5,000</option>
+                <option value="5000-above">रू 5,000+</option>
+              </select>
+              <ChevronDown size={20} color="#64748b" strokeWidth={1.5} style={{ position: 'absolute', right: '16px', pointerEvents: 'none' }} />
+            </div>
           </div>
 
           {/* Borrow Instead of Buy */}
-          <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+          <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
             <button
               onClick={() => navigate('/borrow')}
               style={{
@@ -374,7 +387,8 @@ export default function BuyerDashboard() {
                 boxShadow: '0 4px 12px rgba(248,128,0,0.3)',
               }}
             >
-              🤝 Borrow Instead of Buy
+              <Handshake size={18} strokeWidth={1.5} />
+              Borrow Instead of Buy
             </button>
             <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', marginTop: '8px' }}>
               Borrow items temporarily from students
@@ -385,13 +399,13 @@ export default function BuyerDashboard() {
         {/* Main Content */}
         <div style={styles.mainContent}>
           {/* Hero Carousel */}
-          <div style={styles.heroSection}>
+          <div style={{...styles.heroSection, background: '#FFFFFF', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.05)'}}>
             <div style={styles.carousel}>
               <div style={styles.carouselSlide}>
                 <div style={styles.slideBackground}></div>
                 <div style={styles.slideOverlay}>
                   <div style={styles.slideContent}>
-                    <h2 style={styles.slideTitle}>Welcome to Campus Cart! 🎓</h2>
+                    <h2 style={styles.slideTitle}>Welcome to Campus Cart!</h2>
                     <p style={styles.slideSubtitle}>Your premium student marketplace</p>
                     <div style={styles.slideStats}>
                       <div style={styles.statBadge}>
@@ -485,10 +499,10 @@ export default function BuyerDashboard() {
                             disabled={isItemInCart(item.id) && addingToCart !== item.id}
                           >
                             {addingToCart === item.id 
-                              ? '✓ Added!' 
+                              ? 'Added!' 
                               : isItemInCart(item.id) 
-                                ? '✓ In Cart' 
-                                : '🛒 Add to Cart'
+                                ? 'In Cart' 
+                                : 'Add to Cart'
                             }
                           </button>
                           <button 
@@ -514,7 +528,7 @@ export default function BuyerDashboard() {
             {items.length === 0 && (
               <div style={styles.emptyState}>
                 <div style={styles.emptyIcon}>
-                  {debouncedSearchTerm ? '🔍' : '📦'}
+                  {debouncedSearchTerm ? <Search size={48} color="#94a3b8" /> : <Package size={48} color="#94a3b8" />}
                 </div>
                 <h3>
                   {debouncedSearchTerm ? 'No search results found' : 'No items found'}
@@ -920,12 +934,10 @@ const styles = {
   sidebar: {
     width: '320px',
     background: '#FFFFFF',
-    backdropFilter: 'blur(16px)',
-    WebkitBackdropFilter: 'blur(16px)',
-    border: '1px solid rgba(0, 0, 0, 0.05)',
-    borderRadius: '0 16px 16px 0',
+    border: 'none',
+    borderRadius: '16px',
     padding: '24px',
-    boxShadow: '2px 0 8px rgba(0, 0, 0, 0.05)',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.05)',
     position: 'sticky',
     top: '88px',
     height: 'calc(100vh - 88px)',
@@ -1027,7 +1039,7 @@ const styles = {
   },
   priceRangeDropdown: {
     width: '100%',
-    padding: '12px 16px',
+    padding: '12px 16px 12px 46px',
     background: '#FFFFFF',
     border: '1px solid rgba(0, 0, 0, 0.1)',
     borderRadius: '50px',
@@ -1039,10 +1051,6 @@ const styles = {
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     outline: 'none',
     appearance: 'none',
-    backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e")`,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'right 12px center',
-    backgroundSize: '16px',
     paddingRight: '40px'
   },
 
@@ -1168,7 +1176,7 @@ const styles = {
     background: '#FFFFFF',
     borderRadius: '16px',
     padding: '20px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.05)',
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     backdropFilter: 'blur(8px)',
     border: '1px solid rgba(0, 0, 0, 0.05)',
@@ -1283,8 +1291,8 @@ const styles = {
     flex: 1,
     padding: '12px 16px',
     background: '#fff',
-    color: '#f97316',
-    border: '2px solid #f97316',
+    color: '#F88000',
+    border: '2px solid #F88000',
     borderRadius: '12px',
     fontSize: '14px',
     fontWeight: '600',
@@ -1316,8 +1324,8 @@ const styles = {
   buyNowButton: {
     flex: 1,
     padding: '12px 16px',
-    background: '#f97316',
-    color: 'white',
+    background: '#F88000',
+    color: '#FFFFFF',
     border: 'none',
     borderRadius: '12px',
     fontSize: '14px',
@@ -1325,7 +1333,7 @@ const styles = {
     fontFamily: 'Inter, sans-serif',
     cursor: 'pointer',
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: '0 4px 16px rgba(249, 115, 22, 0.3)'
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
   },
   
   // Cart Container

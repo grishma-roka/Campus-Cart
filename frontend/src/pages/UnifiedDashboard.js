@@ -90,7 +90,8 @@ const styles = {
     backgroundColor: '#FFFFFF',
     padding: '2rem',
     borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)',
+    borderRadius: '16px'
   },
   welcomeSection: {
     marginBottom: '1rem'

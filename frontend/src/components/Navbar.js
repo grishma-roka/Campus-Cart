@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { ShoppingCart, Home, Search, Package, Store, Truck, Settings, LogOut } from 'lucide-react';
 
 const Navbar = () => {
   const { user, logout, isAuthenticated, availableRoles } = useAuth();
@@ -17,43 +18,43 @@ const Navbar = () => {
     <nav style={styles.navbar}>
       <div style={styles.container}>
         <Link to="/dashboard" style={styles.logo}>
-          <div style={styles.logoIcon}>🛒</div>
+          <div style={styles.logoIcon}><ShoppingCart size={24} color="#FFF" strokeWidth={2} /></div>
           <span style={styles.logoText}>Campus Cart</span>
         </Link>
         
         <div style={styles.navLinks}>
-          <Link to="/dashboard" style={styles.navLink}>
-            <span style={styles.navIcon}>🏠</span>
+          <Link to="/dashboard" style={styles.navLink} className="nav-link">
+            <span style={styles.navIcon}><Home size={16} strokeWidth={2} /></span>
             Dashboard
           </Link>
           
-          <Link to="/dashboard?tab=browse" style={styles.navLink}>
-            <span style={styles.navIcon}>🔍</span>
+          <Link to="/dashboard?tab=browse" style={styles.navLink} className="nav-link">
+            <span style={styles.navIcon}><Search size={16} strokeWidth={2} /></span>
             Browse
           </Link>
           
-          <Link to="/dashboard?tab=orders" style={styles.navLink}>
-            <span style={styles.navIcon}>📦</span>
+          <Link to="/dashboard?tab=orders" style={styles.navLink} className="nav-link">
+            <span style={styles.navIcon}><Package size={16} strokeWidth={2} /></span>
             Orders
           </Link>
           
           {availableRoles?.includes('seller') && (
-            <Link to="/dashboard?mode=seller" style={styles.navLink}>
-              <span style={styles.navIcon}>🏪</span>
+            <Link to="/dashboard?mode=seller" style={styles.navLink} className="nav-link">
+              <span style={styles.navIcon}><Store size={16} strokeWidth={2} /></span>
               Sell
             </Link>
           )}
           
           {availableRoles?.includes('rider') && (
-            <Link to="/dashboard?mode=rider" style={styles.navLink}>
-              <span style={styles.navIcon}>🚚</span>
+            <Link to="/dashboard?mode=rider" style={styles.navLink} className="nav-link">
+              <span style={styles.navIcon}><Truck size={16} strokeWidth={2} /></span>
               Deliver
             </Link>
           )}
           
           {availableRoles?.includes('admin') && (
-            <Link to="/dashboard?mode=admin" style={styles.navLink}>
-              <span style={styles.navIcon}>⚙️</span>
+            <Link to="/dashboard?mode=admin" style={styles.navLink} className="nav-link">
+              <span style={styles.navIcon}><Settings size={16} strokeWidth={2} /></span>
               Admin
             </Link>
           )}
@@ -79,8 +80,8 @@ const Navbar = () => {
             </div>
           </div>
           
-          <button onClick={handleLogout} style={styles.logoutBtn}>
-            <span style={styles.logoutIcon}>👋</span>
+          <button onClick={handleLogout} style={styles.logoutBtn} className="logout-btn">
+            <span style={styles.logoutIcon}><LogOut size={16} strokeWidth={2.5} /></span>
             Logout
           </button>
         </div>
@@ -132,7 +133,6 @@ const styles = {
     fontSize: '1.25rem'
   },
   logoIcon: {
-    fontSize: '1.5rem',
     background: '#F88000',
     borderRadius: '12px',
     padding: '8px',
@@ -163,7 +163,9 @@ const styles = {
     background: 'transparent'
   },
   navIcon: {
-    fontSize: '1rem'
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   userSection: {
     display: 'flex',
@@ -227,7 +229,9 @@ const styles = {
     fontFamily: 'Inter, sans-serif'
   },
   logoutIcon: {
-    fontSize: '1rem'
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   }
 };
 

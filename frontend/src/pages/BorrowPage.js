@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
+import { Handshake, Store, ClipboardList, Settings, MessageCircle, Package, User, Calendar, DollarSign, Trash2, CheckCircle, XCircle, Camera, AlertTriangle } from 'lucide-react';
 
 export default function BorrowPage() {
+  const navigate = useNavigate();
   const { user, isSeller } = useAuth();
   const [items, setItems] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
@@ -42,7 +45,9 @@ export default function BorrowPage() {
       {/* Header */}
       <div style={s.header}>
         <div style={s.headerLeft}>
-          <div style={s.headerIcon}>🤝</div>
+          <div style={s.headerIcon}>
+            <Handshake size={32} color="#FFFFFF" strokeWidth={1.5} />
+          </div>
           <div>
             <h1 style={s.title}>Borrow Instead of Buy</h1>
             <p style={s.subtitle}>Borrow items temporarily from fellow students</p>
@@ -58,16 +63,17 @@ export default function BorrowPage() {
       {/* Tabs */}
       <div style={s.tabs}>
         {[
-          { key: 'browse', label: '🏪 Browse Items', count: items.length },
-          { key: 'my-requests', label: '📋 My Requests', count: myRequests.length },
-          ...(isSeller ? [{ key: 'manage', label: '⚙️ Manage Requests', count: sellerRequests.filter(r => r.status === 'pending').length }] : []),
-          { key: 'chat', label: '💬 Chat' },
+          { key: 'browse', icon: <Store size={16} strokeWidth={1.5} />, label: 'Browse Items', count: items.length },
+          { key: 'my-requests', icon: <ClipboardList size={16} strokeWidth={1.5} />, label: 'My Requests', count: myRequests.length },
+          ...(isSeller ? [{ key: 'manage', icon: <Settings size={16} strokeWidth={1.5} />, label: 'Manage Requests', count: sellerRequests.filter(r => r.status === 'pending').length }] : []),
+          { key: 'chat', icon: <MessageCircle size={16} strokeWidth={1.5} />, label: 'Chat' },
         ].map(t => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             style={activeTab === t.key ? s.activeTab : s.tab}
           >
+            {t.icon}
             {t.label}
             {t.count > 0 && <span style={s.badge}>{t.count}</span>}
           </button>
@@ -98,8 +104,12 @@ export default function BorrowPage() {
         <ManageRequestsTab
           requests={sellerRequests}
           onRespond={async (id, status) => {
-            await axios.put(`/borrow/respond/${id}`, { status });
-            fetchAll();
+            const response = await axios.put(`/borrow/respond/${id}`, { status });
+            if (status === 'accepted' && response.data.conversation_id) {
+              navigate(`/messages/${response.data.conversation_id}`);
+            } else {
+              fetchAll();
+            }
           }}
           onChat={(req) => { setChatTarget({ userId: req.borrower_id, userName: req.borrower_name, requestId: req.id, itemTitle: req.title }); setActiveTab('chat'); }}
         />
@@ -145,7 +155,7 @@ function BrowseTab({ items, userId, isSeller, onRequest, onRefresh }) {
   if (items.length === 0) {
     return (
       <div style={s.empty}>
-        <div style={s.emptyIcon}>📦</div>
+        <div style={s.emptyIcon}><Package size={48} strokeWidth={1.5} color="#94a3b8" /></div>
         <p>No items available for borrowing yet.</p>
         {isSeller && <p style={{ color: '#94a3b8', fontSize: '13px' }}>Add the first borrow item using the button above.</p>}
       </div>
@@ -164,7 +174,7 @@ function BrowseTab({ items, userId, isSeller, onRequest, onRefresh }) {
             <div style={s.cardImg}>
               {img
                 ? <img src={img} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <div style={s.cardImgPlaceholder}>📦</div>
+                : <div style={s.cardImgPlaceholder}><Package size={32} color="#94a3b8" strokeWidth={1.5} /></div>
               }
               <div style={{ ...s.availBadge, background: item.is_available ? '#10b981' : '#ef4444' }}>
                 {item.is_available ? 'Available' : 'Unavailable'}
@@ -174,16 +184,16 @@ function BrowseTab({ items, userId, isSeller, onRequest, onRefresh }) {
               <h3 style={s.cardTitle}>{item.title}</h3>
               {item.description && <p style={s.cardDesc}>{item.description}</p>}
               <div style={s.cardMeta}>
-                <span>👤 {item.owner_name}</span>
-                {item.duration && <span>📅 Up to {item.duration} days</span>}
-                {item.deposit > 0 && <span>💰 रू {item.deposit}/day deposit</span>}
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px'}}><User size={12} /> {item.owner_name}</span>
+                {item.duration && <span style={{ display: 'flex', alignItems: 'center', gap: '4px'}}><Calendar size={12} /> Up to {item.duration} days</span>}
+                {item.deposit > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '4px'}}><DollarSign size={12} /> रू {item.deposit}/day deposit</span>}
               </div>
             </div>
             <div style={s.cardActions}>
               {isOwner ? (
-                <button onClick={() => handleDelete(item.id)} style={s.dangerBtn}>🗑️ Remove</button>
+                <button onClick={() => handleDelete(item.id)} style={{...s.dangerBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}><Trash2 size={14} /> Remove</button>
               ) : item.is_available ? (
-                <button onClick={() => onRequest(item)} style={s.primaryBtn}>🤝 Borrow Request</button>
+                <button onClick={() => onRequest(item)} style={{...s.primaryBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}><Handshake size={14} /> Borrow Request</button>
               ) : (
                 <button disabled style={{ ...s.primaryBtn, opacity: 0.4, cursor: 'not-allowed' }}>Unavailable</button>
               )}
@@ -200,7 +210,7 @@ function MyRequestsTab({ requests, onChat }) {
   if (requests.length === 0) {
     return (
       <div style={s.empty}>
-        <div style={s.emptyIcon}>📋</div>
+        <div style={s.emptyIcon}><ClipboardList size={48} strokeWidth={1.5} color="#94a3b8" /></div>
         <p>You haven't made any borrow requests yet.</p>
       </div>
     );
@@ -215,7 +225,7 @@ function MyRequestsTab({ requests, onChat }) {
             <div style={s.requestLeft}>
               {images[0]
                 ? <img src={images[0]} alt={req.title} style={s.requestThumb} />
-                : <div style={{ ...s.requestThumb, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>📦</div>
+                : <div style={{ ...s.requestThumb, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={24} color="#94a3b8" /></div>
               }
               <div>
                 <div style={s.requestTitle}>{req.title}</div>
@@ -230,7 +240,7 @@ function MyRequestsTab({ requests, onChat }) {
             <div style={s.requestRight}>
               <span style={{ ...s.statusBadge, background: statusColor(req.status) }}>{req.status}</span>
               {(req.status === 'approved' || req.status === 'active') && (
-                <button onClick={() => onChat(req)} style={s.chatBtn}>💬 Chat</button>
+                <button onClick={() => onChat(req)} style={{...s.chatBtn, display: 'flex', alignItems: 'center', gap: '6px'}}><MessageCircle size={14} /> Chat</button>
               )}
             </div>
           </div>
@@ -245,7 +255,7 @@ function ManageRequestsTab({ requests, onRespond, onChat }) {
   if (requests.length === 0) {
     return (
       <div style={s.empty}>
-        <div style={s.emptyIcon}>⚙️</div>
+        <div style={s.emptyIcon}><Settings size={48} strokeWidth={1.5} color="#94a3b8" /></div>
         <p>No borrow requests yet.</p>
       </div>
     );
@@ -271,12 +281,12 @@ function ManageRequestsTab({ requests, onRespond, onChat }) {
             <span style={{ ...s.statusBadge, background: statusColor(req.status) }}>{req.status}</span>
             {req.status === 'pending' && (
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <button onClick={() => onRespond(req.id, 'accepted')} style={s.acceptBtn}>✅ Accept</button>
-                <button onClick={() => onRespond(req.id, 'rejected')} style={s.rejectBtn}>❌ Reject</button>
+                <button onClick={() => onRespond(req.id, 'accepted')} style={{...s.acceptBtn, display: 'flex', alignItems: 'center', gap: '4px'}}><CheckCircle size={14} /> Accept</button>
+                <button onClick={() => onRespond(req.id, 'rejected')} style={{...s.rejectBtn, display: 'flex', alignItems: 'center', gap: '4px'}}><XCircle size={14} /> Reject</button>
               </div>
             )}
             {(req.status === 'approved' || req.status === 'active') && (
-              <button onClick={() => onChat(req)} style={s.chatBtn}>💬 Chat</button>
+              <button onClick={() => onChat(req)} style={{...s.chatBtn, display: 'flex', alignItems: 'center', gap: '4px'}}><MessageCircle size={14} /> Chat</button>
             )}
           </div>
         </div>
@@ -292,7 +302,9 @@ function ChatTab({ userId, initialTarget }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [previewImg, setPreviewImg] = useState(null);
   const bottomRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const fetchConversations = React.useCallback(async () => {
     try {
@@ -301,9 +313,9 @@ function ChatTab({ userId, initialTarget }) {
     } catch { /* silent */ }
   }, []);
 
-  const fetchMessages = React.useCallback(async (targetUserId) => {
+  const fetchMessages = React.useCallback(async (conversationId) => {
     try {
-      const res = await axios.get(`/chat/messages/${targetUserId}`);
+      const res = await axios.get(`/chat/messages/${conversationId}`);
       setMessages(res.data);
     } catch { /* silent */ }
   }, []);
@@ -311,9 +323,9 @@ function ChatTab({ userId, initialTarget }) {
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
   useEffect(() => {
-    if (selected?.userId) {
-      fetchMessages(selected.userId);
-      const interval = setInterval(() => fetchMessages(selected.userId), 4000);
+    if (selected?.id) {
+      fetchMessages(selected.id);
+      const interval = setInterval(() => fetchMessages(selected.id), 4000);
       return () => clearInterval(interval);
     }
   }, [selected, fetchMessages]);
@@ -323,19 +335,46 @@ function ChatTab({ userId, initialTarget }) {
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!text.trim() || !selected) return;
+    if ((!text.trim() && !fileInputRef.current?.files[0]) || !selected) return;
     setSending(true);
     try {
-      await axios.post('/chat/send', {
-        receiver_id: selected.userId,
-        message: text.trim(),
-        borrow_request_id: selected.requestId || null,
+      const formData = new FormData();
+      formData.append('conversation_id', selected.id);
+      
+      if (text.trim()) {
+        formData.append('message', text.trim());
+        formData.append('message_type', 'text');
+      }
+
+      if (fileInputRef.current?.files[0]) {
+        formData.append('image', fileInputRef.current.files[0]);
+        formData.append('message_type', 'image');
+      }
+
+      await axios.post('/chat/send', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
+
       setText('');
-      fetchMessages(selected.userId);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setPreviewImg(null);
+      
+      fetchMessages(selected.id);
       fetchConversations();
-    } catch { /* silent */ } finally {
+    } catch (err) { 
+      alert(err.response?.data?.error || 'Failed to send'); 
+    } finally {
       setSending(false);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setPreviewImg(ev.target.result);
+      reader.readAsDataURL(e.target.files[0]);
+    } else {
+      setPreviewImg(null);
     }
   };
 
@@ -351,17 +390,19 @@ function ChatTab({ userId, initialTarget }) {
         )}
         {conversations.map(c => (
           <div
-            key={c.other_user_id}
-            onClick={() => setSelected({ userId: c.other_user_id, userName: c.other_user_name })}
+            key={c.id}
+            onClick={() => setSelected({ id: c.id, userName: c.other_user_name, itemTitle: c.item_title })}
             style={{
               ...s.convItem,
-              background: selected?.userId === c.other_user_id ? '#EAF4FE' : '#fff',
+              background: selected?.id === c.id ? '#EAF4FE' : '#fff',
             }}
           >
             <div style={s.convAvatar}>{c.other_user_name?.charAt(0)?.toUpperCase()}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={s.convName}>{c.other_user_name}</div>
-              <div style={s.convLast}>{c.last_message}</div>
+              <div style={s.convName}>{c.other_user_name} <span style={{fontSize: '11px', color: '#64748b', fontWeight: 'normal'}}>{c.item_title}</span></div>
+              <div style={s.convLast}>
+                {c.last_message_type === 'image' ? '📸 Image' : c.last_message || 'Start chatting...'}
+              </div>
             </div>
             {c.unread_count > 0 && <div style={s.unreadDot}>{c.unread_count}</div>}
           </div>
@@ -389,7 +430,12 @@ function ChatTab({ userId, initialTarget }) {
                 return (
                   <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
                     <div style={{ ...s.bubble, background: mine ? '#F88000' : '#f1f5f9', color: mine ? '#fff' : '#000' }}>
-                      <div>{m.message}</div>
+                      {m.image_url && (
+                        <a href={m.image_url} target="_blank" rel="noreferrer">
+                          <img src={m.image_url} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: m.message ? '8px' : '0' }} />
+                        </a>
+                      )}
+                      {m.message && <div>{m.message}</div>}
                       <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px', textAlign: 'right' }}>
                         {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
@@ -399,7 +445,27 @@ function ChatTab({ userId, initialTarget }) {
               })}
               <div ref={bottomRef} />
             </div>
+            {previewImg && (
+              <div style={{ padding: '8px 16px', background: '#f8fafc', borderTop: '1px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <img src={previewImg} alt="Preview" style={{ height: '60px', borderRadius: '4px' }} />
+                <button onClick={() => { setPreviewImg(null); fileInputRef.current.value = ''; }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontWeight: 'bold' }}>✕</button>
+              </div>
+            )}
             <div style={s.msgInput}>
+              <button 
+                onClick={() => fileInputRef.current?.click()} 
+                style={{ ...s.sendBtn, background: '#e2e8f0', color: '#475569', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Attach Image"
+              >
+                <Camera size={18} strokeWidth={1.5} />
+              </button>
+              <input 
+                type="file" 
+                accept="image/*" 
+                ref={fileInputRef} 
+                style={{ display: 'none' }} 
+                onChange={handleFileChange}
+              />
               <input
                 value={text}
                 onChange={e => setText(e.target.value)}
@@ -407,7 +473,7 @@ function ChatTab({ userId, initialTarget }) {
                 placeholder="Type a message..."
                 style={s.textInput}
               />
-              <button onClick={sendMessage} disabled={sending || !text.trim()} style={s.sendBtn}>
+              <button onClick={sendMessage} disabled={sending || (!text.trim() && !fileInputRef.current?.files?.[0])} style={s.sendBtn}>
                 {sending ? '...' : '➤'}
               </button>
             </div>
@@ -541,7 +607,7 @@ function BorrowRequestModal({ item, onClose, onSent }) {
           <textarea value={form.message} onChange={e => set('message', e.target.value)} style={{ ...s.input, height: '72px', resize: 'vertical' }} placeholder="Why do you need it? When can you pick up?" />
 
           <div style={s.modalActions}>
-            <button type="submit" disabled={sending} style={s.primaryBtn}>{sending ? 'Sending...' : '🤝 Send Request'}</button>
+            <button type="submit" disabled={sending} style={{...s.primaryBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}>{sending ? 'Sending...' : <><Handshake size={16}/> Send Request</>}</button>
             <button type="button" onClick={onClose} style={s.ghostBtn}>Cancel</button>
           </div>
         </form>
@@ -572,7 +638,7 @@ const s = {
   badge: { background: 'rgba(255,255,255,0.3)', borderRadius: '20px', padding: '1px 7px', fontSize: '12px', fontWeight: '700' },
 
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' },
-  card: { background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column' },
+  card: { background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' },
   cardImg: { height: '180px', background: '#f1f5f9', position: 'relative', overflow: 'hidden' },
   cardImgPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px' },
   availBadge: { position: 'absolute', top: '10px', right: '10px', color: '#fff', fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '20px' },
@@ -583,7 +649,7 @@ const s = {
   cardActions: { padding: '12px 16px', borderTop: '1px solid rgba(0,0,0,0.05)' },
 
   listCol: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  requestCard: { background: '#fff', borderRadius: '16px', padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' },
+  requestCard: { background: '#fff', borderRadius: '16px', padding: '16px 20px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' },
   requestLeft: { display: 'flex', gap: '14px', flex: 1, minWidth: 0 },
   requestThumb: { width: '64px', height: '64px', borderRadius: '12px', objectFit: 'cover', flexShrink: 0 },
   requestTitle: { fontSize: '15px', fontWeight: '700', color: '#000', marginBottom: '4px' },
@@ -592,10 +658,10 @@ const s = {
   statusBadge: { color: '#fff', fontSize: '11px', fontWeight: '700', padding: '4px 12px', borderRadius: '20px', textTransform: 'capitalize' },
 
   empty: { textAlign: 'center', padding: '60px 20px', color: '#64748b' },
-  emptyIcon: { fontSize: '48px', marginBottom: '12px' },
+  emptyIcon: { marginBottom: '12px', display: 'flex', justifyContent: 'center' },
 
   // Chat
-  chatLayout: { display: 'flex', gap: '0', background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', height: '560px' },
+  chatLayout: { display: 'flex', gap: '0', background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', height: '560px' },
   convList: { width: '260px', borderRight: '1px solid rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', flexShrink: 0 },
   convHeader: { padding: '16px', fontWeight: '700', fontSize: '14px', borderBottom: '1px solid rgba(0,0,0,0.07)' },
   convItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(0,0,0,0.04)' },

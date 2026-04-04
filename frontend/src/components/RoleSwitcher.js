@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { ShoppingBag, Store, Plus, Bike, Settings, ClipboardList, Camera, Send } from 'lucide-react';
 
 export default function RoleSwitcher({ currentMode, onModeChange }) {
   const { userRoles, becomeSeller, applyForRider } = useAuth();
@@ -106,7 +107,7 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
               ...(currentMode === 'buyer' ? styles.activeBuyerButton : styles.neutralButton)
             }}
           >
-            <span style={styles.buttonIcon}>🛒</span>
+            <ShoppingBag size={16} strokeWidth={1.5} />
             <span style={styles.buttonText}>Buyer Mode</span>
           </button>
 
@@ -120,7 +121,7 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                 ...(currentMode === 'seller' ? styles.activeSellerButton : styles.neutralButton)
               }}
             >
-              <span style={styles.buttonIcon}>🏪</span>
+              <Store size={16} strokeWidth={1.5} />
               <span style={styles.buttonText}>Seller Mode</span>
             </button>
           ) : (
@@ -132,7 +133,7 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                 ...styles.becomeSellerButton
               }}
             >
-              <span style={styles.buttonIcon}>➕</span>
+              <Plus size={16} strokeWidth={1.5} />
               <span style={styles.buttonText}>Become Seller</span>
             </button>
           )}
@@ -147,7 +148,7 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                 ...(currentMode === 'rider' ? styles.activeRiderButton : styles.riderButton)
               }}
             >
-              <span style={styles.buttonIcon}>🏍️</span>
+              <Bike size={16} strokeWidth={1.5} />
               <span style={styles.buttonText}>Rider Mode</span>
             </button>
           ) : (
@@ -159,7 +160,7 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                 ...styles.applyRiderButton
               }}
             >
-              <span style={styles.buttonIcon}>🏍️</span>
+              <Bike size={16} strokeWidth={1.5} />
               <span style={styles.buttonText}>Apply for Rider</span>
             </button>
           )}
@@ -174,7 +175,7 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                 ...(currentMode === 'admin' ? styles.activeAdminButton : styles.neutralButton)
               }}
             >
-              <span style={styles.buttonIcon}>⚙️</span>
+              <Settings size={16} strokeWidth={1.5} />
               <span style={styles.buttonText}>Admin Mode</span>
             </button>
           )}
@@ -194,7 +195,9 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
         <div style={styles.modal}>
           <div style={styles.modalContent}>
             <div style={styles.modalHeader}>
-              <h3 className="heading-md" style={styles.modalTitle}>🏍️ Apply to Become a Rider</h3>
+              <h3 className="heading-md" style={{...styles.modalTitle, display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <Bike size={24} strokeWidth={1.5} /> Apply to Become a Rider
+              </h3>
               <button 
                 onClick={() => setShowRiderForm(false)}
                 className="close-button"
@@ -206,7 +209,7 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
             
             <div style={styles.modalBody}>
               <div style={styles.formDescription}>
-                <div style={styles.descriptionIcon}>📋</div>
+                <div style={styles.descriptionIcon}><ClipboardList size={24} color="#F88000" strokeWidth={1.5} /></div>
                 <div>
                   <p className="text-base" style={styles.descriptionTitle}>Required Information</p>
                   <p className="text-sm" style={styles.descriptionText}>
@@ -299,8 +302,8 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                   {formErrors.license_image && (
                     <span style={styles.errorText}>{formErrors.license_image}</span>
                   )}
-                  <small style={styles.helpText}>
-                    📷 Upload your license image to a service like Imgur, Google Drive, or Dropbox and paste the direct image URL here.
+                  <small style={{...styles.helpText, display: 'flex', gap: '4px'}}>
+                    <Camera size={14} color="#94a3b8" /> Upload your license image to a service like Imgur, Google Drive, or Dropbox and paste the direct image URL here.
                   </small>
                 </div>
 
@@ -328,7 +331,7 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                     Cancel
                   </button>
                   <button type="submit" className="submit-button" style={styles.submitButton}>
-                    <span style={styles.submitIcon}>🚀</span>
+                    <Send size={16} strokeWidth={1.5} />
                     Submit Application
                   </button>
                 </div>
@@ -350,9 +353,9 @@ const styles = {
     backdropFilter: 'blur(16px)',
     WebkitBackdropFilter: 'blur(16px)',
     border: '1px solid rgba(255, 255, 255, 0.2)',
-    borderRadius: 'var(--radius-bento)',
+    borderRadius: '16px',
     padding: 'var(--spacing-md)',
-    boxShadow: 'var(--shadow-card)',
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)',
     marginBottom: 'var(--spacing-lg)',
     fontFamily: 'Inter, sans-serif'
   },
@@ -523,12 +526,12 @@ const styles = {
     backdropFilter: 'blur(16px)',
     WebkitBackdropFilter: 'blur(16px)',
     border: '1px solid rgba(255, 255, 255, 0.2)',
-    borderRadius: 'var(--radius-bento)',
+    borderRadius: '16px',
     width: '100%',
     maxWidth: '600px',
     maxHeight: '90vh',
     overflow: 'hidden',
-    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)',
     fontFamily: 'Inter, sans-serif'
   },
 

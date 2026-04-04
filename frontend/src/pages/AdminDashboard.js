@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
+import { Check, X, Search, CreditCard, BarChart2, DollarSign, CheckCircle2, XCircle, Smartphone, UserCheck, UserX, Bot, AlertTriangle } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -137,10 +138,10 @@ export default function AdminDashboard() {
           Activities
         </button>
         <button
-          style={activeTab === 'transactions' ? styles.activeTab : styles.tab}
+          style={{...(activeTab === 'transactions' ? styles.activeTab : styles.tab), display: 'flex', alignItems: 'center', gap: '6px'}}
           onClick={() => setActiveTab('transactions')}
         >
-          💳 Transactions ({transactions.length})
+          <CreditCard size={18} /> Transactions ({transactions.length})
         </button>
       </div>
 
@@ -286,7 +287,7 @@ export default function AdminDashboard() {
                     {request.verification_status && (
                       <div style={styles.ocrSection}>
                         <div style={styles.ocrHeader}>
-                          <strong>🤖 OCR Verification</strong>
+                          <strong style={{display: 'flex', alignItems: 'center', gap: '4px'}}><Bot size={16}/> OCR Verification</strong>
                           <span style={{
                             ...styles.verificationBadge,
                             backgroundColor: 
@@ -308,7 +309,7 @@ export default function AdminDashboard() {
                           <div style={styles.ocrDetailRow}>
                             <strong>Extracted Expiry:</strong> {new Date(request.extracted_expiry_date).toLocaleDateString()}
                             {new Date(request.extracted_expiry_date) < new Date() && (
-                              <span style={styles.expiredTag}> ⚠️ EXPIRED</span>
+                              <span style={{...styles.expiredTag, display: 'inline-flex', alignItems: 'center', gap: '4px'}}> <AlertTriangle size={14}/> EXPIRED</span>
                             )}
                           </div>
                         )}
@@ -320,14 +321,14 @@ export default function AdminDashboard() {
                         )}
                         
                         {request.rejection_reason && (
-                          <div style={styles.rejectionReason}>
-                            <strong>⚠️ Reason:</strong> {request.rejection_reason}
+                          <div style={{...styles.rejectionReason, display: 'flex', alignItems: 'center', gap: '4px'}}>
+                            <strong><AlertTriangle size={14}/> Reason:</strong> {request.rejection_reason}
                           </div>
                         )}
                         
                         {request.auto_rejected && (
-                          <div style={styles.autoRejectedTag}>
-                            🤖 Automatically Rejected by System
+                          <div style={{...styles.autoRejectedTag, display: 'flex', alignItems: 'center', gap: '4px'}}>
+                            <Bot size={14}/> Automatically Rejected by System
                           </div>
                         )}
                       </div>
@@ -353,9 +354,9 @@ export default function AdminDashboard() {
                             href={`http://localhost:5000${request.license_image}`} 
                             target="_blank" 
                             rel="noopener noreferrer" 
-                            style={styles.viewFullImageLink}
+                            style={{...styles.viewFullImageLink, display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center'}}
                           >
-                            🔍 View Full Size
+                            <Search size={14} /> View Full Size
                           </a>
                         </div>
                       </div>
@@ -384,15 +385,15 @@ export default function AdminDashboard() {
                     <div style={styles.requestActions}>
                       <button 
                         onClick={() => handleRiderRequest(request.id, 'approved', request.full_name)}
-                        style={styles.approveButton}
+                        style={{...styles.approveButton, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center'}}
                       >
-                        ✅ Approve Rider
+                        <Check size={16} /> Approve Rider
                       </button>
                       <button 
                         onClick={() => handleRiderRequest(request.id, 'rejected', request.full_name)}
-                        style={styles.rejectButton}
+                        style={{...styles.rejectButton, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center'}}
                       >
-                        ❌ Reject Application
+                        <X size={16} /> Reject Application
                       </button>
                     </div>
                   )}
@@ -477,7 +478,7 @@ export default function AdminDashboard() {
 
       {activeTab === 'transactions' && (
         <div>
-          <h2 style={{ marginBottom: '8px' }}>💳 eSewa Transactions</h2>
+          <h2 style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}><CreditCard size={28} /> eSewa Transactions</h2>
           <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>
             Platform income from online payments
           </p>
@@ -490,10 +491,10 @@ export default function AdminDashboard() {
               {/* Summary */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '24px' }}>
                 {[
-                  { label: 'Total Transactions', value: transactions.length, icon: '📊' },
-                  { label: 'Total Income', value: `रू ${transactions.filter(t => t.status === 'success').reduce((s, t) => s + parseFloat(t.amount), 0).toLocaleString()}`, icon: '💰' },
-                  { label: 'Successful', value: transactions.filter(t => t.status === 'success').length, icon: '✅' },
-                  { label: 'Failed', value: transactions.filter(t => t.status === 'failed').length, icon: '❌' },
+                  { label: 'Total Transactions', value: transactions.length, icon: <BarChart2 size={24} color="#64748b" /> },
+                  { label: 'Total Income', value: `रू ${transactions.filter(t => t.status === 'success').reduce((s, t) => s + parseFloat(t.amount), 0).toLocaleString()}`, icon: <DollarSign size={24} color="#F88000" /> },
+                  { label: 'Successful', value: transactions.filter(t => t.status === 'success').length, icon: <CheckCircle2 size={24} color="#10b981" /> },
+                  { label: 'Failed', value: transactions.filter(t => t.status === 'failed').length, icon: <XCircle size={24} color="#ef4444" /> },
                 ].map(c => (
                   <div key={c.label} style={{ background: '#fff', borderRadius: '14px', padding: '20px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                     <div style={{ fontSize: '24px', marginBottom: '6px' }}>{c.icon}</div>
@@ -521,8 +522,8 @@ export default function AdminDashboard() {
                         <td style={{ padding: '12px 16px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.item_title}</td>
                         <td style={{ padding: '12px 16px', fontWeight: '700', color: '#10b981' }}>रू {parseFloat(t.amount).toLocaleString()}</td>
                         <td style={{ padding: '12px 16px' }}>
-                          <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' }}>
-                            📱 {t.payment_method}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#dbeafe', color: '#1d4ed8', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700' }}>
+                            <Smartphone size={12} /> {t.payment_method}
                           </span>
                         </td>
                         <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '11px', color: '#64748b', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.transaction_id}</td>
@@ -597,7 +598,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     padding: '1.5rem',
     borderRadius: '16px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)',
     textAlign: 'center'
   },
   statNumber: {
@@ -617,7 +618,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     padding: '1.5rem',
     borderRadius: '16px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   activitiesList: {
     display: 'flex',
@@ -663,7 +664,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     padding: '1.5rem',
     borderRadius: '16px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   requestHeader: {
     display: 'flex',
@@ -712,7 +713,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     padding: '1.5rem',
     borderRadius: '16px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   userHeader: {
     display: 'flex',
@@ -803,7 +804,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     borderRadius: '16px',
     color: '#000000',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   requestEmail: {
     color: '#666',

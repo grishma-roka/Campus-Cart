@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import ErrorModal from "../components/ErrorModal";
+import { GraduationCap, Camera } from 'lucide-react';
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -218,7 +219,7 @@ export default function Register() {
         
         {/* Institutional Email Notice */}
         <div style={styles.noticeBox}>
-          <div style={styles.noticeIcon}>🎓</div>
+          <div style={styles.noticeIcon}><GraduationCap size={44} color="#FFF" /></div>
           <div style={styles.noticeContent}>
             <h4 style={styles.noticeTitle}>Herald College Students Only</h4>
             <p style={styles.noticeText}>
@@ -234,7 +235,7 @@ export default function Register() {
               Example: <code style={styles.codeText}>np03cs4a230143@heraldcollege.edu.np</code>
             </p>
             <p style={styles.noticeWarning}>
-              ⚠️ If your email doesn't match this pattern, the system won't let you through. Let's keep it within the campus family!
+              If your email doesn't match this pattern, the system won't let you through. Let's keep it within the campus family!
             </p>
           </div>
         </div>
@@ -336,7 +337,7 @@ export default function Register() {
                     style={styles.fileInput}
                   />
                   <label htmlFor="license_image" style={styles.fileLabel}>
-                    <span style={styles.uploadIcon}>📸</span>
+                    <span style={styles.uploadIcon}><Camera size={24} color="#64748b" /></span>
                     <span style={styles.uploadText}>
                       {form.license_image ? form.license_image.name : 'Tap to upload license photo'}
                     </span>
@@ -387,14 +388,14 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#EAF4FE',
     padding: '1rem'
   },
   formCard: {
     backgroundColor: '#fff',
     padding: '2rem',
-    borderRadius: '8px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+    borderRadius: '16px',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.05)',
     width: '100%',
     maxWidth: '500px',
     maxHeight: '90vh',
@@ -406,12 +407,12 @@ const styles = {
     color: '#333'
   },
   noticeBox: {
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    background: 'linear-gradient(135deg, #F88000 0%, #FF8C00 100%)',
     borderRadius: '12px',
     padding: '1.5rem',
     marginBottom: '1.5rem',
     color: 'white',
-    boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)'
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
   },
   noticeIcon: {
     fontSize: '32px',
@@ -558,13 +559,14 @@ const styles = {
   },
   button: {
     padding: '0.75rem',
-    backgroundColor: '#27ae60',
+    backgroundColor: '#F88000',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '12px',
     fontSize: '1rem',
     cursor: 'pointer',
-    marginTop: '0.5rem'
+    marginTop: '0.5rem',
+    fontWeight: '600'
   },
   error: {
     backgroundColor: '#f8d7da',
@@ -588,7 +590,8 @@ const styles = {
     color: '#666'
   },
   link: {
-    color: '#3498db',
-    textDecoration: 'none'
+    color: '#F88000',
+    textDecoration: 'none',
+    fontWeight: '600'
   }
 };

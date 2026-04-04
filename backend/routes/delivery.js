@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../config/db');
 const auth = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/roleMiddleware');
+const { createNotification } = require('./notifications');
 
 // Haversine formula — returns distance in km
 function haversine(lat1, lng1, lat2, lng2) {
@@ -161,6 +162,31 @@ router.put('/accept/:id', auth, requireRole(['rider']), async (req, res) => {
     );
 
     await conn.commit();
+
+    // Notify buyer
+    try {
+      const [orderRows] = await db.query(
+        `SELECT o.buyer_id, o.delivery_address, i.title as item_title, u.full_name as rider_name
+         FROM orders o
+         JOIN items i ON o.item_id = i.id
+         JOIN users u ON u.id = ?
+         WHERE o.id = ?`,
+        [riderId, deliveryRows[0].order_id]
+      );
+      if (orderRows.length) {
+        const { buyer_id, item_title, rider_name } = orderRows[0];
+        await createNotification(
+          buyer_id,
+          '🏍️ Order Accepted!',
+          `Your order for "${item_title}" has been accepted by ${rider_name} and is on the way!`,
+          'order_accepted',
+          deliveryRows[0].order_id
+        );
+      }
+    } catch (notifErr) {
+      console.error('Notification error (non-fatal):', notifErr.message);
+    }
+
     res.json({ message: 'Delivery accepted successfully' });
   } catch (err) {
     await conn.rollback();
@@ -225,12 +251,27 @@ router.put('/status/:id', auth, requireRole(['rider']), async (req, res) => {
       );
     }
 
-    // If delivered, set rider back to available
+    // If delivered, set rider back to available + notify buyer
     if (status === 'delivered') {
       await db.query(
         `UPDATE users SET rider_availability = 'available' WHERE id = ?`,
         [req.user.id]
       );
+      try {
+        const [oRows] = await db.query(
+          `SELECT o.buyer_id, i.title as item_title FROM orders o JOIN items i ON o.item_id = i.id WHERE o.id = ?`,
+          [deliveryData[0].order_id]
+        );
+        if (oRows.length) {
+          await createNotification(
+            oRows[0].buyer_id,
+            '✅ Order Delivered!',
+            `Your order for "${oRows[0].item_title}" has been delivered successfully!`,
+            'order_delivered',
+            deliveryData[0].order_id
+          );
+        }
+      } catch (e) { /* non-fatal */ }
     }
 
     res.json({ message: `Delivery marked as ${status}` });

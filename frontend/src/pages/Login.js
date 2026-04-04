@@ -23,11 +23,11 @@ export default function Login() {
     } else {
       // Check for rider-specific errors
       if (result.riderStatus === 'pending') {
-        setError("⏳ Your rider account is awaiting admin approval. You'll receive an email once your application is reviewed.");
+        setError("Your rider account is awaiting admin approval. You'll receive an email once your application is reviewed.");
       } else if (result.riderStatus === 'rejected') {
-        setError("❌ Your rider request was rejected. Please contact admin for more information.");
+        setError("Your rider request was rejected. Please contact admin for more information.");
       } else if (result.riderStatus === 'no_application') {
-        setError("⚠️ No rider application found. Please apply to become a rider first.");
+        setError("No rider application found. Please apply to become a rider first.");
       } else {
         setError(result.error);
       }
@@ -91,14 +91,14 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#EAF4FE',
     padding: '1rem'
   },
   formCard: {
     backgroundColor: '#fff',
     padding: '2rem',
-    borderRadius: '8px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+    borderRadius: '16px',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.05)',
     width: '100%',
     maxWidth: '400px'
   },
@@ -133,13 +133,14 @@ const styles = {
   },
   button: {
     padding: '0.75rem',
-    backgroundColor: '#3498db',
+    backgroundColor: '#F88000',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '12px',
     fontSize: '1rem',
     cursor: 'pointer',
-    marginTop: '0.5rem'
+    marginTop: '0.5rem',
+    fontWeight: '600'
   },
   error: {
     backgroundColor: '#f8d7da',
@@ -155,7 +156,8 @@ const styles = {
     color: '#666'
   },
   link: {
-    color: '#3498db',
-    textDecoration: 'none'
+    color: '#F88000',
+    textDecoration: 'none',
+    fontWeight: '600'
   }
 };

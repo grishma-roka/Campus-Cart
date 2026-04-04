@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 import LiveMap from '../components/LiveMap';
+import { Bike, Hourglass, XCircle, CheckCircle, Package, Truck, CircleDollarSign, Star, Bell, ClipboardList, Ban, MapPin, Inbox, Sun, Calendar, Trophy, BarChart2, User, Store, Clock, Banknote } from 'lucide-react';
 
 export default function RiderDashboard() {
   const { user } = useAuth();
@@ -196,7 +197,7 @@ export default function RiderDashboard() {
     return (
       <div style={s.container}>
         <div style={s.pageHeader}>
-          <div style={s.pageHeaderIcon}>🏍️</div>
+          <div style={s.pageHeaderIcon}><Bike size={40} strokeWidth={1.5} color="#fff" /></div>
           <div>
             <h1 style={s.pageTitle}>Become a Rider</h1>
             <p style={s.pageSubtitle}>Apply to deliver on Campus Cart and start earning</p>
@@ -243,7 +244,7 @@ export default function RiderDashboard() {
     return (
       <div style={s.container}>
         <div style={s.pageHeader}>
-          <div style={s.pageHeaderIcon}>⏳</div>
+          <div style={s.pageHeaderIcon}><Hourglass size={40} strokeWidth={1.5} color="#fff" /></div>
           <div>
             <h1 style={s.pageTitle}>Application Pending</h1>
             <p style={s.pageSubtitle}>Your rider application is under review</p>
@@ -262,7 +263,7 @@ export default function RiderDashboard() {
     return (
       <div style={s.container}>
         <div style={s.pageHeader}>
-          <div style={s.pageHeaderIcon}>❌</div>
+          <div style={s.pageHeaderIcon}><XCircle size={40} strokeWidth={1.5} color="#fff" /></div>
           <div>
             <h1 style={s.pageTitle}>Application Rejected</h1>
             <p style={s.pageSubtitle}>Your application was not approved</p>
@@ -281,7 +282,7 @@ export default function RiderDashboard() {
     <div style={s.container}>
       {/* Header */}
       <div style={s.pageHeader}>
-        <div style={s.pageHeaderIcon}>🏍️</div>
+        <div style={s.pageHeaderIcon}><Bike size={40} strokeWidth={1.5} color="#fff" /></div>
         <div style={{ flex: 1 }}>
           <h1 style={s.pageTitle}>Rider Dashboard</h1>
           <p style={s.pageSubtitle}>Welcome, {user?.full_name}</p>
@@ -314,13 +315,13 @@ export default function RiderDashboard() {
       {stats && (
         <div style={s.statsGrid}>
           {[
-            { label: 'Total', value: stats.deliveries.total_deliveries, icon: '📦' },
-            { label: 'Completed', value: stats.deliveries.completed_deliveries, icon: '✅' },
-            { label: 'Active', value: stats.deliveries.active_deliveries, icon: '🚚' },
-            { label: 'Earnings', value: `रू ${stats.deliveries.total_earnings || 0}`, icon: '💰' },
-            { label: 'Rating', value: stats.ratings.average_rating ? `${parseFloat(stats.ratings.average_rating).toFixed(1)}⭐` : 'N/A', icon: '⭐' },
-          ].map((st) => (
-            <div key={st.label} style={s.statCard}>
+            { label: 'Total', value: stats.deliveries.total_deliveries, icon: <Package size={24} color="#64748b" /> },
+            { label: 'Completed', value: stats.deliveries.completed_deliveries, icon: <CheckCircle size={24} color="#10b981" /> },
+            { label: 'Active', value: stats.deliveries.active_deliveries, icon: <Truck size={24} color="#3b82f6" /> },
+            { label: 'Earnings', value: `रू ${stats.deliveries.total_earnings || 0}`, icon: <CircleDollarSign size={24} color="#F88000" /> },
+            { label: 'Rating', value: stats.ratings.average_rating ? `${parseFloat(stats.ratings.average_rating).toFixed(1)}⭐` : 'N/A', icon: <Star size={24} color="#eab308" /> },
+          ].map((st, i) => (
+            <div key={i} style={s.statCard}>
               <div style={s.statIcon}>{st.icon}</div>
               <div style={s.statValue}>{st.value}</div>
               <div style={s.statLabel}>{st.label}</div>
@@ -331,14 +332,14 @@ export default function RiderDashboard() {
 
       {/* Tabs */}
       <div style={s.tabs}>
-        <button style={activeTab === 'available' ? s.activeTab : s.tab} onClick={() => setActiveTab('available')}>
-          🔔 Available ({availableDeliveries.length})
+        <button style={{...(activeTab === 'available' ? s.activeTab : s.tab), display: 'flex', alignItems: 'center', gap: '6px'}} onClick={() => setActiveTab('available')}>
+          <Bell size={16} /> Available ({availableDeliveries.length})
         </button>
-        <button style={activeTab === 'my-deliveries' ? s.activeTab : s.tab} onClick={() => setActiveTab('my-deliveries')}>
-          📋 My Deliveries ({myDeliveries.length})
+        <button style={{...(activeTab === 'my-deliveries' ? s.activeTab : s.tab), display: 'flex', alignItems: 'center', gap: '6px'}} onClick={() => setActiveTab('my-deliveries')}>
+          <ClipboardList size={16} /> My Deliveries ({myDeliveries.length})
         </button>
-        <button style={activeTab === 'income' ? s.activeTab : s.tab} onClick={() => setActiveTab('income')}>
-          💰 Income
+        <button style={{...(activeTab === 'income' ? s.activeTab : s.tab), display: 'flex', alignItems: 'center', gap: '6px'}} onClick={() => setActiveTab('income')}>
+          <CircleDollarSign size={16} /> Income
         </button>
       </div>
 
@@ -347,7 +348,7 @@ export default function RiderDashboard() {
         <div>
           {locationPermission === 'denied' ? (
             <div style={s.locationBanner}>
-              <div style={s.locationBannerIcon}>🚫</div>
+              <div style={s.locationBannerIcon}><Ban size={56} color="#ef4444" strokeWidth={1.5} /></div>
               <div style={s.locationBannerTitle}>Location Off — Enable location to receive delivery requests</div>
               <p style={s.locationBannerText}>
                 Without location access, you won't appear to buyers and won't receive any orders.
@@ -358,12 +359,12 @@ export default function RiderDashboard() {
             </div>
           ) : locationPermission === 'pending' ? (
             <div style={s.emptyState}>
-              <div style={s.emptyIcon}>📍</div>
+              <div style={s.emptyIcon}><MapPin size={48} color="#94a3b8" /></div>
               <p>Requesting your location...</p>
             </div>
           ) : availableDeliveries.length === 0 ? (
             <div style={s.emptyState}>
-              <div style={s.emptyIcon}>📭</div>
+              <div style={s.emptyIcon}><Inbox size={48} color="#94a3b8" /></div>
               <p>No deliveries available near you right now.</p>
               <p style={{ color: '#94a3b8', fontSize: '13px' }}>Orders expand to more riders every 30 seconds.</p>
             </div>
@@ -387,7 +388,7 @@ export default function RiderDashboard() {
         <div>
           {myDeliveries.length === 0 ? (
             <div style={s.emptyState}>
-              <div style={s.emptyIcon}>📋</div>
+              <div style={s.emptyIcon}><ClipboardList size={48} color="#94a3b8" /></div>
               <p>No deliveries assigned yet.</p>
             </div>
           ) : (
@@ -477,7 +478,7 @@ function LocationPanel({ locationPermission, coords, address, riderAvailability,
 
 // ─── Income Panel ──────────────────────────────────────────────────────────────
 function IncomePanel({ income }) {
-  if (!income) return <div style={s.emptyState}><div style={s.emptyIcon}>💰</div><p>Loading income data...</p></div>;
+  if (!income) return <div style={s.emptyState}><div style={s.emptyIcon}><CircleDollarSign size={48} color="#94a3b8" /></div><p>Loading income data...</p></div>;
 
   const { periods, history, daily } = income;
 
@@ -493,10 +494,10 @@ function IncomePanel({ income }) {
   const maxEarned = Math.max(...last7.map(d => d.earned), 1);
 
   const periodCards = [
-    { label: 'Today',      value: periods.today      || 0, icon: '☀️',  color: '#f59e0b' },
-    { label: 'This Week',  value: periods.this_week  || 0, icon: '📅',  color: '#3b82f6' },
-    { label: 'This Month', value: periods.this_month || 0, icon: '🗓️', color: '#8b5cf6' },
-    { label: 'All Time',   value: periods.all_time   || 0, icon: '🏆',  color: '#10b981' },
+    { label: 'Today',      value: periods.today      || 0, icon: <Sun size={28} />,  color: '#f59e0b' },
+    { label: 'This Week',  value: periods.this_week  || 0, icon: <Calendar size={28} />,  color: '#3b82f6' },
+    { label: 'This Month', value: periods.this_month || 0, icon: <Calendar size={28} />, color: '#8b5cf6' },
+    { label: 'All Time',   value: periods.all_time   || 0, icon: <Trophy size={28} />,  color: '#10b981' },
   ];
 
   return (
@@ -514,7 +515,9 @@ function IncomePanel({ income }) {
 
       {/* 7-day bar chart */}
       <div style={s.chartCard}>
-        <div style={s.chartTitle}>📊 Last 7 Days</div>
+        <div style={{...s.chartTitle, display: 'flex', alignItems: 'center', gap: '8px'}}>
+          <BarChart2 size={18} /> Last 7 Days
+        </div>
         <div style={s.chartBars}>
           {last7.map(d => (
             <div key={d.day} style={s.barCol}>
@@ -538,7 +541,9 @@ function IncomePanel({ income }) {
 
       {/* History list */}
       <div style={s.historyCard}>
-        <div style={s.chartTitle}>🧾 Delivery History</div>
+        <div style={{...s.chartTitle, display: 'flex', alignItems: 'center', gap: '8px'}}>
+          <ClipboardList size={18} /> Delivery History
+        </div>
         {history.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8' }}>
             No completed deliveries yet.
@@ -549,7 +554,7 @@ function IncomePanel({ income }) {
               <div style={s.historyLeft}>
                 <div style={s.historyTitle}>{h.item_title}</div>
                 <div style={s.historyMeta}>
-                  👤 {h.buyer_name} &nbsp;·&nbsp; 📍 {h.delivery_address}
+                  <User size={14} /> {h.buyer_name} &nbsp;·&nbsp; <MapPin size={14} /> {h.delivery_address}
                 </div>
                 <div style={s.historyMeta}>
                   {h.delivery_time ? new Date(h.delivery_time).toLocaleString() : '—'}
@@ -584,17 +589,19 @@ function AvailableDeliveryCard({ delivery: d, onAccept, accepting }) {
     <div style={s.deliveryCard}>
       {/* Distance badge */}
       <div style={{ ...s.distanceBadge, backgroundColor: distanceColor }}>
-        📍 {distanceLabel}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <MapPin size={12} strokeWidth={2.5} /> {distanceLabel}
+        </div>
       </div>
 
       <div style={s.cardBody}>
         <h3 style={s.cardTitle}>{d.item_title}</h3>
 
-        <div style={s.infoRow}><span style={s.infoIcon}>👤</span><span>{d.buyer_name}</span></div>
-        <div style={s.infoRow}><span style={s.infoIcon}>📍</span><span style={s.infoText}>{d.delivery_address}</span></div>
-        <div style={s.infoRow}><span style={s.infoIcon}>💰</span><span>रू {d.total_amount} &nbsp;·&nbsp; {paymentLabel(d.payment_method)}</span></div>
-        <div style={s.infoRow}><span style={s.infoIcon}>🚚</span><span>Delivery fee: रू {d.delivery_fee}</span></div>
-        <div style={s.infoRow}><span style={s.infoIcon}>⏱️</span><span style={{ color: '#94a3b8', fontSize: '12px' }}>
+        <div style={s.infoRow}><span style={s.infoIcon}><User size={14} /></span><span>{d.buyer_name}</span></div>
+        <div style={s.infoRow}><span style={s.infoIcon}><MapPin size={14} /></span><span style={s.infoText}>{d.delivery_address}</span></div>
+        <div style={s.infoRow}><span style={s.infoIcon}><CircleDollarSign size={14} /></span><span>रू {d.total_amount} &nbsp;·&nbsp; {paymentLabel(d.payment_method)}</span></div>
+        <div style={s.infoRow}><span style={s.infoIcon}><Truck size={14} /></span><span>Delivery fee: रू {d.delivery_fee}</span></div>
+        <div style={s.infoRow}><span style={s.infoIcon}><Clock size={14} /></span><span style={{ color: '#94a3b8', fontSize: '12px' }}>
           Posted {ageMin < 1 ? 'just now' : `${ageMin} min ago`}
         </span></div>
       </div>
@@ -602,9 +609,9 @@ function AvailableDeliveryCard({ delivery: d, onAccept, accepting }) {
       <button
         onClick={() => onAccept(d.id)}
         disabled={accepting}
-        style={{ ...s.primaryBtn, width: '100%', marginTop: '12px', opacity: accepting ? 0.6 : 1 }}
+        style={{ ...s.primaryBtn, width: '100%', marginTop: '12px', opacity: accepting ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
       >
-        {accepting ? 'Accepting...' : '✅ Accept Delivery'}
+        {accepting ? 'Accepting...' : <><CheckCircle size={16} /> Accept Delivery</>}
       </button>
     </div>
   );
@@ -622,28 +629,30 @@ function MyDeliveryCard({ delivery: d, onUpdateStatus }) {
   return (
     <div style={s.deliveryCard}>
       <div style={{ ...s.statusBadge, backgroundColor: statusColor }}>
-        {statusIcon(d.status)} {d.status?.replace('_', ' ').toUpperCase()}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {statusIcon(d.status)} {d.status?.replace('_', ' ').toUpperCase()}
+        </div>
       </div>
 
       <div style={s.cardBody}>
         <h3 style={s.cardTitle}>{d.item_title}</h3>
-        <div style={s.infoRow}><span style={s.infoIcon}>👤</span><span>{d.buyer_name} · {d.buyer_phone}</span></div>
-        <div style={s.infoRow}><span style={s.infoIcon}>📍</span><span style={s.infoText}>{d.delivery_address}</span></div>
-        <div style={s.infoRow}><span style={s.infoIcon}>💰</span><span>रू {d.total_amount} &nbsp;·&nbsp; {paymentLabel(d.payment_method)}</span></div>
-        <div style={s.infoRow}><span style={s.infoIcon}>🏪</span><span>Seller: {d.seller_name} · {d.seller_phone}</span></div>
-        {d.pickup_time && <div style={s.infoRow}><span style={s.infoIcon}>📦</span><span>Picked up: {new Date(d.pickup_time).toLocaleString()}</span></div>}
-        {d.delivery_time && <div style={s.infoRow}><span style={s.infoIcon}>✅</span><span>Delivered: {new Date(d.delivery_time).toLocaleString()}</span></div>}
+        <div style={s.infoRow}><span style={s.infoIcon}><User size={14} /></span><span>{d.buyer_name} · {d.buyer_phone}</span></div>
+        <div style={s.infoRow}><span style={s.infoIcon}><MapPin size={14} /></span><span style={s.infoText}>{d.delivery_address}</span></div>
+        <div style={s.infoRow}><span style={s.infoIcon}><CircleDollarSign size={14} /></span><span>रू {d.total_amount} &nbsp;·&nbsp; {paymentLabel(d.payment_method)}</span></div>
+        <div style={s.infoRow}><span style={s.infoIcon}><Store size={14} /></span><span>Seller: {d.seller_name} · {d.seller_phone}</span></div>
+        {d.pickup_time && <div style={s.infoRow}><span style={s.infoIcon}><Package size={14} /></span><span>Picked up: {new Date(d.pickup_time).toLocaleString()}</span></div>}
+        {d.delivery_time && <div style={s.infoRow}><span style={s.infoIcon}><CheckCircle size={14} /></span><span>Delivered: {new Date(d.delivery_time).toLocaleString()}</span></div>}
       </div>
 
       <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
         {d.status === 'assigned' && (
-          <button onClick={() => onUpdateStatus(d.id, 'picked_up')} style={{ ...s.primaryBtn, flex: 1 }}>
-            📦 Mark Picked Up
+          <button onClick={() => onUpdateStatus(d.id, 'picked_up')} style={{ ...s.primaryBtn, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <Package size={16} /> Mark Picked Up
           </button>
         )}
         {d.status === 'picked_up' && (
-          <button onClick={() => onUpdateStatus(d.id, 'delivered')} style={{ ...s.successBtn, flex: 1 }}>
-            ✅ Mark Delivered
+          <button onClick={() => onUpdateStatus(d.id, 'delivered')} style={{ ...s.successBtn, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <CheckCircle size={16} /> Mark Delivered
           </button>
         )}
       </div>
@@ -653,10 +662,10 @@ function MyDeliveryCard({ delivery: d, onUpdateStatus }) {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 function paymentLabel(pm) {
-  return pm === 'esewa' ? '✅ Paid Online (eSewa)' : '💵 Collect Cash (COD)';
+  return pm === 'esewa' ? <span style={{display:'inline-flex', alignItems:'center', gap:'4px'}}><CheckCircle size={12}/> Paid Online (eSewa)</span> : <span style={{display:'inline-flex', alignItems:'center', gap:'4px'}}><Banknote size={12}/> Collect Cash (COD)</span>;
 }
 function statusIcon(st) {
-  return { assigned: '🚴', picked_up: '📦', delivered: '✅', cancelled: '❌' }[st] || '⏳';
+  return { assigned: <Bike size={12}/>, picked_up: <Package size={12}/>, delivered: <CheckCircle size={12}/>, cancelled: <XCircle size={12}/> }[st] || <Hourglass size={12}/>;
 }
 function availColor(av) {
   return { available: '#d1fae5', busy: '#fef3c7', offline: '#fee2e2' }[av] || '#f1f5f9';
@@ -677,8 +686,8 @@ const s = {
   locationBtn: { padding: '8px 14px', background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: '500', fontFamily: 'Inter, sans-serif' },
 
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' },
-  statCard: { background: '#fff', borderRadius: '16px', padding: '20px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' },
-  statIcon: { fontSize: '24px', marginBottom: '8px' },
+  statCard: { background: '#fff', borderRadius: '16px', padding: '20px', textAlign: 'center', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' },
+  statIcon: { marginBottom: '8px', display: 'flex', justifyContent: 'center' },
   statValue: { fontSize: '22px', fontWeight: '700', color: '#F88000' },
   statLabel: { fontSize: '12px', color: '#64748b', marginTop: '4px', fontWeight: '500' },
 
@@ -688,7 +697,7 @@ const s = {
 
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' },
 
-  deliveryCard: { background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', position: 'relative', overflow: 'hidden' },
+  deliveryCard: { background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', position: 'relative', overflow: 'hidden' },
   distanceBadge: { display: 'inline-block', color: '#fff', fontSize: '12px', fontWeight: '700', padding: '4px 10px', borderRadius: '20px', marginBottom: '12px' },
   statusBadge: { display: 'inline-block', color: '#fff', fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '20px', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' },
   cardBody: { display: 'flex', flexDirection: 'column', gap: '6px' },
@@ -698,9 +707,9 @@ const s = {
   infoText: { wordBreak: 'break-word' },
 
   emptyState: { textAlign: 'center', padding: '60px 20px', color: '#64748b' },
-  emptyIcon: { fontSize: '48px', marginBottom: '12px' },
+  emptyIcon: { marginBottom: '12px', display: 'flex', justifyContent: 'center' },
 
-  card: { background: '#fff', borderRadius: '16px', padding: '32px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', textAlign: 'center', marginBottom: '16px' },
+  card: { background: '#fff', borderRadius: '16px', padding: '32px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', textAlign: 'center', marginBottom: '16px' },
 
   primaryBtn: { padding: '12px 20px', background: '#F88000', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', fontFamily: 'Inter, sans-serif' },
   successBtn: { padding: '12px 20px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', fontFamily: 'Inter, sans-serif' },
@@ -715,11 +724,11 @@ const s = {
 
   // Income
   incomeGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' },
-  incomeCard: { background: '#fff', borderRadius: '16px', padding: '24px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' },
+  incomeCard: { background: '#fff', borderRadius: '16px', padding: '24px', textAlign: 'center', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' },
   incomeValue: { fontSize: '26px', fontWeight: '700', marginBottom: '4px' },
   incomeLabel: { fontSize: '13px', color: '#64748b', fontWeight: '500' },
 
-  chartCard: { background: '#fff', borderRadius: '16px', padding: '24px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' },
+  chartCard: { background: '#fff', borderRadius: '16px', padding: '24px', marginBottom: '20px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' },
   chartTitle: { fontSize: '15px', fontWeight: '700', color: '#000', marginBottom: '20px' },
   chartBars: { display: 'flex', alignItems: 'flex-end', gap: '8px', height: '160px' },
   barCol: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' },
@@ -727,24 +736,24 @@ const s = {
   bar: { width: '100%', borderRadius: '6px 6px 0 0', transition: 'height 0.4s ease', minHeight: '2px' },
   barLabel: { fontSize: '11px', color: '#64748b', fontWeight: '500', marginTop: '4px' },
 
-  historyCard: { background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' },
+  historyCard: { background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' },
   historyRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid rgba(0,0,0,0.05)' },
   historyLeft: { flex: 1, minWidth: 0 },
   historyTitle: { fontSize: '14px', fontWeight: '600', color: '#000', marginBottom: '4px' },
-  historyMeta: { fontSize: '12px', color: '#64748b', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  historyMeta: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   historyFee: { fontSize: '16px', fontWeight: '700', color: '#10b981', marginLeft: '16px', flexShrink: 0 },
 
   // Location banner
-  locationBanner: { background: '#fff', borderRadius: '16px', padding: '48px 32px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', maxWidth: '480px', margin: '0 auto' },
-  locationBannerIcon: { fontSize: '56px', marginBottom: '16px' },
+  locationBanner: { background: '#fff', borderRadius: '16px', padding: '48px 32px', textAlign: 'center', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', maxWidth: '480px', margin: '0 auto' },
+  locationBannerIcon: { marginBottom: '16px', display: 'flex', justifyContent: 'center' },
   locationBannerTitle: { fontSize: '20px', fontWeight: '700', color: '#000', marginBottom: '8px' },
   locationBannerText: { color: '#64748b', fontSize: '14px', marginBottom: '24px', lineHeight: '1.6' },
 
   // Location panel
-  locationPanel: { background: '#fff', borderRadius: '16px', padding: '20px', marginBottom: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' },
+  locationPanel: { background: '#fff', borderRadius: '16px', padding: '20px', marginBottom: '24px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)' },
   locationStatusRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' },
   locationDot: { width: '14px', height: '14px', borderRadius: '50%', flexShrink: 0, transition: 'background 0.3s' },
-  coordsRow: { display: 'flex', alignItems: 'center', gap: '0', background: '#f8fafc', borderRadius: '12px', padding: '12px 16px', flexWrap: 'wrap', gap: '8px' },
+  coordsRow: { display: 'flex', alignItems: 'center', background: '#f8fafc', borderRadius: '12px', padding: '12px 16px', flexWrap: 'wrap', gap: '8px' },
   coordItem: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: '120px' },
   coordLabel: { fontSize: '11px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' },
   coordValue: { fontSize: '14px', fontWeight: '700', color: '#000', fontFamily: 'monospace' },

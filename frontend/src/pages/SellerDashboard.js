@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Handshake } from 'lucide-react';
 
 export default function SellerDashboard() {
   const { user } = useAuth();
@@ -103,12 +104,16 @@ export default function SellerDashboard() {
   const handleBorrowResponse = async (requestId, status, itemTitle) => {
     try {
       const notes = status === 'rejected' ? window.prompt('Reason for rejection (optional):') : '';
-      await axios.put(`/borrow/respond/${requestId}`, {
+      const response = await axios.put(`/borrow/respond/${requestId}`, {
         status,
         admin_notes: notes
       });
       alert(`Borrow request for "${itemTitle}" ${status} successfully!`);
-      fetchData();
+      if (status === 'approved' && response.data.conversation_id) {
+        navigate(`/messages/${response.data.conversation_id}`);
+      } else {
+        fetchData();
+      }
     } catch (error) {
       alert(`Failed to ${status} borrow request: ` + (error.response?.data?.error || error.message));
     }
@@ -208,9 +213,10 @@ export default function SellerDashboard() {
         </button>
         <button
           onClick={() => navigate('/borrow')}
-          style={{ ...styles.tab, background: '#F88000', color: '#fff', border: 'none', fontWeight: '700' }}
+          style={{ ...styles.tab, background: '#F88000', color: '#fff', border: 'none', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
         >
-          🤝 Borrow Page
+          <Handshake size={18} strokeWidth={1.5} />
+          Borrow Page
         </button>
       </div>
 
@@ -480,7 +486,7 @@ export default function SellerDashboard() {
                           e.target.src = 'https://via.placeholder.com/100x100?text=No+Image';
                         }}
                       />
-                      <div style={styles.borrowInfo}>
+                      <div style={styles.borrowRequestInfo}>
                         <h3>{request.title}</h3>
                         <p>Total Cost: <strong>रू {request.total_cost.toLocaleString()}</strong></p>
                         <p>Borrower: {request.borrower_name} ({request.borrower_phone})</p>
@@ -575,7 +581,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     padding: '2rem',
     borderRadius: '16px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   loading: {
     textAlign: 'center',
@@ -588,7 +594,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     borderRadius: '16px',
     overflow: 'hidden',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   tab: {
     flex: 1,
@@ -618,7 +624,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     padding: '1.5rem',
     borderRadius: '16px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   addButton: {
     padding: '0.75rem 1.5rem',
@@ -649,7 +655,7 @@ const styles = {
     maxWidth: '500px',
     maxHeight: '90vh',
     overflow: 'auto',
-    boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   form: {
     display: 'flex',
@@ -719,7 +725,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     borderRadius: '16px',
     overflow: 'hidden',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)',
     transition: 'transform 0.3s ease'
   },
   imageContainer: {
@@ -807,7 +813,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     padding: '2rem',
     borderRadius: '16px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   ordersList: {
     display: 'flex',
@@ -819,7 +825,7 @@ const styles = {
     borderRadius: '16px',
     padding: '1.5rem',
     backgroundColor: '#FFFFFF',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   orderHeader: {
     display: 'flex',
@@ -870,7 +876,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     padding: '2rem',
     borderRadius: '16px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   borrowsList: {
     display: 'flex',
@@ -882,7 +888,7 @@ const styles = {
     borderRadius: '16px',
     padding: '1.5rem',
     backgroundColor: '#FFFFFF',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   borrowHeader: {
     display: 'flex',
@@ -895,7 +901,7 @@ const styles = {
     objectFit: 'cover',
     borderRadius: '8px'
   },
-  borrowInfo: {
+  borrowRequestInfo: {
     flex: 1
   },
   borrowStatus: {
@@ -953,7 +959,7 @@ const styles = {
     backgroundColor: '#FFFFFF',
     borderRadius: '16px',
     color: '#000000',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   quickStats: {
     display: 'flex',
@@ -970,7 +976,7 @@ const styles = {
     borderRadius: '16px',
     minWidth: '120px',
     border: '1px solid rgba(0, 0, 0, 0.05)',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
   },
   statNumber: {
     fontSize: '2rem',

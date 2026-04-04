@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '../api/axios';
+import { Search } from 'lucide-react';
 
 const SmartSearchBar = ({ onSearch, currentSearchTerm = '' }) => {
   const [searchTerm, setSearchTerm] = useState(currentSearchTerm);
@@ -115,7 +116,7 @@ const SmartSearchBar = ({ onSearch, currentSearchTerm = '' }) => {
     const parts = text.split(new RegExp(`(${query})`, 'gi'));
     return parts.map((part, index) => 
       part.toLowerCase() === query.toLowerCase() ? 
-        <strong key={index} style={{ color: '#FF8C00', fontWeight: '700' }}>{part}</strong> : 
+        <strong key={index} style={{ color: '#F88000', fontWeight: '700' }}>{part}</strong> : 
         part
     );
   };
@@ -124,7 +125,7 @@ const SmartSearchBar = ({ onSearch, currentSearchTerm = '' }) => {
     <div style={styles.container} ref={searchRef}>
       {/* Search Input */}
       <div style={styles.searchPill}>
-        <div style={styles.searchIcon}>🔍</div>
+        <div style={styles.searchIcon}><Search size={18} strokeWidth={1.5} color="#64748b" /></div>
         <input
           type="text"
           placeholder="Search for items, books, electronics..."
@@ -201,7 +202,7 @@ const SmartSearchBar = ({ onSearch, currentSearchTerm = '' }) => {
             </>
           ) : (
             <div style={styles.noResults}>
-              <span style={styles.noResultsIcon}>🔍</span>
+              <span style={styles.noResultsIcon}><Search size={48} strokeWidth={1.5} color="#94a3b8" /></span>
               <div style={styles.noResultsText}>No items found</div>
               <div style={styles.noResultsHint}>
                 {searchTerm ? 'Try different keywords' : 'No items available'}
@@ -232,7 +233,7 @@ const styles = {
     maxWidth: '600px',
     flex: 1,
     margin: '0 24px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.04)',
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
   },
   searchIcon: {
@@ -273,7 +274,7 @@ const styles = {
     right: '24px',
     background: '#FFFFFF',
     borderRadius: '16px',
-    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.08)',
     border: '1px solid rgba(0, 0, 0, 0.1)',
     zIndex: 1000,
     maxHeight: '500px',
@@ -341,7 +342,7 @@ const styles = {
     alignItems: 'center'
   },
   itemPrice: {
-    color: '#FF8C00',
+    color: '#F88000',
     fontWeight: '700',
     fontSize: '14px'
   },
@@ -379,8 +380,8 @@ const styles = {
   loadingSpinner: {
     width: '24px',
     height: '24px',
-    border: '3px solid rgba(255, 140, 0, 0.1)',
-    borderTop: '3px solid #FF8C00',
+    border: '3px solid rgba(248, 128, 0, 0.1)',
+    borderTop: '3px solid #F88000',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite'
   },
@@ -395,10 +396,10 @@ const styles = {
     textAlign: 'center'
   },
   noResultsIcon: {
-    fontSize: '48px',
-    opacity: 0.3,
+    display: 'flex',
+    justifyContent: 'center',
     marginBottom: '12px',
-    display: 'block'
+    opacity: 0.3
   },
   noResultsText: {
     fontSize: '16px',
@@ -433,8 +434,8 @@ if (typeof document !== 'undefined') {
     }
     
     .search-item-card:hover {
-      background: #f8f9fa !important;
-      border-left-color: #FF8C00 !important;
+      background: #EAF4FE !important;
+      border-left-color: #F88000 !important;
     }
     
     .clear-search-button:hover {

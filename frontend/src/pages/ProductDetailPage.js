@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
+import { XCircle, CheckCircle, User, Folder, Tag as TagIcon, Hash, ShoppingBag } from 'lucide-react';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -48,7 +49,7 @@ export default function ProductDetailPage() {
   if (error || !item) {
     return (
       <div style={styles.errorContainer}>
-        <div style={styles.errorIcon}>❌</div>
+        <div style={styles.errorIcon}><XCircle size={64} color="#ef4444" /></div>
         <h2 style={styles.errorTitle}>Item Not Found</h2>
         <p style={styles.errorText}>{error || 'This item does not exist'}</p>
         <button onClick={() => navigate('/dashboard')} style={styles.backButton}>
@@ -105,9 +106,9 @@ export default function ProductDetailPage() {
             {/* Status Badge */}
             <div style={styles.statusBadge}>
               {isSold ? (
-                <span style={styles.soldStatusBadge}>❌ Sold Out</span>
+                <span style={styles.soldStatusBadge}><XCircle size={14} /> Sold Out</span>
               ) : (
-                <span style={styles.availableStatusBadge}>✅ Available</span>
+                <span style={styles.availableStatusBadge}><CheckCircle size={14} /> Available</span>
               )}
             </div>
 
@@ -122,19 +123,19 @@ export default function ProductDetailPage() {
             {/* Seller Info */}
             <div style={styles.infoCard}>
               <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>👤 Seller:</span>
+                <span style={styles.infoLabel}><User size={14} /> Seller:</span>
                 <span style={styles.infoValue}>{item.seller_name}</span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>📂 Category:</span>
+                <span style={styles.infoLabel}><Folder size={14} /> Category:</span>
                 <span style={styles.infoValue}>{item.category}</span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>🏷️ Condition:</span>
+                <span style={styles.infoLabel}><TagIcon size={14} /> Condition:</span>
                 <span style={styles.infoValue}>{item.condition_status || 'Good'}</span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>📦 Quantity:</span>
+                <span style={styles.infoLabel}><Hash size={14} /> Quantity:</span>
                 <span style={styles.infoValue}>1 (Fixed)</span>
               </div>
             </div>
@@ -152,7 +153,7 @@ export default function ProductDetailPage() {
                   onClick={handleBuyNow}
                   style={styles.buyNowButton}
                 >
-                  🛒 Buy Now
+                  <ShoppingBag size={18} /> Buy Now
                 </button>
               )}
               
@@ -279,7 +280,9 @@ const styles = {
     gap: '8px'
   },
   availableStatusBadge: {
-    display: 'inline-block',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
     padding: '8px 16px',
     background: '#27ae60',
     color: '#fff',
@@ -288,7 +291,9 @@ const styles = {
     fontWeight: '600'
   },
   soldStatusBadge: {
-    display: 'inline-block',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
     padding: '8px 16px',
     background: '#e74c3c',
     color: '#fff',
@@ -311,7 +316,7 @@ const styles = {
   price: {
     fontSize: '36px',
     fontWeight: '700',
-    color: '#FF8C00'
+    color: '#F88000'
   },
   infoCard: {
     background: '#f8f9fa',
@@ -329,7 +334,10 @@ const styles = {
   infoLabel: {
     fontSize: '14px',
     fontWeight: '600',
-    color: '#64748b'
+    color: '#64748b',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px'
   },
   infoValue: {
     fontSize: '14px',
@@ -359,7 +367,7 @@ const styles = {
   buyNowButton: {
     width: '100%',
     padding: '18px',
-    background: '#FF8C00',
+    background: '#F88000',
     color: '#fff',
     border: 'none',
     borderRadius: '16px',
@@ -367,7 +375,11 @@ const styles = {
     fontWeight: '700',
     cursor: 'pointer',
     transition: 'all 0.3s ease',
-    boxShadow: '0 4px 16px rgba(255, 140, 0, 0.3)'
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px'
   },
   soldMessage: {
     padding: '16px',
@@ -402,8 +414,8 @@ const styles = {
   loadingSpinner: {
     width: '40px',
     height: '40px',
-    border: '4px solid rgba(255, 140, 0, 0.1)',
-    borderTop: '4px solid #FF8C00',
+    border: '4px solid rgba(248, 128, 0, 0.1)',
+    borderTop: '4px solid #F88000',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite',
     marginBottom: '16px'
@@ -441,7 +453,7 @@ const styles = {
   },
   backButton: {
     padding: '12px 24px',
-    background: '#FF8C00',
+    background: '#F88000',
     color: '#fff',
     border: 'none',
     borderRadius: '12px',

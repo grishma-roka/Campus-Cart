@@ -7,7 +7,6 @@ import Navbar from './components/Navbar';
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import UnifiedDashboard from "./pages/UnifiedDashboard";
-import ProductDetail from "./pages/ProductDetail";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import Profile from "./pages/Profile";
@@ -53,6 +52,12 @@ export default function App() {
             } />
             
             <Route path="/messages" element={
+              <ProtectedRoute>
+                <Messages />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/messages/:conversationId" element={
               <ProtectedRoute>
                 <Messages />
               </ProtectedRoute>

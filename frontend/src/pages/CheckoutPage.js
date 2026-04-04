@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
+import { MapPin, CreditCard, Banknote, Smartphone, Package, User, Mail, Info } from 'lucide-react';
 
 export default function CheckoutPage() {
   const { id } = useParams();
@@ -126,8 +127,8 @@ export default function CheckoutPage() {
         const res = await axios.post('/payment/esewa/initiate', orderData);
         const { formUrl, formData: esewaFields, checkoutContext } = res.data;
 
-        // Save checkout context to sessionStorage so verify page can use it
-        sessionStorage.setItem('esewa_checkout', JSON.stringify(checkoutContext));
+        // Save checkout context to localStorage so verify page can use it after redirect
+        localStorage.setItem('esewa_checkout', JSON.stringify(checkoutContext));
 
         // Build and auto-submit a hidden form to eSewa
         const form = document.createElement('form');
@@ -176,8 +177,7 @@ export default function CheckoutPage() {
   const mainImage = images.length > 0 ? images[0] : 
     `https://dummyimage.com/200x200/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 3))}`;
 
-  const deliveryCharge = 0; // Free delivery for now
-  const totalAmount = item.price + deliveryCharge;
+  const totalAmount = item.price;
 
   return (
     <div style={styles.container}>
@@ -197,7 +197,7 @@ export default function CheckoutPage() {
               {/* Delivery Information */}
               <div style={styles.formCard}>
                 <h2 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>📍</span>
+                  <span style={styles.cardIcon}><MapPin size={24} color="#F88000" /></span>
                   Delivery Information
                 </h2>
                 
@@ -256,7 +256,7 @@ export default function CheckoutPage() {
               {/* Payment Method */}
               <div style={styles.formCard}>
                 <h2 style={styles.cardTitle}>
-                  <span style={styles.cardIcon}>💳</span>
+                  <span style={styles.cardIcon}><CreditCard size={24} color="#F88000" /></span>
                   Payment Method
                 </h2>
 
@@ -271,7 +271,7 @@ export default function CheckoutPage() {
                       style={styles.radio}
                     />
                     <div style={styles.radioContent}>
-                      <span style={styles.radioTitle}>💵 Cash on Delivery</span>
+                      <span style={{...styles.radioTitle, display: 'flex', alignItems: 'center'}}><Banknote size={16} style={{marginRight: '6px'}} /> Cash on Delivery</span>
                       <span style={styles.radioDesc}>Pay when you receive the item</span>
                     </div>
                   </label>
@@ -286,15 +286,15 @@ export default function CheckoutPage() {
                       style={styles.radio}
                     />
                     <div style={styles.radioContent}>
-                      <span style={styles.radioTitle}>📱 Pay with eSewa</span>
+                      <span style={{...styles.radioTitle, display: 'flex', alignItems: 'center'}}><Smartphone size={16} style={{marginRight: '6px'}} /> Pay with eSewa</span>
                       <span style={styles.radioDesc}>Redirect to eSewa gateway — secure online payment</span>
                     </div>
                   </label>
                 </div>
 
                 {formData.paymentMethod === 'esewa' && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '12px 16px', fontSize: '13px', color: '#166534' }}>
-                    📲 You will be redirected to eSewa to complete payment. After payment, your order will be confirmed automatically.
+                  <div style={{ background: '#EAF4FE', border: '1px solid rgba(248, 128, 0, 0.2)', borderRadius: '12px', padding: '12px 16px', fontSize: '13px', color: '#000', display: 'flex', alignItems: 'center' }}>
+                    <Info size={16} style={{marginRight: '8px', color: '#F88000'}} /> You will be redirected to eSewa to complete payment. After payment, your order will be confirmed automatically.
                   </div>
                 )}
               </div>
@@ -308,8 +308,8 @@ export default function CheckoutPage() {
                 {submitting
                   ? 'Processing...'
                   : formData.paymentMethod === 'esewa'
-                    ? '📱 Pay with eSewa →'
-                    : '✅ Place Order (COD)'}
+                    ? 'Pay with eSewa →'
+                    : 'Place Order (COD)'}
               </button>
             </form>
           </div>
@@ -318,7 +318,7 @@ export default function CheckoutPage() {
           <div style={styles.summarySection}>
             <div style={styles.summaryCard}>
               <h2 style={styles.cardTitle}>
-                <span style={styles.cardIcon}>📦</span>
+                <span style={styles.cardIcon}><Package size={24} color="#F88000" /></span>
                 Order Summary
               </h2>
 
@@ -338,12 +338,6 @@ export default function CheckoutPage() {
                   <span style={styles.priceLabel}>Item Price</span>
                   <span style={styles.priceValue}>रू {item.price?.toLocaleString()}</span>
                 </div>
-                <div style={styles.priceRow}>
-                  <span style={styles.priceLabel}>Delivery Charge</span>
-                  <span style={styles.priceValue}>
-                    {deliveryCharge === 0 ? 'FREE' : `रू ${deliveryCharge}`}
-                  </span>
-                </div>
                 <div style={styles.totalRow}>
                   <span style={styles.totalLabel}>Total Amount</span>
                   <span style={styles.totalValue}>रू {totalAmount.toLocaleString()}</span>
@@ -353,8 +347,8 @@ export default function CheckoutPage() {
               {/* Seller Info */}
               <div style={styles.sellerInfo}>
                 <h4 style={styles.sellerTitle}>Seller Information</h4>
-                <p style={styles.sellerName}>👤 {item.seller_name}</p>
-                <p style={styles.sellerEmail}>📧 {item.seller_email}</p>
+                <p style={styles.sellerName}><User size={14} style={{marginRight: '6px', color: '#64748b'}} /> {item.seller_name}</p>
+                <p style={styles.sellerEmail}><Mail size={14} style={{marginRight: '6px'}} /> {item.seller_email}</p>
               </div>
             </div>
           </div>
@@ -514,7 +508,7 @@ const styles = {
   submitButton: {
     width: '100%',
     padding: '18px',
-    background: '#FF8C00',
+    background: '#F88000',
     color: '#fff',
     border: 'none',
     borderRadius: '16px',
@@ -522,7 +516,7 @@ const styles = {
     fontWeight: '700',
     cursor: 'pointer',
     transition: 'all 0.3s ease',
-    boxShadow: '0 4px 16px rgba(255, 140, 0, 0.3)'
+    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
   },
   submitButtonDisabled: {
     opacity: 0.6,
@@ -610,7 +604,7 @@ const styles = {
   totalValue: {
     fontSize: '24px',
     fontWeight: '700',
-    color: '#FF8C00'
+    color: '#F88000'
   },
   sellerInfo: {
     background: '#f8f9fa',
@@ -646,8 +640,8 @@ const styles = {
   loadingSpinner: {
     width: '40px',
     height: '40px',
-    border: '4px solid rgba(255, 140, 0, 0.1)',
-    borderTop: '4px solid #FF8C00',
+    border: '4px solid rgba(248, 128, 0, 0.1)',
+    borderTop: '4px solid #F88000',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite',
     marginBottom: '16px'
@@ -669,12 +663,12 @@ if (typeof document !== 'undefined') {
     }
     
     input:focus, textarea:focus {
-      border-color: #FF8C00 !important;
+      border-color: #F88000 !important;
     }
     
     .radio-label:has(input:checked) {
-      border-color: #FF8C00 !important;
-      background: rgba(255, 140, 0, 0.05) !important;
+      border-color: #F88000 !important;
+      background: rgba(248, 128, 0, 0.05) !important;
     }
   `;
   document.head.appendChild(styleSheet);

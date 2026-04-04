@@ -1,25 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 
 export default function Messages() {
+  const { conversationId } = useParams();
   const { user } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [previewImg, setPreviewImg] = useState(null);
+  
+  const bottomRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchConversations();
   }, []);
 
+  useEffect(() => {
+    if (selectedConversation?.id) {
+      fetchMessages(selectedConversation.id);
+      const interval = setInterval(() => fetchMessages(selectedConversation.id), 4000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedConversation]);
+
+  useEffect(() => {
+    if (conversationId && conversations.length > 0) {
+      const conv = conversations.find(c => c.id.toString() === conversationId);
+      if (conv && (!selectedConversation || selectedConversation.id !== conv.id)) {
+        setSelectedConversation(conv);
+      }
+    }
+  }, [conversationId, conversations]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   const fetchConversations = async () => {
     try {
-      console.log('💬 Fetching conversations...');
       const response = await axios.get('/chat/conversations');
       setConversations(response.data);
-      console.log(`✅ Found ${response.data.length} conversations`);
     } catch (error) {
       console.error('❌ Error fetching conversations:', error);
     } finally {
@@ -29,10 +55,8 @@ export default function Messages() {
 
   const fetchMessages = async (conversationId) => {
     try {
-      console.log(`💬 Fetching messages for conversation ${conversationId}...`);
       const response = await axios.get(`/chat/messages/${conversationId}`);
       setMessages(response.data);
-      console.log(`✅ Found ${response.data.length} messages`);
     } catch (error) {
       console.error('❌ Error fetching messages:', error);
     }
@@ -43,23 +67,49 @@ export default function Messages() {
     fetchMessages(conversation.id);
   };
 
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setPreviewImg(ev.target.result);
+      reader.readAsDataURL(e.target.files[0]);
+    } else {
+      setPreviewImg(null);
+    }
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedConversation) return;
+    if ((!newMessage.trim() && !fileInputRef.current?.files[0]) || !selectedConversation) return;
 
+    setSending(true);
     try {
-      await axios.post('/chat/send', {
-        receiver_id: selectedConversation.other_user_id,
-        message: newMessage,
-        item_id: selectedConversation.item_id || null,
-        borrow_request_id: selectedConversation.borrow_request_id || null
+      const formData = new FormData();
+      formData.append('conversation_id', selectedConversation.id);
+      
+      if (newMessage.trim()) {
+        formData.append('message', newMessage.trim());
+        formData.append('message_type', 'text');
+      }
+
+      if (fileInputRef.current?.files[0]) {
+        formData.append('image', fileInputRef.current.files[0]);
+        formData.append('message_type', 'image');
+      }
+
+      await axios.post('/chat/send', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
       setNewMessage('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setPreviewImg(null);
+      
       fetchMessages(selectedConversation.id);
-      fetchConversations(); // Refresh conversations to update last message
+      fetchConversations();
     } catch (error) {
       alert('Failed to send message: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setSending(false);
     }
   };
 
@@ -96,10 +146,10 @@ export default function Messages() {
                 <div style={styles.conversationHeader}>
                   <h4>{conversation.other_user_name}</h4>
                   <span style={styles.conversationTime}>
-                    {new Date(conversation.last_message_time).toLocaleDateString()}
+                    {new Date(conversation.last_message_time || conversation.created_at).toLocaleDateString()}
                   </span>
                 </div>
-                <p style={styles.lastMessage}>{conversation.last_message}</p>
+                <p style={styles.lastMessage}>{conversation.last_message_type === 'image' ? '📸 Image' : conversation.last_message || 'Start chatting...'}</p>
                 {conversation.item_title && (
                   <p style={styles.itemTitle}>Item: {conversation.item_title}</p>
                 )}
@@ -128,30 +178,61 @@ export default function Messages() {
                     <p>No messages yet. Start the conversation!</p>
                   </div>
                 ) : (
-                  messages.map(message => (
-                    <div 
-                      key={message.id}
-                      style={{
-                        ...styles.messageItem,
-                        alignSelf: message.sender_id === user.id ? 'flex-end' : 'flex-start'
-                      }}
-                    >
-                      <div style={{
-                        ...styles.messageContent,
-                        backgroundColor: message.sender_id === user.id ? '#2196f3' : '#f5f5f5',
-                        color: message.sender_id === user.id ? '#fff' : '#333'
-                      }}>
-                        <p style={styles.messageText}>{message.message}</p>
-                        <span style={styles.messageTime}>
-                          {new Date(message.created_at).toLocaleString()}
-                        </span>
+                  messages.map(message => {
+                    const mine = message.sender_id === user.id;
+                    return (
+                      <div 
+                        key={message.id}
+                        style={{
+                          ...styles.messageItem,
+                          alignSelf: mine ? 'flex-end' : 'flex-start'
+                        }}
+                      >
+                        <div style={{
+                          ...styles.messageContent,
+                          backgroundColor: mine ? '#2196f3' : '#f5f5f5',
+                          color: mine ? '#fff' : '#333'
+                        }}>
+                          {message.image_url && (
+                            <a href={message.image_url} target="_blank" rel="noreferrer">
+                              <img src={message.image_url} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: message.message ? '8px' : '0' }} />
+                            </a>
+                          )}
+                          {message.message && <p style={styles.messageText}>{message.message}</p>}
+                          <div style={{...styles.messageTime, textAlign: mine ? 'right' : 'left'}}>
+                            {new Date(message.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
+                <div ref={bottomRef} />
               </div>
 
+              {previewImg && (
+                <div style={styles.previewContainer}>
+                  <img src={previewImg} alt="Preview" style={{ height: '60px', borderRadius: '4px' }} />
+                  <button type="button" onClick={() => { setPreviewImg(null); fileInputRef.current.value = ''; }} style={styles.removePreviewBtn}>✕</button>
+                </div>
+              )}
+
               <form onSubmit={handleSendMessage} style={styles.messageForm}>
+                <button 
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()} 
+                  style={styles.imageUploadBtn}
+                  title="Attach Image"
+                >
+                  📸
+                </button>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  ref={fileInputRef} 
+                  style={{ display: 'none' }} 
+                  onChange={handleFileChange}
+                />
                 <input
                   type="text"
                   value={newMessage}
@@ -159,8 +240,8 @@ export default function Messages() {
                   placeholder="Type your message..."
                   style={styles.messageInput}
                 />
-                <button type="submit" style={styles.sendButton}>
-                  Send
+                <button type="submit" style={styles.sendButton} disabled={sending || (!newMessage.trim() && !fileInputRef.current?.files?.[0])}>
+                  {sending ? '...' : 'Send'}
                 </button>
               </form>
             </>
@@ -299,11 +380,39 @@ const styles = {
     fontSize: '0.7rem',
     opacity: 0.7
   },
+  previewContainer: {
+    padding: '8px 16px',
+    backgroundColor: '#f8fafc',
+    borderTop: '1px solid #e9ecef',
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '8px'
+  },
+  removePreviewBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#64748b',
+    fontWeight: 'bold'
+  },
   messageForm: {
     display: 'flex',
     padding: '1rem',
     borderTop: '1px solid #e9ecef',
-    gap: '0.5rem'
+    gap: '0.5rem',
+    alignItems: 'center'
+  },
+  imageUploadBtn: {
+    padding: '0.75rem',
+    backgroundColor: '#e2e8f0',
+    color: '#475569',
+    border: 'none',
+    borderRadius: '25px',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   messageInput: {
     flex: 1,

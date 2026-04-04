@@ -2,23 +2,58 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const auth = require('../middlewares/authMiddleware');
+const multer = require('multer');
+const path = require('path');
+
+// Configure multer for image uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storage });
 
 // SEND MESSAGE
-router.post('/send', auth, async (req, res) => {
+router.post('/send', auth, upload.single('image'), async (req, res) => {
   try {
-    const { receiver_id, message, item_id, borrow_request_id } = req.body;
+    const { conversation_id, message, message_type } = req.body;
     const sender_id = req.user.id;
+    let image_url = null;
 
-    if (!message || !message.trim()) {
-      return res.status(400).json({ error: "Message cannot be empty" });
+    if (req.file) {
+      image_url = '/uploads/' + req.file.filename;
     }
 
-    const [result] = await db.query(`
-      INSERT INTO chat_messages (sender_id, receiver_id, message, item_id, borrow_request_id)
-      VALUES (?, ?, ?, ?, ?)
-    `, [sender_id, receiver_id, message.trim(), item_id, borrow_request_id]);
+    if ((!message || !message.trim()) && !image_url) {
+      return res.status(400).json({ error: "Message or image cannot be empty" });
+    }
 
-    res.json({ message: "Message sent successfully", messageId: result.insertId });
+    // Verify conversation exists and user is part of it
+    const [convCheck] = await db.query(
+      "SELECT id FROM conversations WHERE id = ? AND (buyer_id = ? OR seller_id = ?)",
+      [conversation_id, sender_id, sender_id]
+    );
+
+    if (convCheck.length === 0) {
+      return res.status(403).json({ error: "Not authorized for this conversation or conversation not found" });
+    }
+
+    const type = message_type && message_type === 'image' ? 'image' : (image_url ? 'image' : 'text');
+
+    const [result] = await db.query(`
+      INSERT INTO messages (conversation_id, sender_id, message, image_url, message_type)
+      VALUES (?, ?, ?, ?, ?)
+    `, [conversation_id, sender_id, message ? message.trim() : null, image_url, type]);
+
+    res.json({ 
+      message: "Message sent successfully", 
+      messageId: result.insertId,
+      image_url
+    });
 
   } catch (err) {
     console.error(err);
@@ -31,33 +66,28 @@ router.get('/conversations', auth, async (req, res) => {
   try {
     const [conversations] = await db.query(`
       SELECT 
+        c.id, c.buyer_id, c.seller_id, c.item_id, c.created_at,
+        i.title as item_title,
         CASE 
-          WHEN cm.sender_id = ? THEN cm.receiver_id 
-          ELSE cm.sender_id 
+          WHEN c.buyer_id = ? THEN c.seller_id 
+          ELSE c.buyer_id 
         END as other_user_id,
         u.full_name as other_user_name,
         u.profile_image as other_user_image,
-        cm.message as last_message,
-        cm.created_at as last_message_time,
-        cm.is_read,
-        COUNT(CASE WHEN cm.receiver_id = ? AND cm.is_read = FALSE THEN 1 END) as unread_count
-      FROM chat_messages cm
+        (SELECT message FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
+        (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_time,
+        (SELECT message_type FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_type
+      FROM conversations c
+      JOIN items i ON c.item_id = i.id
       JOIN users u ON (
         CASE 
-          WHEN cm.sender_id = ? THEN cm.receiver_id = u.id
-          ELSE cm.sender_id = u.id
+          WHEN c.buyer_id = ? THEN c.seller_id = u.id
+          ELSE c.buyer_id = u.id
         END
       )
-      WHERE cm.sender_id = ? OR cm.receiver_id = ?
-      GROUP BY other_user_id
-      HAVING cm.created_at = (
-        SELECT MAX(created_at) 
-        FROM chat_messages 
-        WHERE (sender_id = ? AND receiver_id = other_user_id) 
-           OR (sender_id = other_user_id AND receiver_id = ?)
-      )
-      ORDER BY last_message_time DESC
-    `, [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]);
+      WHERE c.buyer_id = ? OR c.seller_id = ?
+      ORDER BY COALESCE(last_message_time, c.created_at) DESC
+    `, [req.user.id, req.user.id, req.user.id, req.user.id]);
 
     res.json(conversations);
   } catch (err) {
@@ -66,71 +96,48 @@ router.get('/conversations', auth, async (req, res) => {
   }
 });
 
-// GET MESSAGES WITH SPECIFIC USER
-router.get('/messages/:userId', auth, async (req, res) => {
+// GET MESSAGES
+router.get('/messages/:conversationId', auth, async (req, res) => {
   try {
-    const otherUserId = req.params.userId;
+    const conversationId = req.params.conversationId;
     const { page = 1, limit = 50 } = req.query;
     const offset = (page - 1) * limit;
 
+    // Verify user is in conversation
+    const [convCheck] = await db.query(
+      "SELECT id FROM conversations WHERE id = ? AND (buyer_id = ? OR seller_id = ?)",
+      [conversationId, req.user.id, req.user.id]
+    );
+
+    if (convCheck.length === 0) {
+      return res.status(403).json({ error: "Not authorized for this conversation" });
+    }
+
     const [messages] = await db.query(`
-      SELECT cm.*, 
-             us.full_name as sender_name, us.profile_image as sender_image,
-             ur.full_name as receiver_name, ur.profile_image as receiver_image,
-             i.title as item_title
-      FROM chat_messages cm
-      JOIN users us ON cm.sender_id = us.id
-      JOIN users ur ON cm.receiver_id = ur.id
-      LEFT JOIN items i ON cm.item_id = i.id
-      WHERE (cm.sender_id = ? AND cm.receiver_id = ?) 
-         OR (cm.sender_id = ? AND cm.receiver_id = ?)
-      ORDER BY cm.created_at DESC
+      SELECT m.*, 
+             us.full_name as sender_name, us.profile_image as sender_image
+      FROM messages m
+      JOIN users us ON m.sender_id = us.id
+      WHERE m.conversation_id = ?
+      ORDER BY m.created_at ASC
       LIMIT ? OFFSET ?
-    `, [req.user.id, otherUserId, otherUserId, req.user.id, parseInt(limit), offset]);
+    `, [conversationId, parseInt(limit), offset]);
 
-    // Mark messages as read
-    await db.query(`
-      UPDATE chat_messages 
-      SET is_read = TRUE 
-      WHERE sender_id = ? AND receiver_id = ? AND is_read = FALSE
-    `, [otherUserId, req.user.id]);
-
-    res.json(messages.reverse()); // Reverse to show oldest first
+    res.json(messages);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error fetching messages" });
   }
 });
 
-// GET UNREAD MESSAGE COUNT
+// GET UNREAD MESSAGE COUNT (Optional/Not fully supported with new simple schema without is_read, mock for now)
 router.get('/unread-count', auth, async (req, res) => {
   try {
-    const [result] = await db.query(`
-      SELECT COUNT(*) as unread_count
-      FROM chat_messages
-      WHERE receiver_id = ? AND is_read = FALSE
-    `, [req.user.id]);
-
-    res.json({ unread_count: result[0].unread_count });
+    // For now returning 0 since we didn't include is_read in the new messages table
+    res.json({ unread_count: 0 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error fetching unread count" });
-  }
-});
-
-// MARK MESSAGES AS READ
-router.put('/mark-read/:userId', auth, async (req, res) => {
-  try {
-    await db.query(`
-      UPDATE chat_messages 
-      SET is_read = TRUE 
-      WHERE sender_id = ? AND receiver_id = ? AND is_read = FALSE
-    `, [req.params.userId, req.user.id]);
-
-    res.json({ message: "Messages marked as read" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to mark messages as read" });
   }
 });
 
