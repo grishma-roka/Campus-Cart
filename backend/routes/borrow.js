@@ -166,59 +166,51 @@ router.get('/seller-requests', auth, requireRole(['seller']), async (req, res) =
 
 // APPROVE/REJECT BORROW REQUEST (seller only)
 router.put('/respond/:id', auth, requireRole(['seller']), async (req, res) => {
+  const requestId = req.params.id;
+  const { status } = req.body; 
+
   try {
-    const { status, admin_notes } = req.body; // status: 'approved' or 'rejected'
-    const requestId = req.params.id;
+    const dbStatus = status === 'accepted' ? 'approved' : status;
 
-    if (!['approved', 'rejected', 'accepted'].includes(status)) {
-      return res.status(400).json({ error: "Invalid status" });
-    }
-    const normalizedStatus = status === 'accepted' ? 'approved' : status;
+    // 1. Update the Request Status First
+    const [result] = await db.query(
+      "UPDATE borrow_requests SET status = ?, updated_at = NOW() WHERE id = ? AND seller_id = ?",
+      [dbStatus, requestId, req.user.id]
+    );
 
-    const [result] = await db.query(`
-      UPDATE borrow_requests 
-      SET status = ?, admin_notes = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND seller_id = ?
-    `, [normalizedStatus, admin_notes, requestId, req.user.id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Borrow request not found" });
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Borrow request not found" });
-    }
+    // 2. Fetch Data for Chat/Notifications
+    const [reqData] = await db.query("SELECT item_id, borrower_id, seller_id FROM borrow_requests WHERE id = ?", [requestId]);
+    
+    if (reqData.length > 0) {
+      const info = reqData[0];
 
-    let conversation_id = null;
+      if (status === 'accepted' || status === 'approved') {
+        // Mark Item Unavailable
+        await db.query("UPDATE items SET is_available = FALSE WHERE id = ?", [info.item_id]);
 
-    // If approved, mark item as temporarily unavailable and create a conversation
-    if (normalizedStatus === 'approved') {
-      const [requestData] = await db.query("SELECT item_id, borrower_id, seller_id FROM borrow_requests WHERE id = ?", [requestId]);
-      if (requestData.length > 0) {
-        const reqInfo = requestData[0];
-        await db.query("UPDATE items SET is_available = FALSE WHERE id = ?", [reqInfo.item_id]);
-
-        // Auto-create chat conversation if one doesn't exist for this pair + item
-        await db.query(`
-          INSERT INTO conversations (buyer_id, seller_id, item_id)
-          SELECT ?, ?, ?
-          WHERE NOT EXISTS (
-            SELECT id FROM conversations 
-            WHERE buyer_id = ? AND seller_id = ? AND item_id = ?
-          )
-        `, [reqInfo.borrower_id, reqInfo.seller_id, reqInfo.item_id, reqInfo.borrower_id, reqInfo.seller_id, reqInfo.item_id]);
-
-        const [existingConv] = await db.query(
-          "SELECT id FROM conversations WHERE buyer_id = ? AND seller_id = ? AND item_id = ?",
-          [reqInfo.borrower_id, reqInfo.seller_id, reqInfo.item_id]
-        );
-        if (existingConv.length > 0) {
-          conversation_id = existingConv[0].id;
+        // FAIL-SAFE NOTIFICATION
+        try {
+          const [item] = await db.query("SELECT title FROM items WHERE id = ?", [info.item_id]);
+          const [owner] = await db.query("SELECT full_name FROM users WHERE id = ?", [info.seller_id]);
+          if (item.length > 0 && owner.length > 0) {
+            await db.query(
+              "INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, ?)",
+              [info.borrower_id, 'Request Accepted', `Your borrow request for ${item[0].title} has been accepted by ${owner[0].full_name}. Start a conversation now.`, 'borrow_accepted']
+            );
+          }
+        } catch (e) {
+          console.error("Notification skipped:", e.message);
         }
       }
     }
 
-    res.json({ message: `Borrow request ${normalizedStatus} successfully`, conversation_id });
+    res.status(200).json({ success: true, message: `Request ${status} successfully` });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to respond to borrow request" });
+    console.error("CRITICAL ERROR:", err);
+    res.status(500).json({ error: "Internal Server Error", details: err.message });
   }
 });
 
@@ -232,11 +224,11 @@ router.put('/start/:id', auth, requireRole(['seller']), async (req, res) => {
     const [result] = await db.query(`
       UPDATE borrow_requests 
       SET status = 'active', updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND seller_id = ? AND status = 'approved'
+      WHERE id = ? AND seller_id = ? AND status IN ('approved', 'accepted')
     `, [requestId, req.user.id]);
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Approved borrow request not found" });
+      return res.status(404).json({ error: "Approved or Accepted borrow request not found" });
     }
 
     // Record initial condition

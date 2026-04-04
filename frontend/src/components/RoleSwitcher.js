@@ -3,7 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import { ShoppingBag, Store, Plus, Bike, Settings, ClipboardList, Camera, Send } from 'lucide-react';
 
 export default function RoleSwitcher({ currentMode, onModeChange }) {
-  const { userRoles, becomeSeller, applyForRider } = useAuth();
+  const { userRoles, becomeSeller, applyForRider, isRider } = useAuth();
   const [showRiderForm, setShowRiderForm] = useState(false);
   const [riderFormData, setRiderFormData] = useState({
     license_number: '',
@@ -139,7 +139,7 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
           )}
 
           {/* Rider Mode - Vibrant Amber with Motorcycle Icon */}
-          {availableRoles.includes('rider') ? (
+          {isRider ? (
             <button
               onClick={() => onModeChange('rider')}
               className="mode-pill-button"
@@ -149,7 +149,9 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
               }}
             >
               <Bike size={16} strokeWidth={1.5} />
-              <span style={styles.buttonText}>Rider Mode</span>
+              <span style={styles.buttonText}>
+                {currentMode === 'rider' ? 'Rider Mode' : 'Switch to Rider Mode'}
+              </span>
             </button>
           ) : (
             <button

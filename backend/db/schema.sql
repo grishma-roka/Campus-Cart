@@ -160,6 +160,18 @@ CREATE TABLE chat_messages (
     FOREIGN KEY (borrow_request_id) REFERENCES borrow_requests(id) ON DELETE CASCADE
 );
 
+-- Notifications table
+CREATE TABLE notifications (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    title VARCHAR(255),
+    message TEXT,
+    type VARCHAR(50),
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Insert default admin user
 INSERT INTO users (full_name, email, password, student_id, role) VALUES 
 ('Admin User', 'admin@campus.edu', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'ADMIN001', 'admin');

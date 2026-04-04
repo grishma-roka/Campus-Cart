@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 import { Handshake, Store, ClipboardList, Settings, MessageCircle, Package, User, Calendar, DollarSign, Trash2, CheckCircle, XCircle, Camera, AlertTriangle } from 'lucide-react';
+import io from 'socket.io-client';
 
 export default function BorrowPage() {
   const navigate = useNavigate();
@@ -104,11 +105,16 @@ export default function BorrowPage() {
         <ManageRequestsTab
           requests={sellerRequests}
           onRespond={async (id, status) => {
-            const response = await axios.put(`/borrow/respond/${id}`, { status });
-            if (status === 'accepted' && response.data.conversation_id) {
-              navigate(`/messages/${response.data.conversation_id}`);
-            } else {
-              fetchAll();
+            try {
+              const response = await axios.put(`/borrow/respond/${id}`, { status });
+              if (status === 'accepted' && response.data.conversation_id) {
+                navigate(`/messages/${response.data.conversation_id}`);
+              } else {
+                fetchAll();
+              }
+            } catch (err) {
+              console.error("Error updating request:", err);
+              alert(err.response?.data?.error || "An error occurred while responding to the request.");
             }
           }}
           onChat={(req) => { setChatTarget({ userId: req.borrower_id, userName: req.borrower_name, requestId: req.id, itemTitle: req.title }); setActiveTab('chat'); }}
@@ -238,9 +244,9 @@ function MyRequestsTab({ requests, onChat }) {
               </div>
             </div>
             <div style={s.requestRight}>
-              <span style={{ ...s.statusBadge, background: statusColor(req.status) }}>{req.status}</span>
-              {(req.status === 'approved' || req.status === 'active') && (
-                <button onClick={() => onChat(req)} style={{...s.chatBtn, display: 'flex', alignItems: 'center', gap: '6px'}}><MessageCircle size={14} /> Chat</button>
+              <span style={{ ...s.statusBadge, background: statusColor(req.status) }}>{displayStatus(req.status)}</span>
+              {(req.status === 'approved' || req.status === 'active' || req.status === 'accepted') && (
+                <button onClick={() => onChat(req)} style={{...s.chatBtn, display: 'flex', alignItems: 'center', gap: '6px'}}><MessageCircle size={14} /> Start Conversation</button>
               )}
             </div>
           </div>
@@ -278,14 +284,14 @@ function ManageRequestsTab({ requests, onRespond, onChat }) {
             </div>
           </div>
           <div style={s.requestRight}>
-            <span style={{ ...s.statusBadge, background: statusColor(req.status) }}>{req.status}</span>
+            <span style={{ ...s.statusBadge, background: statusColor(req.status) }}>{displayStatus(req.status)}</span>
             {req.status === 'pending' && (
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <button onClick={() => onRespond(req.id, 'accepted')} style={{...s.acceptBtn, display: 'flex', alignItems: 'center', gap: '4px'}}><CheckCircle size={14} /> Accept</button>
                 <button onClick={() => onRespond(req.id, 'rejected')} style={{...s.rejectBtn, display: 'flex', alignItems: 'center', gap: '4px'}}><XCircle size={14} /> Reject</button>
               </div>
             )}
-            {(req.status === 'approved' || req.status === 'active') && (
+            {(req.status === 'approved' || req.status === 'active' || req.status === 'accepted') && (
               <button onClick={() => onChat(req)} style={{...s.chatBtn, display: 'flex', alignItems: 'center', gap: '4px'}}><MessageCircle size={14} /> Chat</button>
             )}
           </div>
@@ -305,6 +311,7 @@ function ChatTab({ userId, initialTarget }) {
   const [previewImg, setPreviewImg] = useState(null);
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
+  const socketRef = useRef(null);
 
   const fetchConversations = React.useCallback(async () => {
     try {
@@ -323,12 +330,30 @@ function ChatTab({ userId, initialTarget }) {
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
   useEffect(() => {
+    socketRef.current = io(axios.defaults.baseURL.replace('/api', '') || 'http://localhost:5000');
+    return () => socketRef.current.disconnect();
+  }, []);
+
+  useEffect(() => {
     if (selected?.id) {
+      if (socketRef.current) {
+        socketRef.current.emit('join_conversation', selected.id);
+        socketRef.current.off('receive_message');
+        socketRef.current.on('receive_message', (msg) => {
+          setMessages(prev => {
+            if (prev.find(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+          // Also refresh conversations to update last message
+          fetchConversations();
+        });
+      }
       fetchMessages(selected.id);
-      const interval = setInterval(() => fetchMessages(selected.id), 4000);
-      return () => clearInterval(interval);
     }
-  }, [selected, fetchMessages]);
+    return () => {
+      if (socketRef.current) socketRef.current.off('receive_message');
+    };
+  }, [selected, fetchMessages, fetchConversations]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -429,7 +454,7 @@ function ChatTab({ userId, initialTarget }) {
                 const mine = m.sender_id === userId;
                 return (
                   <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
-                    <div style={{ ...s.bubble, background: mine ? '#F88000' : '#f1f5f9', color: mine ? '#fff' : '#000' }}>
+                    <div style={{ ...s.bubble, background: mine ? '#F88000' : '#FFFFFF', color: mine ? '#fff' : '#000', boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>
                       {m.image_url && (
                         <a href={m.image_url} target="_blank" rel="noreferrer">
                           <img src={m.image_url} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: m.message ? '8px' : '0' }} />
@@ -621,6 +646,11 @@ function statusColor(st) {
   return { pending: '#f59e0b', approved: '#10b981', accepted: '#10b981', rejected: '#ef4444', active: '#3b82f6', returned: '#8b5cf6', overdue: '#ef4444' }[st] || '#94a3b8';
 }
 
+function displayStatus(st) {
+  const map = { pending: 'Pending', approved: 'Accepted', accepted: 'Accepted', rejected: 'Rejected', active: 'Active', returned: 'Returned', overdue: 'Overdue' };
+  return map[st] || st;
+}
+
 // ─── Styles ────────────────────────────────────────────────────────────────────
 const s = {
   container: { maxWidth: '1200px', margin: '0 auto', padding: '24px', backgroundColor: '#EAF4FE', minHeight: '100vh', fontFamily: 'Inter, sans-serif' },
@@ -661,8 +691,8 @@ const s = {
   emptyIcon: { marginBottom: '12px', display: 'flex', justifyContent: 'center' },
 
   // Chat
-  chatLayout: { display: 'flex', gap: '0', background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', height: '560px' },
-  convList: { width: '260px', borderRight: '1px solid rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', flexShrink: 0 },
+  chatLayout: { display: 'flex', gap: '0', background: '#EAF4FE', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', height: '560px' },
+  convList: { width: '260px', borderRight: '1px solid rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', flexShrink: 0, background: '#FFFFFF' },
   convHeader: { padding: '16px', fontWeight: '700', fontSize: '14px', borderBottom: '1px solid rgba(0,0,0,0.07)' },
   convItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(0,0,0,0.04)' },
   convAvatar: { width: '36px', height: '36px', borderRadius: '50%', background: '#F88000', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '14px', flexShrink: 0 },

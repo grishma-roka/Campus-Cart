@@ -60,20 +60,6 @@ export default function UnifiedDashboard() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <div style={styles.welcomeSection}>
-          <h1>Welcome back, {user.full_name}!</h1>
-          <p style={styles.subtitle}>
-            You have access to {availableRoles.length} role{availableRoles.length !== 1 ? 's' : ''}: {availableRoles.join(', ')}
-          </p>
-        </div>
-        
-        <RoleSwitcher 
-          currentMode={currentMode} 
-          onModeChange={handleModeChange}
-        />
-      </div>
-
       <div style={styles.dashboardContent}>
         {renderDashboard()}
       </div>
@@ -96,10 +82,17 @@ const styles = {
   welcomeSection: {
     marginBottom: '1rem'
   },
+  welcomeTitle: {
+    fontSize: '24px',
+    fontWeight: '800',
+    color: '#1e293b',
+    margin: 0
+  },
   subtitle: {
-    color: '#000000',
-    fontSize: '1rem',
-    margin: '0.5rem 0'
+    color: '#64748b',
+    fontSize: '14px',
+    margin: '4px 0 0',
+    fontWeight: '500'
   },
   dashboardContent: {
     padding: '0' // Let individual dashboards handle their own padding

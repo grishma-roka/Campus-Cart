@@ -48,82 +48,79 @@ router.put('/rider-requests/:id', authMiddleware, roleMiddleware(['admin']), asy
     const request = requestRows[0];
 
     if (status === 'approved') {
-      // Check if user already exists
-      const [existingUser] = await db.query("SELECT id FROM users WHERE email = ?", [request.email]);
-      
-      if (existingUser.length > 0) {
-        return res.status(400).json({ 
-          error: "User with this email already exists. Cannot create duplicate account." 
-        });
+      // Check if user already exists based on user_id (logged-in application)
+      // or email (guest registration application)
+      let userId = request.user_id;
+
+      if (!userId) {
+        // Look up by email if user_id is null
+        const [existingUser] = await db.query("SELECT id FROM users WHERE email = ?", [request.email]);
+        if (existingUser.length > 0) {
+          userId = existingUser[0].id;
+        }
       }
 
-      // Create user account with rider role
-      try {
+      if (userId) {
+        // Update existing user to have rider role
+        console.log(`🔄 Updating existing user ${userId} to rider role...`);
+        await db.query(
+          "UPDATE users SET is_rider = TRUE, role = 'rider' WHERE id = ?",
+          [userId]
+        );
+      } else {
+        // Create new user account with rider role
+        console.log(`🆕 Creating new user account for rider ${request.email}...`);
         const [userResult] = await db.query(
-          "INSERT INTO users (full_name, email, password, student_id, phone, role, is_active) VALUES (?, ?, ?, ?, ?, 'rider', TRUE)",
+          "INSERT INTO users (full_name, email, password, student_id, phone, role, is_rider, is_active) VALUES (?, ?, ?, ?, ?, 'rider', TRUE, TRUE)",
           [request.full_name, request.email, request.password, request.student_id, request.phone]
         );
+        userId = userResult.insertId;
+      }
 
-        const newUserId = userResult.insertId;
-        console.log(`✅ User account created for rider: ${request.email} (ID: ${newUserId})`);
+      // Update rider request with user_id and status
+      await db.query(
+        "UPDATE rider_requests SET status = 'approved', user_id = ? WHERE id = ?",
+        [userId, requestId]
+      );
 
-        // Update rider request with user_id and status
-        await db.query(
-          "UPDATE rider_requests SET status = 'approved', user_id = ? WHERE id = ?",
-          [newUserId, requestId]
-        );
+      console.log(`✅ Rider request ${requestId} approved for user ${userId}`);
 
-        console.log(`✅ Rider request ${requestId} approved`);
-
-        // Send approval email
-        try {
-          await sendMail(
-            'Rider Application Approved - Campus Cart',
-            `🎉 CONGRATULATIONS ${request.full_name}!
-
+      // Send approval email
+      try {
+        await sendMail(
+          'Rider Application Approved - Campus Cart',
+          `🎉 CONGRATULATIONS ${request.full_name}!
+          
 ✅ Your rider application has been APPROVED!
-
 🚚 You are now an official Campus Cart rider!
-
 🔑 Your Login Credentials:
 Email: ${request.email}
 Password: (the password you set during registration)
-
 🎯 Getting Started:
 1. Login to your account at: http://localhost:3000/login
 2. Start accepting delivery requests
 3. Earn money by completing deliveries
 4. Build your rider rating and reputation
-
 📋 Your License Details:
 License Number: ${request.license_number}
 Expiry Date: ${request.extracted_expiry_date || 'See your license'}
-
 📞 Need help? Contact support or check the rider guidelines in your dashboard.
-
 Welcome to the Campus Cart rider community! 🚚💨
-
 Best regards,
 Campus Cart Team`
-          );
-          console.log('📧 Rider approval email sent successfully');
-        } catch (emailErr) {
-          console.log('⚠️ Rider email sending failed:', emailErr.message);
-        }
-
-        res.json({ 
-          message: `Rider request approved successfully. User account created.`,
-          userCreated: true,
-          userId: newUserId,
-          requestId: requestId,
-          userName: request.full_name
-        });
-
-      } catch (userCreateErr) {
-        console.error('❌ Error creating user account:', userCreateErr);
-        return res.status(500).json({ error: "Failed to create user account: " + userCreateErr.message });
+        );
+        console.log('📧 Rider approval email sent successfully');
+      } catch (emailErr) {
+        console.log('⚠️ Rider email sending failed:', emailErr.message);
       }
 
+      res.json({ 
+        message: `Rider request approved successfully. User role updated.`,
+        userUpdated: true,
+        userId: userId,
+        requestId: requestId,
+        userName: request.full_name
+      });
     } else {
       // Rejected - just update status, don't create user
       await db.query(

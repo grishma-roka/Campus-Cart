@@ -5,9 +5,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import CartSidebar from '../components/CartSidebar';
 import ProductDetailModal from '../components/ProductDetailModal';
-import SmartSearchBar from '../components/SmartSearchBar';
 import NotificationBell from '../components/NotificationBell';
-import { ShoppingBag, Store, Bike, LayoutGrid, BookOpen, Laptop, Shirt, Trophy, Package, MessageCircle, Handshake, Tag, Armchair, Watch, Search, ChevronDown, User } from 'lucide-react';
+import { ShoppingBag, Store, Bike, LayoutGrid, BookOpen, Laptop, Shirt, Trophy, Package, Handshake, Tag, Armchair, Watch, Search, ChevronDown, User, Calendar } from 'lucide-react';
 
 export default function BuyerDashboard() {
   const { user } = useAuth();
@@ -21,10 +20,18 @@ export default function BuyerDashboard() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [priceRange, setPriceRange] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [showMessages, setShowMessages] = useState(false);
   const [addingToCart, setAddingToCart] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
+
+  // Synchronize searching with URL parameters from global header
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const search = params.get('search');
+    if (search !== null) {
+      setSearchTerm(search);
+    }
+  }, [location.search]);
 
   // Debounce search term
   useEffect(() => {
@@ -47,17 +54,6 @@ export default function BuyerDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Close messages panel when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showMessages && !event.target.closest('[data-messages-panel]') && !event.target.closest('[data-messages-button]')) {
-        setShowMessages(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showMessages]);
 
   const fetchData = async () => {
     try {
@@ -183,129 +179,6 @@ export default function BuyerDashboard() {
       {/* Cart Sidebar */}
       <CartSidebar />
       
-      {/* Top Header Bar */}
-      <div style={styles.topHeader}>
-        <div style={styles.headerContent}>
-          {/* Brand Section */}
-          <div style={styles.brandSection}>
-            <div style={styles.brandIcon}>
-              <ShoppingBag size={24} color="#FFFFFF" strokeWidth={1.5} />
-            </div>
-            <span style={styles.brandText}>Campus Cart</span>
-          </div>
-
-          {/* Smart Search Bar */}
-          <SmartSearchBar 
-            onSearch={(term) => setSearchTerm(term)}
-            currentSearchTerm={searchTerm}
-          />
-
-          {/* Button Group */}
-          <div style={styles.buttonGroup}>
-            <button style={{...styles.segmentButton, ...styles.activeBuyerButton}}>
-              <ShoppingBag size={18} strokeWidth={1.5} />
-              Buyer
-            </button>
-            <button style={styles.segmentButton}>
-              <Store size={18} strokeWidth={1.5} />
-              Seller
-            </button>
-            <button style={{...styles.segmentButton, ...styles.riderButton, background: '#F88000', color: '#FFFFFF'}}>
-              Apply as Rider
-            </button>
-          </div>
-
-          {/* Messages Icon */}
-          <div style={styles.messagesContainer}>
-            <button 
-              onClick={() => setShowMessages(!showMessages)}
-              style={styles.messagesButton}
-              title="Messages"
-              data-messages-button
-            >
-              <div style={styles.messagesIcon}>
-                <MessageCircle size={18} color="#FFFFFF" strokeWidth={1.5} />
-              </div>
-              <span style={styles.messagesText}>Messages</span>
-              <div style={styles.messagesBadge}>3</div>
-            </button>
-          </div>
-
-          {/* Notification Bell */}
-          <NotificationBell />
-
-          {/* Cart Icon */}
-          <div style={styles.cartContainer}>
-            <button 
-              onClick={() => setIsCartOpen(true)}
-              style={styles.cartButton}
-              title="Shopping Cart"
-            >
-              <div style={styles.cartIconButton}>
-                <ShoppingBag size={20} color="#F88000" strokeWidth={1.5} />
-              </div>
-              {getCartCount() > 0 && (
-                <div style={styles.cartBadge}>{getCartCount()}</div>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Messages Panel */}
-      {showMessages && (
-        <div style={styles.messagesPanel} data-messages-panel>
-          <div style={styles.messagesPanelHeader}>
-            <h3 style={styles.messagesPanelTitle}>
-              <MessageCircle size={20} color="#F88000" strokeWidth={1.5} />
-              Messages
-            </h3>
-            <button 
-              onClick={() => setShowMessages(false)}
-              style={styles.closePanelButton}
-            >
-              ✕
-            </button>
-          </div>
-          
-          <div style={styles.messagesList}>
-            <div style={styles.messageItem}>
-              <div style={styles.messageAvatar}><User size={20} color="#64748b" /></div>
-              <div style={styles.messageContent}>
-                <div style={styles.messageSender}>John Doe</div>
-                <div style={styles.messagePreview}>Hi! Is the calculator still available?</div>
-                <div style={styles.messageTime}>2 min ago</div>
-              </div>
-              <div style={styles.unreadBadge}></div>
-            </div>
-            
-            <div style={styles.messageItem}>
-              <div style={styles.messageAvatar}><User size={20} color="#64748b" /></div>
-              <div style={styles.messageContent}>
-                <div style={styles.messageSender}>Sarah Wilson</div>
-                <div style={styles.messagePreview}>Thanks for the quick delivery!</div>
-                <div style={styles.messageTime}>1 hour ago</div>
-              </div>
-            </div>
-            
-            <div style={styles.messageItem}>
-              <div style={styles.messageAvatar}><User size={20} color="#64748b" /></div>
-              <div style={styles.messageContent}>
-                <div style={styles.messageSender}>Mike Chen</div>
-                <div style={styles.messagePreview}>Can we meet tomorrow for the textbook?</div>
-                <div style={styles.messageTime}>3 hours ago</div>
-              </div>
-              <div style={styles.unreadBadge}></div>
-            </div>
-          </div>
-          
-          <div style={styles.messagesPanelFooter}>
-            <button style={styles.viewAllMessagesButton}>
-              View All Messages
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Main Layout */}
       <div style={styles.mainLayout}>
@@ -507,7 +380,7 @@ export default function BuyerDashboard() {
                           </button>
                           <button 
                             onClick={() => handleBuyNow(item)}
-                            style={styles.buyNowButton}
+                            style={{...styles.buyNowButton, flex: 1}}
                           >
                             Buy Now
                           </button>
@@ -553,21 +426,6 @@ export default function BuyerDashboard() {
         </div>
       </div>
 
-      {/* Product Detail Modal */}
-      {selectedProduct && (
-        <ProductDetailModal
-          product={{
-            ...selectedProduct,
-            image: selectedProduct.images ? JSON.parse(selectedProduct.images)[0] : null
-          }}
-          onClose={() => setSelectedProduct(null)}
-          onAddToCart={handleModalAddToCart}
-          relatedProducts={relatedProducts.map(item => ({
-            ...item,
-            image: item.images ? JSON.parse(item.images)[0] : null
-          }))}
-        />
-      )}
     </div>
   );
 }
@@ -605,322 +463,6 @@ const styles = {
     color: '#64748b',
     fontSize: '1.1rem',
     fontWeight: '500'
-  },
-
-  // Top Header Bar
-  topHeader: {
-    position: 'sticky',
-    top: 0,
-    zIndex: 1000,
-    background: '#FFFFFF',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
-  },
-  headerContent: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '16px 24px',
-    maxWidth: '1400px',
-    margin: '0 auto'
-  },
-
-  // Brand Section
-  brandSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    minWidth: '200px'
-  },
-  brandIcon: {
-    fontSize: '24px',
-    background: '#F88000',
-    borderRadius: '12px',
-    padding: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  brandText: {
-    fontSize: '20px',
-    fontWeight: '700',
-    color: '#F88000'
-  },
-
-  // Search Pill
-  searchPill: {
-    display: 'flex',
-    alignItems: 'center',
-    background: '#FFFFFF',
-    border: '1px solid rgba(0, 0, 0, 0.1)',
-    borderRadius: '50px',
-    padding: '12px 20px',
-    gap: '12px',
-    minWidth: '400px',
-    maxWidth: '600px',
-    flex: 1,
-    margin: '0 24px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-  },
-  searchIcon: {
-    fontSize: '18px',
-    color: '#64748b'
-  },
-  searchInput: {
-    flex: 1,
-    border: 'none',
-    outline: 'none',
-    background: 'transparent',
-    fontSize: '16px',
-    fontFamily: 'Inter, sans-serif',
-    color: '#000000',
-    fontWeight: '500'
-  },
-  clearSearchButton: {
-    background: 'none',
-    border: 'none',
-    color: '#64748b',
-    cursor: 'pointer',
-    fontSize: '16px',
-    padding: '4px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.2s ease',
-    width: '24px',
-    height: '24px'
-  },
-
-  // Button Group
-  buttonGroup: {
-    display: 'flex',
-    background: '#FFFFFF',
-    borderRadius: '16px',
-    padding: '4px',
-    gap: '4px',
-    minWidth: '300px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
-  },
-  segmentButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '12px 20px',
-    border: 'none',
-    borderRadius: '12px',
-    background: 'transparent',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '600',
-    fontFamily: 'Inter, sans-serif',
-    color: '#64748b',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    flex: 1,
-    justifyContent: 'center'
-  },
-  activeBuyerButton: {
-    background: '#F88000',
-    color: '#FFFFFF',
-    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
-  },
-  riderButton: {
-    background: '#F88000',
-    color: '#FFFFFF',
-    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
-  },
-  buttonIcon: {
-    fontSize: '16px'
-  },
-
-  // Messages Container
-  messagesContainer: {
-    minWidth: '120px'
-  },
-  messagesButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '12px 16px',
-    background: 'rgba(255, 255, 255, 0.9)',
-    border: '1px solid rgba(0, 0, 0, 0.1)',
-    borderRadius: '16px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '600',
-    fontFamily: 'Inter, sans-serif',
-    color: '#1e293b',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    position: 'relative',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-  },
-  messagesIcon: {
-    fontSize: '18px',
-    background: 'linear-gradient(135deg, #10b981, #059669)',
-    borderRadius: '8px',
-    padding: '4px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  messagesText: {
-    fontSize: '14px',
-    fontWeight: '600'
-  },
-  messagesBadge: {
-    position: 'absolute',
-    top: '-4px',
-    right: '-4px',
-    background: '#ef4444',
-    color: 'white',
-    fontSize: '10px',
-    fontWeight: '700',
-    padding: '2px 6px',
-    borderRadius: '10px',
-    minWidth: '18px',
-    height: '18px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
-  },
-
-  // Messages Panel
-  messagesPanel: {
-    position: 'fixed',
-    top: '88px',
-    right: '24px',
-    width: '380px',
-    maxHeight: '500px',
-    background: 'rgba(255, 255, 255, 0.95)',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    borderRadius: '24px',
-    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1)',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
-    zIndex: 1001,
-    overflow: 'hidden'
-  },
-  messagesPanelHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '20px 24px 16px',
-    borderBottom: '1px solid rgba(0, 0, 0, 0.1)'
-  },
-  messagesPanelTitle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontSize: '18px',
-    fontWeight: '700',
-    color: '#1e293b',
-    margin: 0
-  },
-  messagesPanelIcon: {
-    fontSize: '20px',
-    background: 'linear-gradient(135deg, #10b981, #059669)',
-    borderRadius: '8px',
-    padding: '6px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  closePanelButton: {
-    background: 'none',
-    border: 'none',
-    color: '#64748b',
-    cursor: 'pointer',
-    fontSize: '18px',
-    padding: '4px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.2s ease',
-    width: '28px',
-    height: '28px'
-  },
-
-  // Messages List
-  messagesList: {
-    maxHeight: '320px',
-    overflowY: 'auto',
-    padding: '8px 0'
-  },
-  messageItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px 24px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    position: 'relative',
-    borderBottom: '1px solid rgba(0, 0, 0, 0.05)'
-  },
-  messageAvatar: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '50%',
-    background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '18px',
-    flexShrink: 0
-  },
-  messageContent: {
-    flex: 1,
-    minWidth: 0
-  },
-  messageSender: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: '2px'
-  },
-  messagePreview: {
-    fontSize: '13px',
-    color: '#64748b',
-    lineHeight: '1.4',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap'
-  },
-  messageTime: {
-    fontSize: '11px',
-    color: '#94a3b8',
-    marginTop: '2px'
-  },
-  unreadBadge: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: '#10b981',
-    flexShrink: 0
-  },
-
-  // Messages Panel Footer
-  messagesPanelFooter: {
-    padding: '16px 24px 20px',
-    borderTop: '1px solid rgba(0, 0, 0, 0.1)'
-  },
-  viewAllMessagesButton: {
-    width: '100%',
-    padding: '12px 16px',
-    background: '#10b981',
-    color: 'white',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: '14px',
-    fontWeight: '600',
-    fontFamily: 'Inter, sans-serif',
-    cursor: 'pointer',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)'
   },
 
   // Main Layout
@@ -1322,60 +864,17 @@ const styles = {
     transform: 'scale(0.95)'
   },
   buyNowButton: {
-    flex: 1,
-    padding: '12px 16px',
-    background: '#F88000',
-    color: '#FFFFFF',
+    backgroundColor: '#000000',
+    color: '#ffffff',
     border: 'none',
     borderRadius: '12px',
-    fontSize: '14px',
+    padding: '10px 16px',
+    fontSize: '13px',
     fontWeight: '600',
-    fontFamily: 'Inter, sans-serif',
     cursor: 'pointer',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
+    flex: 1
   },
   
-  // Cart Container
-  cartContainer: {
-    minWidth: '60px'
-  },
-  cartButton: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '12px',
-    background: 'rgba(255, 255, 255, 0.9)',
-    border: '1px solid rgba(0, 0, 0, 0.1)',
-    borderRadius: '16px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '600',
-    fontFamily: 'Inter, sans-serif',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-  },
-  cartIconButton: {
-    fontSize: '24px'
-  },
-  cartBadge: {
-    position: 'absolute',
-    top: '-4px',
-    right: '-4px',
-    background: '#f97316',
-    color: 'white',
-    fontSize: '10px',
-    fontWeight: '700',
-    padding: '2px 6px',
-    borderRadius: '10px',
-    minWidth: '18px',
-    height: '18px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 2px 8px rgba(249, 115, 22, 0.4)'
-  },
 
   // Empty State
   emptyState: {

@@ -3,7 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from './auth/AuthContext';
 import { CartProvider } from './context/CartContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Navbar from './components/Navbar';
+import Header from './components/Header';
+import BottomNav from './components/BottomNav';
+import CartSidebar from './components/CartSidebar';
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import UnifiedDashboard from "./pages/UnifiedDashboard";
@@ -21,8 +23,8 @@ export default function App() {
     <AuthProvider>
       <CartProvider>
         <BrowserRouter>
-        <div className="App">
-          <Navbar />
+        <div className="App" style={{ paddingBottom: '70px', minHeight: '100vh', backgroundColor: '#EAF4FE' }}>
+          <Header />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -81,9 +83,10 @@ export default function App() {
               </ProtectedRoute>
             } />
             
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
+          <BottomNav />
+          <CartSidebar />
         </div>
       </BrowserRouter>
       </CartProvider>

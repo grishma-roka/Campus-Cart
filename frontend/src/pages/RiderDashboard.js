@@ -211,27 +211,36 @@ export default function RiderDashboard() {
         {showRiderRequest && (
           <div style={s.overlay}>
             <div style={s.modal}>
-              <h3 style={s.modalTitle}>Rider Application</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h3 style={s.modalTitle}>Rider Application</h3>
+                <button onClick={() => setShowRiderRequest(false)} style={{ border: 'none', background: 'none', color: '#64748b' }}><XCircle size={24} /></button>
+              </div>
               <form onSubmit={handleRiderRequest} style={s.form}>
-                <input
-                  type="text"
-                  placeholder="License Number"
-                  value={riderRequest.license_number}
-                  onChange={(e) => setRiderRequest({ ...riderRequest, license_number: e.target.value })}
-                  required
-                  style={s.input}
-                />
-                <input
-                  type="text"
-                  placeholder="License Image URL (optional)"
-                  value={riderRequest.license_image}
-                  onChange={(e) => setRiderRequest({ ...riderRequest, license_image: e.target.value })}
-                  style={s.input}
-                />
-                <div style={s.modalActions}>
-                  <button type="submit" style={s.primaryBtn}>Submit</button>
-                  <button type="button" onClick={() => setShowRiderRequest(false)} style={s.ghostBtn}>Cancel</button>
+                <div style={s.inputContainer}>
+                  <label style={s.label}>License Number</label>
+                  <input
+                    type="text"
+                    placeholder="Enter your license number"
+                    value={riderRequest.license_number}
+                    onChange={(e) => setRiderRequest({ ...riderRequest, license_number: e.target.value })}
+                    required
+                    style={s.input}
+                  />
                 </div>
+                <div style={s.inputContainer}>
+                  <label style={s.label}>License Photo URL</label>
+                  <input
+                    type="text"
+                    placeholder="Provide image link"
+                    value={riderRequest.license_image}
+                    onChange={(e) => setRiderRequest({ ...riderRequest, license_image: e.target.value })}
+                    required
+                    style={s.input}
+                  />
+                </div>
+                <button type="submit" style={{ ...s.primaryBtn, width: '100%', padding: '16px', marginTop: '12px' }}>
+                  Submit Application
+                </button>
               </form>
             </div>
           </div>
@@ -250,10 +259,20 @@ export default function RiderDashboard() {
             <p style={s.pageSubtitle}>Your rider application is under review</p>
           </div>
         </div>
-        <div style={s.card}>
-          <p>License: <strong>{riderStatus.license_number}</strong></p>
-          <p>Submitted: {new Date(riderStatus.created_at).toLocaleDateString()}</p>
-          <p style={{ color: '#64748b' }}>You will be notified via email once approved.</p>
+        <div style={{ ...s.card, padding: '40px 24px', backgroundColor: '#FFFFFF', border: '1px solid rgba(248, 128, 0, 0.1)' }}>
+          <div style={{ color: '#F88000', marginBottom: '16px' }}><Hourglass size={48} strokeWidth={1.5} /></div>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '12px' }}>Application Under Review</h2>
+          <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+            We've received your application for license <strong>{riderStatus.license_number}</strong>. 
+            Our safety team is currently verifying your documents.
+          </p>
+          <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '12px', textAlign: 'left' }}>
+            <div style={{ fontSize: '12px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Submission Date</div>
+            <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>{new Date(riderStatus.created_at).toLocaleDateString(undefined, { dateStyle: 'long' })}</div>
+          </div>
+          <p style={{ color: '#F88000', fontSize: '13px', fontWeight: '600', marginTop: '24px' }}>
+            We will notify you via email once approved.
+          </p>
         </div>
       </div>
     );

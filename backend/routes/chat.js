@@ -49,6 +49,18 @@ router.post('/send', auth, upload.single('image'), async (req, res) => {
       VALUES (?, ?, ?, ?, ?)
     `, [conversation_id, sender_id, message ? message.trim() : null, image_url, type]);
 
+    // Fetch the newly created message to broadcast via socket
+    const [newMsgs] = await db.query(`
+      SELECT m.*, us.full_name as sender_name, us.profile_image as sender_image
+      FROM messages m
+      JOIN users us ON m.sender_id = us.id
+      WHERE m.id = ?
+    `, [result.insertId]);
+
+    if (newMsgs.length > 0) {
+      req.app.get('io').to(`conversation_${conversation_id}`).emit('receive_message', newMsgs[0]);
+    }
+
     res.json({ 
       message: "Message sent successfully", 
       messageId: result.insertId,

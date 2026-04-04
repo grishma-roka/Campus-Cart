@@ -170,14 +170,13 @@ export const AuthProvider = ({ children }) => {
     applyForRider,
     loading,
     isAuthenticated: !!user,
-    // Role checks based on additive system
-    isAdmin: userRoles?.is_admin || false,
-    isSeller: userRoles?.is_seller || false,
-    isBuyer: userRoles?.is_buyer || false,
-    isRider: userRoles?.is_rider || false,
-    // Available roles array
+    // Role checks based on additive system (DB flags)
+    isAdmin: !!user?.is_admin,
+    isSeller: !!user?.is_seller,
+    isBuyer: !!user?.is_buyer,
+    isRider: !!user?.is_rider,
+    // Available roles array (retained for backward compatibility if needed)
     availableRoles: userRoles?.available_roles || [],
-    // Primary role
     primaryRole: userRoles?.primary_role || user?.role
   };
 

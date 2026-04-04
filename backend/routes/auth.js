@@ -382,7 +382,11 @@ router.post('/login', async (req, res) => {
         id: user.id,
         full_name: user.full_name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        is_buyer: !!user.is_buyer,
+        is_seller: !!user.is_seller,
+        is_rider: !!user.is_rider,
+        is_admin: !!user.is_admin
       }
     });
 
@@ -398,7 +402,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     const userId = req.user.id;
 
     const [rows] = await db.query(
-      "SELECT id, full_name, email, role, student_id, phone, profile_image, created_at FROM users WHERE id = ?",
+      "SELECT id, full_name, email, role, is_buyer, is_seller, is_rider, is_admin, student_id, phone, profile_image, created_at FROM users WHERE id = ?",
       [userId]
     );
 

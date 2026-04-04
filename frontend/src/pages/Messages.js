@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
+import io from 'socket.io-client';
+import { Image, Send, Image as ImageIcon } from 'lucide-react';
 
 export default function Messages() {
   const { conversationId } = useParams();
@@ -16,6 +18,12 @@ export default function Messages() {
   
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    socketRef.current = io(axios.defaults.baseURL?.replace('/api', '') || 'http://localhost:5000');
+    return () => socketRef.current.disconnect();
+  }, []);
 
   useEffect(() => {
     fetchConversations();
@@ -23,11 +31,23 @@ export default function Messages() {
 
   useEffect(() => {
     if (selectedConversation?.id) {
+      if (socketRef.current) {
+        socketRef.current.emit('join_conversation', selectedConversation.id);
+        socketRef.current.off('receive_message');
+        socketRef.current.on('receive_message', (msg) => {
+          setMessages(prev => {
+            if (prev.find(m => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+          fetchConversations();
+        });
+      }
       fetchMessages(selectedConversation.id);
-      const interval = setInterval(() => fetchMessages(selectedConversation.id), 4000);
-      return () => clearInterval(interval);
     }
-  }, [selectedConversation]);
+    return () => {
+      if (socketRef.current) socketRef.current.off('receive_message');
+    };
+  }, [selectedConversation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (conversationId && conversations.length > 0) {
@@ -139,7 +159,7 @@ export default function Messages() {
                 key={conversation.id}
                 style={{
                   ...styles.conversationItem,
-                  backgroundColor: selectedConversation?.id === conversation.id ? '#e3f2fd' : '#fff'
+                  backgroundColor: selectedConversation?.id === conversation.id ? '#EAF4FE' : '#fff'
                 }}
                 onClick={() => handleConversationSelect(conversation)}
               >
@@ -149,7 +169,7 @@ export default function Messages() {
                     {new Date(conversation.last_message_time || conversation.created_at).toLocaleDateString()}
                   </span>
                 </div>
-                <p style={styles.lastMessage}>{conversation.last_message_type === 'image' ? '📸 Image' : conversation.last_message || 'Start chatting...'}</p>
+                <p style={styles.lastMessage}>{conversation.last_message_type === 'image' ? <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ImageIcon size={14} color="#F88000" /> Image</span> : conversation.last_message || 'Start chatting...'}</p>
                 {conversation.item_title && (
                   <p style={styles.itemTitle}>Item: {conversation.item_title}</p>
                 )}
@@ -190,8 +210,9 @@ export default function Messages() {
                       >
                         <div style={{
                           ...styles.messageContent,
-                          backgroundColor: mine ? '#2196f3' : '#f5f5f5',
-                          color: mine ? '#fff' : '#333'
+                          backgroundColor: mine ? '#F88000' : '#FFFFFF',
+                          color: mine ? '#fff' : '#000',
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.05)'
                         }}>
                           {message.image_url && (
                             <a href={message.image_url} target="_blank" rel="noreferrer">
@@ -221,10 +242,10 @@ export default function Messages() {
                 <button 
                   type="button"
                   onClick={() => fileInputRef.current?.click()} 
-                  style={styles.imageUploadBtn}
+                  style={{ ...styles.imageUploadBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   title="Attach Image"
                 >
-                  📸
+                  <Image size={20} />
                 </button>
                 <input 
                   type="file" 
@@ -240,8 +261,8 @@ export default function Messages() {
                   placeholder="Type your message..."
                   style={styles.messageInput}
                 />
-                <button type="submit" style={styles.sendButton} disabled={sending || (!newMessage.trim() && !fileInputRef.current?.files?.[0])}>
-                  {sending ? '...' : 'Send'}
+                <button type="submit" style={{ ...styles.sendButton, display: 'flex', alignItems: 'center', justifyContent: 'center' }} disabled={sending || (!newMessage.trim() && !fileInputRef.current?.files?.[0])}>
+                  {sending ? '...' : <Send size={18} />}
                 </button>
               </form>
             </>
@@ -328,7 +349,7 @@ const styles = {
     position: 'absolute',
     top: '0.5rem',
     right: '0.5rem',
-    backgroundColor: '#f44336',
+    backgroundColor: '#F88000',
     color: '#fff',
     borderRadius: '50%',
     width: '20px',
@@ -424,7 +445,7 @@ const styles = {
   },
   sendButton: {
     padding: '0.75rem 1.5rem',
-    backgroundColor: '#2196f3',
+    backgroundColor: '#F88000',
     color: '#fff',
     border: 'none',
     borderRadius: '25px',

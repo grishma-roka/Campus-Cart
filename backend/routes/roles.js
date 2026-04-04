@@ -9,7 +9,7 @@ router.get('/my-roles', auth, async (req, res) => {
     console.log(`🔍 Fetching roles for user ID: ${req.user.id}`);
     
     const [rows] = await db.query(`
-      SELECT id, role FROM users WHERE id = ?
+      SELECT id, role, is_buyer, is_seller, is_rider, is_admin FROM users WHERE id = ?
     `, [req.user.id]);
 
     if (!rows.length) {
@@ -18,18 +18,17 @@ router.get('/my-roles', auth, async (req, res) => {
 
     const user = rows[0];
     
-    // For now, simulate additive roles based on current role
-    // In a real implementation, you'd have separate columns
+    // Additive roles based on database boolean flags
     const roles = {
-      primary_role: user.role,
-      is_buyer: true, // Everyone can buy
-      is_seller: user.role === 'seller' || user.role === 'admin',
-      is_rider: user.role === 'rider' || user.role === 'admin',
-      is_admin: user.role === 'admin',
-      available_roles: ['buyer'] // Start with buyer
+      primary_role: user.role, // Current active dashboard mode
+      is_buyer: !!user.is_buyer,
+      is_seller: !!user.is_seller,
+      is_rider: !!user.is_rider,
+      is_admin: !!user.is_admin,
+      available_roles: ['buyer'] // Everyone starts as buyer
     };
 
-    // Add available roles based on current role
+    // Add available roles based on database flags
     if (roles.is_seller) roles.available_roles.push('seller');
     if (roles.is_rider) roles.available_roles.push('rider');
     if (roles.is_admin) roles.available_roles.push('admin');
@@ -45,10 +44,9 @@ router.get('/my-roles', auth, async (req, res) => {
 // SWITCH TO SELLER MODE
 router.post('/become-seller', auth, async (req, res) => {
   try {
-    // For now, just update the role to seller
-    // In a full implementation, you'd set is_seller = TRUE
+    // For now, update BOTH the role string and the boolean flag
     await db.query(
-      "UPDATE users SET role = 'seller' WHERE id = ?",
+      "UPDATE users SET role = 'seller', is_seller = TRUE WHERE id = ?",
       [req.user.id]
     );
 
