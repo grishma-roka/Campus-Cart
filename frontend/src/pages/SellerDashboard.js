@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Handshake } from 'lucide-react';
+import { Handshake, Camera, Upload, Trash2, Image as ImageIcon, RefreshCcw } from 'lucide-react';
 
 export default function SellerDashboard() {
   const { user } = useAuth();
@@ -20,11 +20,12 @@ export default function SellerDashboard() {
     price: '',
     category: '',
     condition_status: 'good',
-    is_borrowable: false,
-    borrow_price_per_day: '',
-    max_borrow_days: 7,
     images: ''
   });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  const backendUrl = 'http://localhost:5000'; // Base URL for images
 
   useEffect(() => {
     // Check URL parameters for tab
@@ -60,34 +61,48 @@ export default function SellerDashboard() {
     }
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
   const handleAddItem = async (e) => {
     e.preventDefault();
     try {
-      const itemData = {
-        ...newItem,
-        price: parseFloat(newItem.price),
-        borrow_price_per_day: newItem.is_borrowable ? parseFloat(newItem.borrow_price_per_day) : 0,
-        max_borrow_days: parseInt(newItem.max_borrow_days),
-        images: newItem.images ? JSON.stringify([newItem.images]) : JSON.stringify([])
-      };
+      const formData = new FormData();
+      formData.append('title', newItem.title);
+      formData.append('description', newItem.description);
+      formData.append('price', newItem.price);
+      formData.append('category', newItem.category);
+      formData.append('condition_status', newItem.condition_status);
+      formData.append('is_borrowable', newItem.transaction_type === 'borrow');
+      formData.append('borrow_price_per_day', 0);
+      formData.append('max_borrow_days', 7);
+      formData.append('transaction_type', newItem.transaction_type || 'buy');
+      
+      if (selectedFile) {
+        formData.append('image', selectedFile);
+      }
 
-      await axios.post('/items/add', itemData);
-      alert(`Item "${newItem.title}" added successfully!`);
+      await axios.post('/items/add', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
       setShowAddItem(false);
       setNewItem({
-        title: '',
-        description: '',
-        price: '',
-        category: '',
-        condition_status: 'good',
-        is_borrowable: false,
-        borrow_price_per_day: '',
-        max_borrow_days: 7,
-        images: ''
+        title: '', description: '', price: '', category: '',
+        condition_status: 'good', images: '', transaction_type: 'buy'
       });
+      setSelectedFile(null);
+      setPreviewUrl(null);
       fetchData();
     } catch (error) {
-      alert('Failed to add item: ' + (error.response?.data?.error || error.message));
+      console.error('❌ Add Item Error:', error);
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message;
+      alert(`Failed to add item: ${errorMsg}`);
     }
   };
 
@@ -161,6 +176,42 @@ export default function SellerDashboard() {
     }
   };
 
+  const handleDelete = async (id, title) => {
+    if (window.confirm(`Are you sure you want to permanently delete "${title}"?`)) {
+      try {
+        await axios.delete(`/items/${id}`);
+        setItems(items.filter(item => item.id !== id));
+      } catch (error) {
+        alert('Failed to delete item: ' + (error.response?.data?.error || error.message));
+      }
+    }
+  };
+
+  const getSafeImageUrl = (images) => {
+    if (!images) return 'https://via.placeholder.com/600x400?text=No+Image';
+    
+    try {
+      let firstImage = '';
+      if (Array.isArray(images)) {
+        firstImage = images[0];
+      } else if (typeof images === 'string') {
+        if (images.startsWith('[')) {
+          const parsed = JSON.parse(images);
+          firstImage = Array.isArray(parsed) ? parsed[0] : (parsed || '');
+        } else {
+          firstImage = images.replace(/[\[\]"]/g, '');
+        }
+      }
+      
+      if (!firstImage) return 'https://via.placeholder.com/600x400?text=No+Image';
+      if (firstImage.startsWith('http')) return firstImage;
+      return `${backendUrl}${firstImage.startsWith('/') ? '' : '/'}${firstImage}`;
+    } catch (err) {
+      console.error("Error parsing images:", err);
+      return 'https://via.placeholder.com/600x400?text=No+Image';
+    }
+  };
+
   if (loading) {
     return <div style={styles.loading}>Loading...</div>;
   }
@@ -168,26 +219,40 @@ export default function SellerDashboard() {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1>Seller Dashboard</h1>
-        <p>Welcome, {user?.full_name}! Manage your items and orders</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div style={{ textAlign: 'left' }}>
+            <h1 style={{ margin: 0 }}>Seller Dashboard</h1>
+            <p style={{ margin: '4px 0 0', color: '#64748b' }}>Welcome, {user?.full_name}! Manage your items and orders</p>
+          </div>
+          <button 
+            onClick={() => fetchData()} 
+            style={styles.refreshButton}
+            title="Refresh Data"
+          >
+            <RefreshCcw size={18} />
+            Refresh Data
+          </button>
+        </div>
         <div style={styles.quickStats}>
           <div style={styles.statItem}>
-            <span style={styles.statNumber}>{items.length}</span>
-            <span style={styles.statLabel}>Items Listed</span>
-          </div>
-          <div style={styles.statItem}>
-            <span style={styles.statNumber}>{orders.length}</span>
-            <span style={styles.statLabel}>Total Orders</span>
-          </div>
-          <div style={styles.statItem}>
-            <span style={styles.statNumber}>{borrowRequests.length}</span>
-            <span style={styles.statLabel}>Borrow Requests</span>
+            <span style={styles.statNumber}>
+              {items.filter(i => i.transaction_type === 'buy' || !i.transaction_type || i.transaction_type === '').length}
+            </span>
+            <span style={styles.statLabel}>For Sale</span>
           </div>
           <div style={styles.statItem}>
             <span style={styles.statNumber}>
-              {orders.filter(o => o.status === 'pending').length}
+              {items.filter(i => i.transaction_type === 'borrow').length}
             </span>
-            <span style={styles.statLabel}>Pending Orders</span>
+            <span style={styles.statLabel}>For Borrow</span>
+          </div>
+          <div style={styles.statItem}>
+            <span style={styles.statNumber}>{orders.length}</span>
+            <span style={styles.statLabel}>Total Sales</span>
+          </div>
+          <div style={styles.statItem}>
+            <span style={styles.statNumber}>{borrowRequests.filter(r => r.status === 'pending').length}</span>
+            <span style={styles.statLabel}>Pending Borrows</span>
           </div>
         </div>
       </div>
@@ -237,6 +302,36 @@ export default function SellerDashboard() {
               <div style={styles.modalContent}>
                 <h3>Add New Item</h3>
                 <form onSubmit={handleAddItem} style={styles.form}>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Listing Type</label>
+                    <div style={styles.typeSelector}>
+                      <button
+                        type="button"
+                        style={{
+                          ...styles.typeBtn,
+                          backgroundColor: newItem.transaction_type === 'buy' || !newItem.transaction_type ? '#F88000' : 'transparent',
+                          color: newItem.transaction_type === 'buy' || !newItem.transaction_type ? '#fff' : '#64748b',
+                          borderColor: newItem.transaction_type === 'buy' || !newItem.transaction_type ? '#F88000' : '#e2e8f0'
+                        }}
+                        onClick={() => setNewItem({...newItem, transaction_type: 'buy'})}
+                      >
+                        Sale
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          ...styles.typeBtn,
+                          backgroundColor: newItem.transaction_type === 'borrow' ? '#3b82f6' : 'transparent',
+                          color: newItem.transaction_type === 'borrow' ? '#fff' : '#64748b',
+                          borderColor: newItem.transaction_type === 'borrow' ? '#3b82f6' : '#e2e8f0'
+                        }}
+                        onClick={() => setNewItem({...newItem, transaction_type: 'borrow'})}
+                      >
+                        Borrow
+                      </button>
+                    </div>
+                  </div>
+
                   <input
                     type="text"
                     placeholder="Item Title"
@@ -268,13 +363,37 @@ export default function SellerDashboard() {
                     required
                     style={styles.input}
                   />
-                  <input
-                    type="url"
-                    placeholder="Image URL (optional)"
-                    value={newItem.images}
-                    onChange={(e) => setNewItem({...newItem, images: e.target.value})}
-                    style={styles.input}
-                  />
+                  {/* Native File Upload / Dropzone */}
+                  <div 
+                    style={styles.dropzone}
+                    onClick={() => document.getElementById('item_image').click()}
+                  >
+                    <input 
+                      type="file" 
+                      id="item_image"
+                      accept="image/*" 
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
+                    
+                    {previewUrl ? (
+                      <div style={styles.previewContainer}>
+                        <img src={previewUrl} alt="Preview" style={styles.previewImage} />
+                        <div style={styles.changeOverlay}>
+                          <Camera size={24} color="#fff" />
+                          <span style={{color: '#fff', fontSize: '13px', fontWeight: 'bold'}}>Change Photo</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={styles.dropzonePlaceholder}>
+                        <div style={styles.iconCircle}>
+                          <Camera size={28} color="#F88000" />
+                        </div>
+                        <span style={styles.dropzoneText}>Upload Item Photo</span>
+                        <span style={styles.dropzoneSubtext}>Gallery or Camera (Max 5MB)</span>
+                      </div>
+                    )}
+                  </div>
                   <select
                     value={newItem.condition_status}
                     onChange={(e) => setNewItem({...newItem, condition_status: e.target.value})}
@@ -286,34 +405,6 @@ export default function SellerDashboard() {
                     <option value="fair">Fair</option>
                     <option value="poor">Poor</option>
                   </select>
-                  
-                  <label style={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={newItem.is_borrowable}
-                      onChange={(e) => setNewItem({...newItem, is_borrowable: e.target.checked})}
-                    />
-                    Available for borrowing
-                  </label>
-
-                  {newItem.is_borrowable && (
-                    <>
-                      <input
-                        type="number"
-                        placeholder="Borrow price per day (रू)"
-                        value={newItem.borrow_price_per_day}
-                        onChange={(e) => setNewItem({...newItem, borrow_price_per_day: e.target.value})}
-                        style={styles.input}
-                      />
-                      <input
-                        type="number"
-                        placeholder="Maximum borrow days"
-                        value={newItem.max_borrow_days}
-                        onChange={(e) => setNewItem({...newItem, max_borrow_days: e.target.value})}
-                        style={styles.input}
-                      />
-                    </>
-                  )}
 
                   <div style={styles.modalActions}>
                     <button type="submit" style={styles.submitButton}>Add Item</button>
@@ -332,14 +423,13 @@ export default function SellerDashboard() {
 
           <div style={styles.itemsGrid}>
             {items.map(item => {
-              const images = item.images ? JSON.parse(item.images) : [];
-              const imageUrl = images.length > 0 ? images[0] : `https://dummyimage.com/300x200/27ae60/ffffff&text=${encodeURIComponent(item.title.substring(0, 15))}`;
+              const mainImage = getSafeImageUrl(item.images);
               
               return (
                 <div key={item.id} style={styles.itemCard}>
                   <div style={styles.imageContainer}>
                     <img 
-                      src={imageUrl} 
+                      src={mainImage} 
                       alt={item.title}
                       style={styles.itemImage}
                       onError={(e) => {
@@ -349,10 +439,29 @@ export default function SellerDashboard() {
                     <div style={styles.conditionBadge}>
                       {item.condition_status.replace('_', ' ').toUpperCase()}
                     </div>
+                    {item.transaction_type === 'borrow' && (
+                      <div style={{ ...styles.conditionBadge, top: '40px', background: '#3b82f6' }}>
+                        LENDING
+                      </div>
+                    )}
+                    {(item.transaction_type === 'buy' || !item.transaction_type) && (
+                      <div style={{ ...styles.conditionBadge, top: '40px', background: '#F88000' }}>
+                        FOR SALE
+                      </div>
+                    )}
                   </div>
                   
                   <div style={styles.itemContent}>
-                    <h3 style={styles.itemTitle}>{item.title}</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <h3 style={styles.itemTitle}>{item.title}</h3>
+                      <button 
+                        onClick={() => handleDelete(item.id, item.title)}
+                        style={styles.deleteIconButton}
+                        title="Delete Item"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                     <p style={styles.description}>{item.description}</p>
                     
                     <div style={styles.itemDetails}>
@@ -406,14 +515,11 @@ export default function SellerDashboard() {
           ) : (
             <div style={styles.ordersList}>
               {orders.map(order => {
-                const images = order.images ? JSON.parse(order.images) : [];
-                const imageUrl = images.length > 0 ? images[0] : 'https://via.placeholder.com/100x100?text=No+Image';
-                
                 return (
                   <div key={order.id} style={styles.orderCard}>
                     <div style={styles.orderHeader}>
                       <img 
-                        src={imageUrl} 
+                        src={getSafeImageUrl(order.images)} 
                         alt={order.title}
                         style={styles.orderImage}
                         onError={(e) => {
@@ -472,14 +578,11 @@ export default function SellerDashboard() {
           ) : (
             <div style={styles.borrowsList}>
               {borrowRequests.map(request => {
-                const images = request.images ? JSON.parse(request.images) : [];
-                const imageUrl = images.length > 0 ? images[0] : 'https://via.placeholder.com/100x100?text=No+Image';
-                
                 return (
                   <div key={request.id} style={styles.borrowCard}>
                     <div style={styles.borrowHeader}>
                       <img 
-                        src={imageUrl} 
+                        src={getSafeImageUrl(request.images)} 
                         alt={request.title}
                         style={styles.borrowImage}
                         onError={(e) => {
@@ -574,6 +677,21 @@ const styles = {
     margin: '0 auto',
     padding: '2rem',
     backgroundColor: '#EAF4FE'
+  },
+  refreshButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 18px',
+    backgroundColor: '#FFFFFF',
+    color: '#1e293b',
+    border: '1px solid rgba(0,0,0,0.1)',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    transition: 'all 0.2s ease',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
   },
   header: {
     textAlign: 'center',
@@ -694,7 +812,49 @@ const styles = {
   modalActions: {
     display: 'flex',
     gap: '1rem',
-    marginTop: '1rem'
+    marginTop: '2rem'
+  },
+  typeSelector: {
+    display: 'flex',
+    gap: '10px',
+    marginBottom: '15px'
+  },
+  typeBtn: {
+    flex: 1,
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    transition: 'all 0.2s ease'
+  },
+  formGroup: {
+    marginBottom: '15px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px'
+  },
+  typeSelector: {
+    display: 'flex',
+    gap: '10px',
+    marginBottom: '15px'
+  },
+  typeBtn: {
+    flex: 1,
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    transition: 'all 0.2s ease'
+  },
+  formGroup: {
+    marginBottom: '15px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px'
   },
   submitButton: {
     flex: 1,
@@ -737,6 +897,71 @@ const styles = {
     width: '100%',
     height: '100%',
     objectFit: 'cover'
+  },
+  dropzone: {
+    width: '100%',
+    height: '200px',
+    border: '2px dashed #e2e8f0',
+    borderRadius: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    backgroundColor: '#f8fafc',
+    transition: 'all 0.2s ease',
+    marginBottom: '15px',
+    overflow: 'hidden',
+    position: 'relative'
+  },
+  dropzonePlaceholder: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '8px'
+  },
+  iconCircle: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '50%',
+    backgroundColor: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+    marginBottom: '8px'
+  },
+  dropzoneText: {
+    fontSize: '15px',
+    fontWeight: '700',
+    color: '#1e293b'
+  },
+  dropzoneSubtext: {
+    fontSize: '12px',
+    color: '#64748b'
+  },
+  previewContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative'
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover'
+  },
+  changeOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    opacity: 0,
+    transition: 'opacity 0.2s ease',
+    zIndex: 10
   },
   conditionBadge: {
     position: 'absolute',

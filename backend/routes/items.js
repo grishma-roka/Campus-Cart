@@ -3,6 +3,30 @@ const router = express.Router();
 const db = require('../config/db');
 const auth = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/roleMiddleware');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configure Multer DiskStorage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/')
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+
+// Ensure uploads directory exists
+if (!fs.existsSync('./uploads')) {
+  fs.mkdirSync('./uploads', { recursive: true });
+}
 
 // ADVANCED SEARCH ENDPOINT
 router.get('/search', async (req, res) => {
@@ -70,23 +94,42 @@ router.get('/search', async (req, res) => {
 });
 
 // ADD ITEM (seller only)
-router.post('/add', auth, requireRole(['seller']), async (req, res) => {
+router.post('/add', auth, requireRole(['seller']), upload.single('image'), async (req, res) => {
   try {
-    const { title, description, price, category, condition_status, is_borrowable, borrow_price_per_day, max_borrow_days } = req.body;
-
+    const { title, description, price, category, condition_status } = req.body;
     const sellerId = req.user.id;
+    
+    // 1. Optional Image Check
+    const imagesValue = req.file 
+      ? JSON.stringify(['/uploads/' + req.file.filename]) 
+      : '[]';
 
+    // 2. Validate Other Inputs
+    if (!title || !price || !category) {
+      return res.status(400).json({ error: "Title, price, and category are required" });
+    }
+
+    const transaction_type = req.body.transaction_type || 'buy';
+    const is_borrowable_val = transaction_type === 'borrow' ? 1 : 0;
+
+    // 4. Database Operation
     const [result] = await db.query(
-      `INSERT INTO items (seller_id, title, description, price, category, condition_status, is_borrowable, borrow_price_per_day, max_borrow_days)
+      `INSERT INTO items (seller_id, title, description, price, category, condition_status, is_borrowable, images, transaction_type)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [sellerId, title, description, price, category, condition_status, is_borrowable, borrow_price_per_day || 0, max_borrow_days || 7]
+      [
+        sellerId, title, description, parseFloat(price), category, condition_status || 'good', 
+        is_borrowable_val,
+        imagesValue,
+        transaction_type
+      ]
     );
 
+    console.log('✅ Item added successfully:', result.insertId);
     res.json({ message: "Item added successfully", itemId: result.insertId });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to add item" });
+    console.error('❌ SQL Error:', err);
+    res.status(500).json({ error: "Failed to add item: " + err.message });
   }
 });
 
@@ -103,7 +146,10 @@ router.get('/', async (req, res) => {
       FROM items i 
       JOIN users u ON i.seller_id = u.id 
       LEFT JOIN ratings r ON r.rated_user_id = u.id
-      WHERE i.is_available = TRUE AND i.is_sold = FALSE
+      WHERE i.is_available = TRUE 
+        AND i.is_sold = FALSE 
+        AND (i.transaction_type = 'buy' OR i.transaction_type IS NULL)
+        AND i.is_borrowable = 0
     `;
     const params = [];
 
@@ -118,8 +164,11 @@ router.get('/', async (req, res) => {
     }
 
     if (is_borrowable !== undefined) {
-      query += ' AND i.is_borrowable = ?';
-      params.push(is_borrowable === 'true');
+      // Override default filter if specifically requested (e.g., is_borrowable=true)
+      const isBorrowableVal = is_borrowable === 'true' || is_borrowable === true;
+      if (isBorrowableVal) {
+        query = query.replace('AND i.is_borrowable = FALSE', 'AND i.is_borrowable = TRUE');
+      }
     }
 
     // Price range filtering
@@ -217,18 +266,33 @@ router.get('/:id', async (req, res) => {
 });
 
 // UPDATE ITEM (seller only)
-router.put('/:id', auth, requireRole(['seller']), async (req, res) => {
+router.put('/:id', auth, requireRole(['seller']), upload.single('image'), async (req, res) => {
   try {
-    const { title, description, price, category, condition_status, is_borrowable, borrow_price_per_day, max_borrow_days, is_available } = req.body;
+    const transaction_type = req.body.transaction_type || (is_borrowable === 'true' || is_borrowable === true ? 'borrow' : 'buy');
+    const is_borrowable_val = transaction_type === 'borrow' ? 1 : 0;
+    
+    let query = `
+      UPDATE items SET title = ?, description = ?, price = ?, category = ?, 
+      condition_status = ?, is_borrowable = ?, borrow_price_per_day = ?, 
+      max_borrow_days = ?, is_available = ?, transaction_type = ?, updated_at = CURRENT_TIMESTAMP
+    `;
+    let params = [
+      title, description, price, category, condition_status, 
+      is_borrowable_val, 
+      borrow_price_per_day, max_borrow_days, 
+      is_available === 'true' || is_available === true,
+      transaction_type
+    ];
 
-    const [result] = await db.query(
-      `UPDATE items SET title = ?, description = ?, price = ?, category = ?, 
-       condition_status = ?, is_borrowable = ?, borrow_price_per_day = ?, 
-       max_borrow_days = ?, is_available = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND seller_id = ?`,
-      [title, description, price, category, condition_status, is_borrowable, 
-       borrow_price_per_day, max_borrow_days, is_available, req.params.id, req.user.id]
-    );
+    if (req.file) {
+      query += `, images = ?`;
+      params.push(JSON.stringify([ `/uploads/items/${req.file.filename}` ]));
+    }
+
+    query += ` WHERE id = ? AND seller_id = ?`;
+    params.push(req.params.id, req.user.id);
+
+    const [result] = await db.query(query, params);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Item not found or unauthorized" });

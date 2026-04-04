@@ -16,6 +16,7 @@ export default function BorrowPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [requestModal, setRequestModal] = useState(null); // item to request
   const [chatTarget, setChatTarget] = useState(null); // { userId, userName, requestId, itemTitle }
+  const backendUrl = 'http://localhost:5000';
 
   const fetchAll = useCallback(async () => {
     try {
@@ -55,7 +56,7 @@ export default function BorrowPage() {
           </div>
         </div>
         {isSeller && (
-          <button onClick={() => setShowAddForm(true)} style={s.addBtn}>
+          <button onClick={() => navigate('/add-borrow')} style={s.addBtn}>
             + Add Borrow Item
           </button>
         )}
@@ -64,7 +65,7 @@ export default function BorrowPage() {
       {/* Tabs */}
       <div style={s.tabs}>
         {[
-          { key: 'browse', icon: <Store size={16} strokeWidth={1.5} />, label: 'Browse Items', count: items.length },
+          { key: 'browse', icon: <Store size={16} strokeWidth={1.5} />, label: 'Browse Items', count: items.filter(item => item.transaction_type === 'borrow').length },
           { key: 'my-requests', icon: <ClipboardList size={16} strokeWidth={1.5} />, label: 'My Requests', count: myRequests.length },
           ...(isSeller ? [{ key: 'manage', icon: <Settings size={16} strokeWidth={1.5} />, label: 'Manage Requests', count: sellerRequests.filter(r => r.status === 'pending').length }] : []),
           { key: 'chat', icon: <MessageCircle size={16} strokeWidth={1.5} />, label: 'Chat' },
@@ -170,7 +171,9 @@ function BrowseTab({ items, userId, isSeller, onRequest, onRefresh }) {
 
   return (
     <div style={s.grid}>
-      {items.map(item => {
+      {items
+        .filter(item => item.transaction_type === 'borrow' || item.is_borrowable === 1 || item.is_borrowable === true)
+        .map(item => {
         const images = item.images ? (typeof item.images === 'string' ? JSON.parse(item.images) : item.images) : [];
         const img = images[0] || null;
         const isOwner = item.seller_id === userId;
@@ -179,7 +182,7 @@ function BrowseTab({ items, userId, isSeller, onRequest, onRefresh }) {
           <div key={item.id} style={s.card}>
             <div style={s.cardImg}>
               {img
-                ? <img src={img} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <img src={img.startsWith('http') ? img : `http://localhost:5000${img}`} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <div style={s.cardImgPlaceholder}><Package size={32} color="#94a3b8" strokeWidth={1.5} /></div>
               }
               <div style={{ ...s.availBadge, background: item.is_available ? '#10b981' : '#ef4444' }}>
@@ -230,7 +233,7 @@ function MyRequestsTab({ requests, onChat }) {
           <div key={req.id} style={s.requestCard}>
             <div style={s.requestLeft}>
               {images[0]
-                ? <img src={images[0]} alt={req.title} style={s.requestThumb} />
+                ? <img src={images[0].startsWith('http') ? images[0] : `http://localhost:5000${images[0]}`} alt={req.title} style={s.requestThumb} />
                 : <div style={{ ...s.requestThumb, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={24} color="#94a3b8" /></div>
               }
               <div>
@@ -291,9 +294,16 @@ function ManageRequestsTab({ requests, onRespond, onChat }) {
                 <button onClick={() => onRespond(req.id, 'rejected')} style={{...s.rejectBtn, display: 'flex', alignItems: 'center', gap: '4px'}}><XCircle size={14} /> Reject</button>
               </div>
             )}
-            {(req.status === 'approved' || req.status === 'active' || req.status === 'accepted') && (
-              <button onClick={() => onChat(req)} style={{...s.chatBtn, display: 'flex', alignItems: 'center', gap: '4px'}}><MessageCircle size={14} /> Chat</button>
-            )}
+            {(req.status === 'accepted' || req.status === 'approved') ? (
+              <button 
+                onClick={() => onChat(req)} 
+                style={s.chatBtn}
+              >
+                <MessageCircle size={14} /> Chat with Borrower
+              </button>
+            ) : req.status === 'pending' ? (
+              <div style={{ ...s.statusBadge, background: '#fef3c7', color: '#92400e' }}>Waiting for Acceptance to Chat</div>
+            ) : null}
           </div>
         </div>
       ))}
@@ -312,6 +322,7 @@ function ChatTab({ userId, initialTarget }) {
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
   const socketRef = useRef(null);
+  const backendUrl = 'http://localhost:5000';
 
   const fetchConversations = React.useCallback(async () => {
     try {
@@ -456,8 +467,8 @@ function ChatTab({ userId, initialTarget }) {
                   <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
                     <div style={{ ...s.bubble, background: mine ? '#F88000' : '#FFFFFF', color: mine ? '#fff' : '#000', boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>
                       {m.image_url && (
-                        <a href={m.image_url} target="_blank" rel="noreferrer">
-                          <img src={m.image_url} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: m.message ? '8px' : '0' }} />
+                        <a href={m.image_url.startsWith('http') ? m.image_url : `${backendUrl}${m.image_url}`} target="_blank" rel="noreferrer">
+                          <img src={m.image_url.startsWith('http') ? m.image_url : `${backendUrl}${m.image_url}`} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: m.message ? '8px' : '0' }} />
                         </a>
                       )}
                       {m.message && <div>{m.message}</div>}
@@ -513,16 +524,41 @@ function ChatTab({ userId, initialTarget }) {
 
 // ─── Add Item Modal ────────────────────────────────────────────────────────────
 function AddItemModal({ onClose, onSaved }) {
-  const [form, setForm] = useState({ title: '', description: '', image: '', duration: 7, deposit: '', location: '', is_available: true });
+  const [form, setForm] = useState({ title: '', description: '', duration: 7, deposit: '', location: '', is_available: true });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const onFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await axios.post('/borrow/items', form);
+      const formData = new FormData();
+      formData.append('title', form.title);
+      formData.append('description', form.description);
+      formData.append('duration', form.duration);
+      formData.append('deposit', form.deposit);
+      formData.append('location', form.location);
+      formData.append('is_available', form.is_available);
+      formData.append('transaction_type', 'borrow');
+      
+      if (selectedFile) {
+        formData.append('image', selectedFile);
+      }
+
+      await axios.post('/borrow/items', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       onSaved();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to add item');
@@ -542,8 +578,33 @@ function AddItemModal({ onClose, onSaved }) {
           <label style={s.label}>Description</label>
           <textarea value={form.description} onChange={e => set('description', e.target.value)} style={{ ...s.input, height: '80px', resize: 'vertical' }} placeholder="Describe the item..." />
 
-          <label style={s.label}>Image URL (optional)</label>
-          <input value={form.image} onChange={e => set('image', e.target.value)} style={s.input} placeholder="https://..." />
+          <label style={s.label}>Item Image</label>
+          <div 
+            style={s.dropzone}
+            onClick={() => document.getElementById('borrow_image').click()}
+          >
+            <input 
+              type="file" 
+              id="borrow_image"
+              accept="image/*" 
+              onChange={onFileChange}
+              style={{ display: 'none' }}
+            />
+            {previewUrl ? (
+              <div style={s.previewContainer}>
+                <img src={previewUrl} alt="Preview" style={s.previewImage} />
+                <div style={s.changeOverlay}>
+                  <Camera size={20} color="#fff" />
+                  <span style={{color: '#fff', fontSize: '11px', fontWeight: 'bold'}}>Change</span>
+                </div>
+              </div>
+            ) : (
+              <div style={s.dropzonePlaceholder}>
+                <Camera size={24} color="#F88000" />
+                <span style={s.dropzoneText}>Upload Photo</span>
+              </div>
+            )}
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
@@ -559,10 +620,6 @@ function AddItemModal({ onClose, onSaved }) {
           <label style={s.label}>Pickup Location</label>
           <input value={form.location} onChange={e => set('location', e.target.value)} style={s.input} placeholder="e.g. Block A, Room 201" />
 
-          <label style={{ ...s.label, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-            <input type="checkbox" checked={form.is_available} onChange={e => set('is_available', e.target.checked)} />
-            Available for borrowing
-          </label>
 
           <div style={s.modalActions}>
             <button type="submit" disabled={saving} style={s.primaryBtn}>{saving ? 'Saving...' : 'Add for Borrow'}</button>
@@ -686,6 +743,54 @@ const s = {
   requestMeta: { fontSize: '12px', color: '#64748b', marginBottom: '2px' },
   requestRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 },
   statusBadge: { color: '#fff', fontSize: '11px', fontWeight: '700', padding: '4px 12px', borderRadius: '20px', textTransform: 'capitalize' },
+  dropzone: {
+    width: '100%',
+    height: '140px',
+    border: '2px dashed #e2e8f0',
+    borderRadius: '12px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    backgroundColor: '#f8fafc',
+    marginBottom: '8px',
+    position: 'relative',
+    overflow: 'hidden'
+  },
+  dropzonePlaceholder: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px'
+  },
+  dropzoneText: {
+    fontSize: '13px',
+    fontWeight: '700',
+    color: '#1e293b'
+  },
+  previewContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative'
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover'
+  },
+  changeOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '4px',
+    opacity: 0,
+    transition: 'opacity 0.2s ease'
+  },
 
   empty: { textAlign: 'center', padding: '60px 20px', color: '#64748b' },
   emptyIcon: { marginBottom: '12px', display: 'flex', justifyContent: 'center' },

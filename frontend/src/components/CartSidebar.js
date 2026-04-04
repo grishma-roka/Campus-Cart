@@ -1,9 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { ShoppingBag, X, Trash2 } from 'lucide-react';
 
 export default function CartSidebar() {
   const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, getCartTotal, clearCart } = useCart();
+  const navigate = useNavigate();
+  const backendUrl = 'http://localhost:5000';
 
   if (!isCartOpen) return null;
 
@@ -43,13 +46,15 @@ export default function CartSidebar() {
               {cartItems.map(item => (
                 <div key={item.id} style={styles.cartItem}>
                   <img 
-                    src={item.image || `https://dummyimage.com/100x100/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 3))}`}
+                    src={item.image 
+                      ? (item.image.startsWith('http') ? item.image : `${backendUrl}${item.image}`)
+                      : `https://dummyimage.com/100x100/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 3))}`}
                     alt={item.title}
                     style={styles.itemImage}
                   />
                   <div style={styles.itemDetails}>
                     <h4 style={styles.itemTitle}>{item.title}</h4>
-                    <p style={styles.itemPrice}>रू {item.price.toLocaleString()}</p>
+                    <p style={styles.itemPrice}>{Number(item.price).toLocaleString('en-IN', { style: 'currency', currency: 'NPR' })}</p>
                     <p style={styles.quantityText}>Quantity: 1</p>
                   </div>
                   
@@ -69,24 +74,26 @@ export default function CartSidebar() {
         {/* Footer */}
         {cartItems.length > 0 && (
           <div style={styles.cartFooter}>
-            {/* Promo Code Link */}
-            <div style={styles.promoSection}>
-              <button style={styles.promoButton}>Have a promo code?</button>
-            </div>
-            
+
             <div style={styles.totalSection}>
               <div style={styles.estimatedRow}>
                 <span style={styles.estimatedLabel}>Estimated Total</span>
-                <span style={styles.estimatedAmount}>रू {getCartTotal().toLocaleString()}</span>
+                <span style={styles.estimatedAmount}>{getCartTotal().toLocaleString('en-IN', { style: 'currency', currency: 'NPR' })}</span>
               </div>
             </div>
             
-            <button style={styles.checkoutButton}>
+            <button 
+              onClick={() => { setIsCartOpen(false); navigate('/checkout'); }}
+              style={styles.checkoutButton}
+            >
               Checkout
             </button>
             
-            <button style={styles.clearButton}>
-              View Cart
+            <button 
+              onClick={() => setIsCartOpen(false)}
+              style={styles.clearButton}
+            >
+              Continue Shopping
             </button>
           </div>
         )}

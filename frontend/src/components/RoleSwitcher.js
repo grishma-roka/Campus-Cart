@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../auth/AuthContext';
 import { ShoppingBag, Store, Plus, Bike, Settings, ClipboardList, Camera, Send } from 'lucide-react';
 
-export default function RoleSwitcher({ currentMode, onModeChange }) {
+export default function RoleSwitcher({ user, currentMode, onModeChange }) {
   const { userRoles, becomeSeller, applyForRider, isRider } = useAuth();
+  
+  const handleModeClick = (mode) => {
+    console.log("Switching to mode:", mode);
+    if (onModeChange) {
+      onModeChange(mode); // This tells the parent to switch the page
+    } else {
+      console.error("onModeChange function was not passed to RoleSwitcher");
+    }
+  };
   const [showRiderForm, setShowRiderForm] = useState(false);
   const [riderFormData, setRiderFormData] = useState({
     license_number: '',
@@ -13,6 +23,15 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
   });
   const [imagePreview, setImagePreview] = useState('');
   const [formErrors, setFormErrors] = useState({});
+
+  useEffect(() => {
+    if (showRiderForm) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [showRiderForm]);
 
   const handleBecomeSeller = async () => {
     if (!userRoles?.is_seller) {
@@ -36,8 +55,8 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
     if (!riderFormData.license_number.trim()) {
       errors.license_number = 'License number is required';
     }
-    if (!riderFormData.license_image.trim()) {
-      errors.license_image = 'License image URL is required';
+    if (!riderFormData.license_image) {
+      errors.license_image = 'License image is required';
     }
     if (!riderFormData.license_issue_date) {
       errors.license_issue_date = 'License issue date is required';
@@ -62,7 +81,13 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
       return;
     }
     
-    const result = await applyForRider(riderFormData);
+    const formData = new FormData();
+    formData.append('license_number', riderFormData.license_number);
+    formData.append('license_issue_date', riderFormData.license_issue_date);
+    formData.append('license_expiry_date', riderFormData.license_expiry_date);
+    formData.append('license_image', riderFormData.license_image);
+    
+    const result = await applyForRider(formData);
     if (result.success) {
       alert(result.message);
       setShowRiderForm(false);
@@ -79,12 +104,16 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
     }
   };
 
-  const handleImageUrlChange = (url) => {
-    setRiderFormData({
-      ...riderFormData,
-      license_image: url
-    });
-    setImagePreview(url);
+  const handleImageFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setRiderFormData({
+        ...riderFormData,
+        license_image: file
+      });
+      // Generate immediate local preview from user's filesystem
+      setImagePreview(URL.createObjectURL(file));
+    }
   };
 
   const availableRoles = userRoles?.available_roles || [];
@@ -100,7 +129,7 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
         <div className="pill-button-group" style={styles.pillButtonGroup}>
           {/* Buyer Mode - Active Blue */}
           <button
-            onClick={() => onModeChange('buyer')}
+            onClick={() => handleModeClick('buyer')}
             className="mode-pill-button"
             style={{
               ...styles.pillButton,
@@ -112,9 +141,9 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
           </button>
 
           {/* Seller Mode - Neutral White or Active */}
-          {availableRoles.includes('seller') ? (
+          {(availableRoles.includes('seller') || user?.role?.toLowerCase() === 'seller') ? (
             <button
-              onClick={() => onModeChange('seller')}
+              onClick={() => handleModeClick('seller')}
               className="mode-pill-button"
               style={{
                 ...styles.pillButton,
@@ -139,9 +168,9 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
           )}
 
           {/* Rider Mode - Vibrant Amber with Motorcycle Icon */}
-          {isRider ? (
+          {(isRider || user?.role?.toLowerCase() === 'rider') ? (
             <button
-              onClick={() => onModeChange('rider')}
+              onClick={() => handleModeClick('rider')}
               className="mode-pill-button"
               style={{
                 ...styles.pillButton,
@@ -168,9 +197,9 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
           )}
 
           {/* Admin Mode - If Available */}
-          {availableRoles.includes('admin') && (
+          {(availableRoles.includes('admin') || user?.role?.toLowerCase() === 'admin') && (
             <button
-              onClick={() => onModeChange('admin')}
+              onClick={() => handleModeClick('admin')}
               className="mode-pill-button"
               style={{
                 ...styles.pillButton,
@@ -192,8 +221,8 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
         </span>
       </div>
 
-      {/* Rider Application Form Modal */}
-      {showRiderForm && (
+      {/* Rider Application Form Modal via Portal */}
+      {showRiderForm && createPortal(
         <div style={styles.modal}>
           <div style={styles.modalContent}>
             <div style={styles.modalHeader}>
@@ -243,7 +272,7 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                   )}
                 </div>
 
-                <div style={styles.formRow}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <div style={styles.formGroup}>
                     <label className="text-sm" style={styles.label}>License Issue Date *</label>
                     <input
@@ -288,24 +317,28 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
                 </div>
 
                 <div style={styles.formGroup}>
-                  <label className="text-sm" style={styles.label}>License Image URL *</label>
+                  <label className="text-sm" style={styles.label}>Upload License Image *</label>
                   <input
-                    type="url"
+                    type="file"
+                    accept="image/*"
                     required
-                    value={riderFormData.license_image}
-                    onChange={(e) => handleImageUrlChange(e.target.value)}
+                    onChange={handleImageFileChange}
                     className="rider-form-input"
                     style={{
                       ...styles.input,
-                      borderColor: formErrors.license_image ? '#ef4444' : 'rgba(0, 0, 0, 0.1)'
+                      padding: '10px',
+                      background: '#F8F9FA',
+                      border: '2px dashed #CBD5E1',
+                      cursor: 'pointer',
+                      color: '#475569',
+                      borderColor: formErrors.license_image ? '#ef4444' : '#CBD5E1'
                     }}
-                    placeholder="https://example.com/license-image.jpg"
                   />
                   {formErrors.license_image && (
                     <span style={styles.errorText}>{formErrors.license_image}</span>
                   )}
                   <small style={{...styles.helpText, display: 'flex', gap: '4px'}}>
-                    <Camera size={14} color="#94a3b8" /> Upload your license image to a service like Imgur, Google Drive, or Dropbox and paste the direct image URL here.
+                    <Camera size={14} color="#94a3b8" /> Take a clear picture of your license or upload an image directly from your gallery.
                   </small>
                 </div>
 
@@ -340,7 +373,8 @@ export default function RoleSwitcher({ currentMode, onModeChange }) {
               </form>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -506,50 +540,48 @@ const styles = {
     fontWeight: '500'
   },
 
-  // Modal Styles
   modal: {
     position: 'fixed',
     top: 0,
     left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'rgba(0, 0, 0, 0.6)',
-    backdropFilter: 'blur(8px)',
-    WebkitBackdropFilter: 'blur(8px)',
+    width: '100vw',
+    height: '100vh',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Dims everything behind it
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-    padding: 'var(--spacing-md)'
+    alignItems: 'center', // Vertical center
+    justifyContent: 'center', // Horizontal center
+    zIndex: 9999, // Beats the Hero and Header sections
+    backdropFilter: 'blur(4px)' // Makes it look premium
   },
-
   modalContent: {
-    background: 'var(--card-bg)',
-    backdropFilter: 'blur(16px)',
-    WebkitBackdropFilter: 'blur(16px)',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-    borderRadius: '16px',
-    width: '100%',
-    maxWidth: '600px',
-    maxHeight: '90vh',
-    overflow: 'hidden',
-    boxShadow: '0 8px 30px rgba(0,0,0,0.04)',
-    fontFamily: 'Inter, sans-serif'
+    backgroundColor: '#fff',
+    padding: '20px',
+    borderRadius: '20px',
+    width: '90%',
+    maxWidth: '450px',
+    maxHeight: '85vh',    // Stops the modal from being taller than the window
+    overflowY: 'auto',    // Adds the scrollbar INSIDE the white box
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',          // Tightens the space between inputs
+    position: 'relative',
+    zIndex: 10001
   },
 
   modalHeader: {
     display: 'flex',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 'var(--spacing-lg)',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-    background: '#EAF4FE'
+    alignItems: 'center',
+    marginBottom: '10px',
+    borderBottom: '1px solid #eee',
+    paddingBottom: '10px'
   },
 
   modalTitle: {
     color: 'var(--text-primary)',
     margin: 0,
-    fontWeight: '700'
+    fontWeight: '700',
+    fontSize: '18px' // Smaller tighter title
   },
 
   closeButton: {
@@ -568,9 +600,7 @@ const styles = {
   },
 
   modalBody: {
-    padding: 'var(--spacing-lg)',
-    maxHeight: 'calc(90vh - 120px)',
-    overflowY: 'auto'
+    overflowY: 'visible', // Relying on the parent container (modalContent) for auto scroll now
   },
 
   formDescription: {
@@ -579,8 +609,8 @@ const styles = {
     background: '#EAF4FE',
     border: '1px solid rgba(248, 128, 0, 0.2)',
     borderRadius: 'var(--radius-card)',
-    padding: 'var(--spacing-md)',
-    marginBottom: 'var(--spacing-lg)'
+    padding: '10px', // Slightly tightened
+    marginBottom: '10px' // Slightly tightened
   },
 
   descriptionIcon: {

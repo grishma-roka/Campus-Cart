@@ -4,6 +4,26 @@ import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 import { XCircle, CheckCircle, User, Folder, Tag as TagIcon, Hash, ShoppingBag } from 'lucide-react';
 
+// This prevents the page from crashing if images are a string or a JSON array
+const safeParseImages = (imageData) => {
+  if (!imageData) return [];
+  if (Array.isArray(imageData)) return imageData;
+  try {
+    const parsed = JSON.parse(imageData);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch (e) {
+    // If it's a plain string like "/uploads/...", just return it in an array
+    return [imageData];
+  }
+};
+
+const getSafeImageUrl = (img) => {
+  if (!img) return 'https://via.placeholder.com/600x400?text=No+Image';
+  if (img.startsWith('http')) return img;
+  if (img.startsWith('/uploads')) return `http://localhost:5000${img}`;
+  return `http://localhost:5000/uploads/${img}`;
+};
+
 export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -59,9 +79,8 @@ export default function ProductDetailPage() {
     );
   }
 
-  const images = item.images ? JSON.parse(item.images) : [];
-  const mainImage = images.length > 0 ? images[0] : 
-    `https://dummyimage.com/600x400/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 10))}`;
+  const images = safeParseImages(item.images);
+  const mainImage = images.length > 0 ? getSafeImageUrl(images[0]) : 'https://via.placeholder.com/600x400?text=No+Image';
 
   const isSold = item.is_sold || false;
   const isOwnItem = user && user.id === item.seller_id;
@@ -92,7 +111,7 @@ export default function ProductDetailPage() {
                 {images.slice(0, 4).map((img, index) => (
                   <img 
                     key={index}
-                    src={img} 
+                    src={getSafeImageUrl(img)} 
                     alt={`${item.title} ${index + 1}`}
                     style={styles.thumbnail}
                   />

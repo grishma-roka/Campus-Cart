@@ -1,368 +1,272 @@
-import { User, Mail, Phone, Hash, Shield, LogOut, ChevronRight, Store, Bike, CheckCircle } from 'lucide-react';
+import React from 'react';
+import { useAuth } from '../auth/AuthContext';
+import { LogOut, User, Mail, Calendar, Hash, Edit3, Key, ChevronRight } from 'lucide-react';
 
 export default function Profile() {
-  const { user, isSeller, isRider, becomeSeller, logout } = useAuth();  const [profile, setProfile] = useState({
-    full_name: '',
-    email: '',
-    student_id: '',
-    phone: '',
-    role: ''
-  });
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      const response = await axios.get('/auth/me');
-      setProfile(response.data.user);
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleChange = (e) => {
-    setProfile({ ...profile, [e.target.name]: e.target.value });
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await axios.put('/auth/profile', {
-        full_name: profile.full_name,
-        phone: profile.phone
-      });
-      setMessage('Profile updated successfully!');
-      setEditing(false);
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
-      setMessage('Failed to update profile: ' + (error.response?.data?.error || error.message));
-    } finally {
-      setSaving(false);
-    }
-  };
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to log out?')) {
-      logout();
-      window.location.href = '/login';
-    }
+    logout();
+    window.location.href = '/login';
   };
 
-  const handleSellerApply = async () => {
-    const result = await becomeSeller();
-    if (result.success) {
-      alert('Congratulations! You are now a seller.');
-      window.location.reload();
-    } else {
-      alert(result.error || 'Failed to become a seller');
-    }
-  };
+  if (!user) {
+    return (
+      <div style={styles.loadingContainer}>
+        <p style={styles.loadingText}>Loading Profile...</p>
+      </div>
+    );
+  }
 
-  if (loading) return <div style={styles.loading}>Loading...</div>;
+  const joinedDate = user.created_at 
+    ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : 'Not available';
 
   return (
     <div style={styles.container}>
-      {/* Profile Header Card */}
-      <div style={styles.profileHeaderCard}>
-        <div style={styles.avatarLarge}>
-          {profile.full_name?.charAt(0).toUpperCase()}
-        </div>
-        <h2 style={styles.userName}>{profile.full_name}</h2>
-        <p style={styles.userEmail}>{profile.email}</p>
-        <div style={styles.roleBadges}>
-          <span style={styles.badge}>Buyer</span>
-          {isSeller && <span style={{ ...styles.badge, backgroundColor: '#10b981' }}>Seller</span>}
-          {isRider && <span style={{ ...styles.badge, backgroundColor: '#f59e0b' }}>Rider</span>}
-        </div>
-      </div>
-
-      {/* Account Info Section */}
-      <div style={styles.section}>
-        <h3 style={styles.sectionTitle}>Account Information</h3>
-        <div style={styles.infoCard}>
-          <div style={styles.infoRow}>
-            <div style={styles.infoIcon}><User size={20} /></div>
-            <div style={styles.infoContent}>
-              <div style={styles.infoLabel}>Full Name</div>
-              <div style={styles.infoValue}>{profile.full_name}</div>
+      <div style={styles.contentWrapper}>
+        {/* Section 1: Header (Avatar, Name, Email) */}
+        <div style={styles.card}>
+          <div style={styles.headerContent}>
+            <div style={styles.avatar}>
+              <User size={48} color="#FFFFFF" strokeWidth={1.5} />
             </div>
-            <button onClick={() => setEditing(true)} style={styles.inlineEditBtn}>Edit</button>
+            <h1 style={styles.userName}>{user.full_name || user.name || 'User'}</h1>
+            <p style={styles.userEmail}>{user.email}</p>
           </div>
-          <div style={styles.divider} />
-          <div style={styles.infoRow}>
-            <div style={styles.infoIcon}><Phone size={20} /></div>
-            <div style={styles.infoContent}>
-              <div style={styles.infoLabel}>Phone Number</div>
-              <div style={styles.infoValue}>{profile.phone || 'Not provided'}</div>
+        </div>
+
+        {/* Section 2: Account Details (Joined At, Student ID) */}
+        <div style={styles.sectionHeader}>ACCOUNT DETAILS</div>
+        <div style={styles.card}>
+          <div style={styles.detailRow}>
+            <div style={styles.iconContainer}><User size={20} color="#64748b" /></div>
+            <div style={styles.detailText}>
+              <span style={styles.detailLabel}>Full Name</span>
+              <span style={styles.detailValue}>{user.full_name}</span>
             </div>
           </div>
           <div style={styles.divider} />
-          <div style={styles.infoRow}>
-            <div style={styles.infoIcon}><Hash size={20} /></div>
-            <div style={styles.infoContent}>
-              <div style={styles.infoLabel}>Student ID</div>
-              <div style={styles.infoValue}>{profile.student_id}</div>
+          <div style={styles.detailRow}>
+            <div style={styles.iconContainer}><Mail size={20} color="#64748b" /></div>
+            <div style={styles.detailText}>
+              <span style={styles.detailLabel}>Email Address</span>
+              <span style={styles.detailValue}>{user.email}</span>
+            </div>
+          </div>
+          <div style={styles.divider} />
+          <div style={styles.detailRow}>
+            <div style={styles.iconContainer}><Hash size={20} color="#64748b" /></div>
+            <div style={styles.detailText}>
+              <span style={styles.detailLabel}>Student ID</span>
+              <span style={styles.detailValue}>{user.student_id || 'Not available'}</span>
+            </div>
+          </div>
+          <div style={styles.divider} />
+          <div style={styles.detailRow}>
+            <div style={styles.iconContainer}><Calendar size={20} color="#64748b" /></div>
+            <div style={styles.detailText}>
+              <span style={styles.detailLabel}>Joined At</span>
+              <span style={styles.detailValue}>{joinedDate}</span>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Additive Role Actions */}
-      <div style={styles.section}>
-        <h3 style={styles.sectionTitle}>Roles & Permissions</h3>
+        {/* Section 3: Actions (Edit Profile, Change Password) */}
+        <div style={styles.sectionHeader}>ACTIONS</div>
         <div style={styles.actionGrid}>
-          {!isSeller && (
-            <button onClick={handleSellerApply} style={styles.actionCard}>
-              <div style={{ ...styles.actionIcon, backgroundColor: '#f0fdf4', color: '#10b981' }}><Store size={24} /></div>
-              <div style={styles.actionText}>
-                <div style={styles.actionTitle}>Become a Seller</div>
-                <p style={styles.actionDesc}>List and sell your items</p>
-              </div>
-              <ChevronRight size={20} color="#cbd5e1" />
-            </button>
-          )}
-          {!isRider && (
-            <button onClick={() => window.location.href = '/dashboard?mode=rider'} style={styles.actionCard}>
-              <div style={{ ...styles.actionIcon, backgroundColor: '#fffbeb', color: '#f59e0b' }}><Bike size={24} /></div>
-              <div style={styles.actionText}>
-                <div style={styles.actionTitle}>Apply for Rider</div>
-                <p style={styles.actionDesc}>Earn money delivering items</p>
-              </div>
-              <ChevronRight size={20} color="#cbd5e1" />
-            </button>
-          )}
-          {(isSeller || isRider) && (
-            <div style={styles.actionGrid}>
-              {isSeller && (
-                <div style={{ ...styles.actionCard, opacity: 0.8, cursor: 'default' }}>
-                  <div style={{ ...styles.actionIcon, backgroundColor: '#f0fdf4', color: '#10b981' }}><CheckCircle size={24} /></div>
-                  <div style={styles.actionText}>
-                    <div style={styles.actionTitle}>Verified Seller</div>
-                    <p style={styles.actionDesc}>Access My Store in navigation</p>
-                  </div>
-                </div>
-              )}
-              {isRider && (
-                <div style={{ ...styles.actionCard, opacity: 0.8, cursor: 'default' }}>
-                  <div style={{ ...styles.actionIcon, backgroundColor: '#fffbeb', color: '#f59e0b' }}><CheckCircle size={24} /></div>
-                  <div style={styles.actionText}>
-                    <div style={styles.actionTitle}>Professional Rider</div>
-                    <p style={styles.actionDesc}>Access Deliveries in navigation</p>
-                  </div>
-                </div>
-              )}
+          <button style={styles.ghostButton} onClick={() => alert('Editing profile coming soon!')}>
+            <div style={styles.actionLeft}>
+              <div style={styles.actionIconRing}><Edit3 size={18} /></div>
+              <span>Edit Profile</span>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Account Control */}
-      <div style={styles.section}>
-        <h3 style={styles.sectionTitle}>Account Control</h3>
-        <div style={styles.actionGrid}>
-          <button 
-            onClick={logout} 
-            style={{ ...styles.actionCard, border: '1px solid #fee2e2' }}
-          >
-            <div style={{ ...styles.actionIcon, backgroundColor: '#fee2e2', color: '#ef4444' }}>
-              <LogOut size={24} />
+            <ChevronRight size={16} opacity={0.5} />
+          </button>
+          
+          <button style={styles.ghostButton} onClick={() => alert('Change password coming soon!')}>
+            <div style={styles.actionLeft}>
+              <div style={styles.actionIconRing}><Key size={18} /></div>
+              <span>Change Password</span>
             </div>
-            <div style={styles.actionText}>
-              <div style={{ ...styles.actionTitle, color: '#ef4444' }}>Log Out</div>
-              <p style={styles.actionDesc}>Exit your account securely</p>
-            </div>
-            <ChevronRight size={20} color="#fecaca" />
+            <ChevronRight size={16} opacity={0.5} />
           </button>
         </div>
-      </div>
 
-      <p style={{ ...styles.versionText, marginTop: '24px' }}>Campus Cart v2.1.0 • Modern Mobile Layout</p>
+        {/* Section 4: Danger Zone (Logout) */}
+        <div style={{ marginTop: '40px' }}>
+          <button onClick={handleLogout} style={styles.logoutButton}>
+            <LogOut size={20} />
+            <span>Log Out</span>
+          </button>
+        </div>
+
+        <p style={styles.footerText}>Campus Cart v2.1.2 • Secure Session</p>
+      </div>
     </div>
   );
 }
 
 const styles = {
   container: {
-    padding: '24px 16px 100px', // Extra bottom padding for BottomNav
+    padding: '40px 20px 100px',
     backgroundColor: '#EAF4FE',
-    minHeight: '100vh'
+    minHeight: '100vh',
+    display: 'flex',
+    justifyContent: 'center',
+    fontFamily: 'Inter, -apple-system, sans-serif',
   },
-  profileHeaderCard: {
+  contentWrapper: {
+    width: '100%',
+    maxWidth: '500px',
+  },
+  loadingContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    backgroundColor: '#EAF4FE',
+  },
+  loadingText: {
+    fontSize: '16px',
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  card: {
     backgroundColor: '#FFFFFF',
     borderRadius: '24px',
-    padding: '32px 24px',
-    textAlign: 'center',
+    padding: '4px',
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)',
     marginBottom: '24px',
-    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
+    overflow: 'hidden',
   },
-  avatarLarge: {
-    width: '80px',
-    height: '80px',
+  headerContent: {
+    padding: '32px 20px',
+    textAlign: 'center',
+  },
+  avatar: {
+    width: '90px',
+    height: '90px',
     borderRadius: '50%',
     backgroundColor: '#F88000',
-    color: '#FFFFFF',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '32px',
-    fontWeight: '800',
     margin: '0 auto 16px',
-    boxShadow: '0 8px 20px rgba(248, 128, 0, 0.2)'
+    boxShadow: '0 8px 24px rgba(248, 128, 0, 0.2)',
   },
   userName: {
-    fontSize: '22px',
+    fontSize: '24px',
     fontWeight: '800',
     color: '#1e293b',
-    margin: '0 0 4px 0'
+    margin: '0 0 4px 0',
   },
   userEmail: {
-    fontSize: '14px',
+    fontSize: '15px',
     color: '#64748b',
-    marginBottom: '16px'
+    margin: 0,
   },
-  roleBadges: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '8px'
+  sectionHeader: {
+    fontSize: '12px',
+    fontWeight: '800',
+    color: '#94a3b8',
+    letterSpacing: '1.2px',
+    marginBottom: '10px',
+    paddingLeft: '12px',
   },
-  badge: {
-    fontSize: '11px',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    padding: '4px 12px',
-    borderRadius: '20px',
-    backgroundColor: '#3b82f6',
-    color: '#FFFFFF'
-  },
-  section: {
-    marginBottom: '32px'
-  },
-  sectionTitle: {
-    fontSize: '16px',
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: '12px',
-    paddingLeft: '8px'
-  },
-  infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '20px',
-    padding: '8px 16px',
-    boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
-  },
-  infoRow: {
+  detailRow: {
     display: 'flex',
     alignItems: 'center',
-    padding: '16px 0',
-    gap: '16px'
+    padding: '16px 20px',
+    transition: 'background 0.2s ease',
   },
-  infoIcon: {
-    color: '#64748b',
-    flexShrink: 0
+  iconContainer: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '12px',
+    backgroundColor: '#f8fafc',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: '16px',
+    flexShrink: 0,
   },
-  infoContent: {
-    flex: 1
+  detailText: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
   },
-  infoLabel: {
-    fontSize: '12px',
+  detailLabel: {
+    fontSize: '11px',
+    fontWeight: '700',
     color: '#94a3b8',
-    fontWeight: '600',
-    textTransform: 'uppercase'
+    textTransform: 'uppercase',
   },
-  infoValue: {
+  detailValue: {
     fontSize: '15px',
+    fontWeight: '600',
     color: '#1e293b',
-    fontWeight: '600'
   },
   divider: {
     height: '1px',
-    backgroundColor: '#f1f5f9'
-  },
-  inlineEditBtn: {
-    background: '#f8fafc',
-    border: 'none',
-    color: '#3b82f6',
-    fontSize: '13px',
-    fontWeight: '700',
-    padding: '6px 12px',
-    borderRadius: '8px',
-    cursor: 'pointer'
+    backgroundColor: '#f1f5f9',
+    margin: '0 20px',
   },
   actionGrid: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px'
+    gap: '12px',
   },
-  actionCard: {
+  ghostButton: {
+    backgroundColor: '#FFFFFF',
+    border: '1px solid #e2e8f0',
+    padding: '16px 20px',
+    borderRadius: '20px',
+    width: '100%',
     display: 'flex',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    border: 'none',
-    borderRadius: '20px',
-    padding: '16px',
-    gap: '16px',
+    justifyContent: 'space-between',
     cursor: 'pointer',
-    textAlign: 'left',
-    boxShadow: '0 8px 30px rgba(0,0,0,0.04)',
-    width: '100%'
+    transition: 'all 0.2s ease',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
   },
-  actionIcon: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '14px',
+  actionLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    fontSize: '15px',
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  actionIconRing: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '10px',
+    backgroundColor: '#fff7ed',
+    color: '#F88000',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0
   },
-  actionText: {
-    flex: 1
-  },
-  actionTitle: {
-    fontSize: '15px',
-    fontWeight: '700',
-    color: '#1e293b'
-  },
-  actionDesc: {
-    fontSize: '12px',
-    color: '#64748b',
-    margin: 0
-  },
-  logoutBtn: {
+  logoutButton: {
+    backgroundColor: '#fef2f2',
+    color: '#dc2626',
+    border: '1px solid #fee2e2',
+    padding: '18px',
+    borderRadius: '22px',
     width: '100%',
+    fontWeight: '800',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '12px',
-    padding: '18px',
-    backgroundColor: '#fee2e2',
-    color: '#ef4444',
-    border: 'none',
-    borderRadius: '20px',
-    fontSize: '16px',
-    fontWeight: '700',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
   },
-  versionText: {
+  footerText: {
     textAlign: 'center',
     fontSize: '12px',
-    color: '#94a3b8',
-    marginTop: '16px'
+    color: '#cbd5e1',
+    marginTop: '32px',
+    fontWeight: '500',
   },
-  loading: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100vh',
-    fontSize: '18px',
-    color: '#64748b'
-  }
-};
+};

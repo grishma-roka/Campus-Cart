@@ -121,6 +121,33 @@ const SmartSearchBar = ({ onSearch, currentSearchTerm = '' }) => {
     );
   };
 
+  const backendUrl = 'http://localhost:5000';
+
+  const getSafeImageUrl = (images) => {
+    if (!images) return 'https://via.placeholder.com/300x300?text=No+Image';
+    
+    try {
+      let firstImage = '';
+      if (Array.isArray(images)) {
+        firstImage = images[0];
+      } else if (typeof images === 'string') {
+        if (images.startsWith('[')) {
+          const parsed = JSON.parse(images);
+          firstImage = Array.isArray(parsed) ? parsed[0] : (parsed || '');
+        } else {
+          firstImage = images.replace(/[\[\]"]/g, '');
+        }
+      }
+      
+      if (!firstImage) return 'https://via.placeholder.com/300x300?text=No+Image';
+      if (firstImage.startsWith('http')) return firstImage;
+      return `${backendUrl}${firstImage.startsWith('/') ? '' : '/'}${firstImage}`;
+    } catch (err) {
+      console.error("Error parsing images:", err);
+      return 'https://via.placeholder.com/300x300?text=No+Image';
+    }
+  };
+
   return (
     <div style={styles.container} ref={searchRef}>
       {/* Search Input */}
@@ -163,9 +190,7 @@ const SmartSearchBar = ({ onSearch, currentSearchTerm = '' }) => {
               </div>
               <div style={styles.itemsList}>
                 {filteredItems.map((item) => {
-                  const images = item.images ? JSON.parse(item.images) : [];
-                  const imageUrl = images.length > 0 ? images[0] : 
-                    `https://dummyimage.com/80x80/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 3))}`;
+                   const imageUrl = getSafeImageUrl(item.images);
                   
                   return (
                     <div 

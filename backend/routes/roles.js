@@ -2,6 +2,30 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const auth = require('../middlewares/authMiddleware');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configure Multer DiskStorage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/')
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, 'license-' + uniqueSuffix + path.extname(file.originalname))
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+
+// Ensure uploads directory exists
+if (!fs.existsSync('./uploads')) {
+  fs.mkdirSync('./uploads', { recursive: true });
+}
 
 // GET USER ROLES
 router.get('/my-roles', auth, async (req, res) => {
@@ -61,9 +85,15 @@ router.post('/become-seller', auth, async (req, res) => {
 });
 
 // APPLY TO BECOME RIDER
-router.post('/apply-rider', auth, async (req, res) => {
+router.post('/apply-rider', auth, upload.single('license_image'), async (req, res) => {
   try {
-    const { license_number, license_issue_date, license_expiry_date, license_image } = req.body;
+    const { license_number, license_issue_date, license_expiry_date } = req.body;
+    
+    // Support file uploads directly or falback to old URL logic
+    let license_image = req.body.license_image;
+    if (req.file) {
+      license_image = `/uploads/${req.file.filename}`;
+    }
 
     // Validate required fields
     if (!license_number || !license_image) {

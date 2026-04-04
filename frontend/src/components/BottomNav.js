@@ -13,8 +13,8 @@ export default function BottomNav() {
   const tabs = [
     { id: 'dashboard', icon: <Home size={24} />, label: 'Home', path: '/dashboard' },
     { id: 'borrow', icon: <Handshake size={24} />, label: 'Borrow', path: '/borrow' },
-    { id: 'seller', icon: <Store size={24} />, label: 'My Store', path: '/dashboard?mode=seller', visible: !!user.is_seller },
-    { id: 'delivery', icon: <Bike size={24} />, label: 'Deliveries', path: '/dashboard?mode=rider', visible: !!user.is_rider },
+    { id: 'seller', icon: <Store size={24} />, label: 'My Store', path: '/dashboard?mode=seller', visible: user && (user.is_seller || user.role?.toLowerCase() === 'seller') },
+    { id: 'delivery', icon: <Bike size={24} />, label: 'Deliveries', path: '/dashboard?mode=rider', visible: user && (user.is_rider || user.role?.toLowerCase() === 'rider') },
     { id: 'messages', icon: <MessageCircle size={24} />, label: 'Messages', path: '/messages' },
     { id: 'profile', icon: <User size={24} />, label: 'Profile', path: '/profile' }
   ];

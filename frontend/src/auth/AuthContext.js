@@ -16,6 +16,22 @@ export const AuthProvider = ({ children }) => {
   const [userRoles, setUserRoles] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const normalizeUserInfo = (userObj) => {
+    if (!userObj) return null;
+    const isSellerCheck = !!userObj.is_seller || userObj.role?.toLowerCase() === 'seller';
+    const isAdminCheck = !!userObj.is_admin || userObj.role?.toLowerCase() === 'admin';
+    const isRiderCheck = !!userObj.is_rider || userObj.role?.toLowerCase() === 'rider';
+    const isBuyerCheck = !!userObj.is_buyer || userObj.role?.toLowerCase() === 'buyer' || !userObj.role;
+    
+    return {
+      ...userObj,
+      is_seller: isSellerCheck ? 1 : userObj.is_seller,
+      is_admin: isAdminCheck ? 1 : userObj.is_admin,
+      is_rider: isRiderCheck ? 1 : userObj.is_rider,
+      is_buyer: isBuyerCheck ? 1 : userObj.is_buyer
+    };
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -23,7 +39,7 @@ export const AuthProvider = ({ children }) => {
           axios.get('/auth/me'),
           axios.get('/roles/my-roles')
         ]);
-        setUser(userResponse.data.user);
+        setUser(normalizeUserInfo(userResponse.data.user));
         setUserRoles(rolesResponse.data);
       } catch (error) {
         console.error('Failed to fetch user:', error);
@@ -49,7 +65,7 @@ export const AuthProvider = ({ children }) => {
         axios.get('/auth/me'),
         axios.get('/roles/my-roles')
       ]);
-      setUser(userResponse.data.user);
+      setUser(normalizeUserInfo(userResponse.data.user));
       setUserRoles(rolesResponse.data);
     } catch (error) {
       console.error('Failed to fetch user:', error);
@@ -65,11 +81,11 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post('/auth/login', { email, password });
       console.log('✅ Login response received:', response.data);
       
-      const { token, user } = response.data;
+      const { token, user: loggedInUser } = response.data;
       
       localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(user);
+      setUser(normalizeUserInfo(loggedInUser));
       
       // Fetch user roles after login
       try {
@@ -121,7 +137,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateUserRole = (newRole) => {
-    setUser(prev => ({ ...prev, role: newRole }));
+    setUser(prev => normalizeUserInfo({ ...prev, role: newRole }));
   };
 
   const refreshRoles = async () => {
@@ -148,7 +164,10 @@ export const AuthProvider = ({ children }) => {
 
   const applyForRider = async (riderData) => {
     try {
-      const response = await axios.post('/roles/apply-rider', riderData);
+      const isFormData = riderData instanceof FormData;
+      const response = await axios.post('/roles/apply-rider', riderData, {
+        headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined
+      });
       return { success: true, message: response.data.message };
     } catch (error) {
       return { 
@@ -171,10 +190,10 @@ export const AuthProvider = ({ children }) => {
     loading,
     isAuthenticated: !!user,
     // Role checks based on additive system (DB flags)
-    isAdmin: !!user?.is_admin,
-    isSeller: !!user?.is_seller,
-    isBuyer: !!user?.is_buyer,
-    isRider: !!user?.is_rider,
+    isAdmin: !!user?.is_admin || user?.role?.toLowerCase() === 'admin',
+    isSeller: !!user?.is_seller || user?.role?.toLowerCase() === 'seller',
+    isBuyer: !!user?.is_buyer || user?.role?.toLowerCase() === 'buyer',
+    isRider: !!user?.is_rider || user?.role?.toLowerCase() === 'rider',
     // Available roles array (retained for backward compatibility if needed)
     availableRoles: userRoles?.available_roles || [],
     primaryRole: userRoles?.primary_role || user?.role

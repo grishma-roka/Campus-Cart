@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 
 const ProductDetailModal = ({ product, onClose, onAddToCart, relatedProducts }) => {
   const [addedToCart, setAddedToCart] = useState(false);
+  const backendUrl = 'http://localhost:5000';
 
   const handleAddToCart = () => {
     onAddToCart(product, 1); // Fixed quantity of 1
@@ -29,7 +30,9 @@ const ProductDetailModal = ({ product, onClose, onAddToCart, relatedProducts }) 
           {/* Left Side - Image */}
           <div style={styles.imageSection}>
             <img 
-              src={product.image || 'https://via.placeholder.com/500'} 
+              src={product.image 
+                ? (product.image.startsWith('http') ? product.image : `${backendUrl}${product.image}`)
+                : 'https://via.placeholder.com/500'} 
               alt={product.title}
               style={styles.productImage}
             />

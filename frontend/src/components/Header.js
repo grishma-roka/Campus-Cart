@@ -65,15 +65,6 @@ export default function Header() {
           >
             Seller
           </button>
-          <button 
-            onClick={() => handleModeChange('rider')}
-            style={{
-              ...styles.modeBtn,
-              ...(currentMode === 'rider' ? styles.activeMode : {})
-            }}
-          >
-            {isRider ? 'Rider' : 'Apply as Rider'}
-          </button>
         </div>
       )}
 
@@ -112,7 +103,7 @@ const styles = {
     justifyContent: 'space-between',
     padding: '0 20px',
     borderBottom: '1px solid #f3f4f6',
-    zIndex: 1100,
+    zIndex: 100,
     boxShadow: '0 2px 10px rgba(0, 0, 0, 0.02)'
   },
   logo: {

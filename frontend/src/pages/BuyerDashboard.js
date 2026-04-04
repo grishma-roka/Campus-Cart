@@ -23,6 +23,8 @@ export default function BuyerDashboard() {
   const [addingToCart, setAddingToCart] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  
+  const backendUrl = 'http://localhost:5000';
 
   // Synchronize searching with URL parameters from global header
   useEffect(() => {
@@ -55,6 +57,11 @@ export default function BuyerDashboard() {
   }, []);
 
 
+  const buyOnlyItems = items.filter(item => 
+    (item.transaction_type === 'buy' || !item.transaction_type || item.transaction_type === '') && 
+    (item.is_borrowable === 0 || item.is_borrowable === false || !item.is_borrowable)
+  );
+
   const fetchData = async () => {
     try {
       const itemsParams = new URLSearchParams();
@@ -75,7 +82,7 @@ export default function BuyerDashboard() {
     }
   };
 
-  const categories = [...new Set(items.map(item => item.category))];
+  const categories = [...new Set(buyOnlyItems.map(item => item.category))];
 
   const getCategoryIcon = (category, isActive = false) => {
     const iconProps = { size: 20, strokeWidth: 1.5, color: isActive ? '#F88000' : '#1e293b' };
@@ -106,7 +113,7 @@ export default function BuyerDashboard() {
       id: item.id,
       title: item.title,
       price: item.price,
-      image: item.images ? JSON.parse(item.images)[0] : null
+      image: getSafeImageUrl(item.images)
     });
     
     if (success) {
@@ -160,8 +167,33 @@ export default function BuyerDashboard() {
         id: product.id,
         title: product.title,
         price: product.price,
-        image: product.images ? JSON.parse(product.images)[0] : null
+        image: getSafeImageUrl(product.images)
       });
+    }
+  };
+
+  const getSafeImageUrl = (images) => {
+    if (!images) return 'https://via.placeholder.com/600x400?text=No+Image';
+    
+    try {
+      let firstImage = '';
+      if (Array.isArray(images)) {
+        firstImage = images[0];
+      } else if (typeof images === 'string') {
+        if (images.startsWith('[')) {
+          const parsed = JSON.parse(images);
+          firstImage = Array.isArray(parsed) ? parsed[0] : (parsed || '');
+        } else {
+          firstImage = images.replace(/[\[\]"]/g, '');
+        }
+      }
+      
+      if (!firstImage) return 'https://via.placeholder.com/600x400?text=No+Image';
+      if (firstImage.startsWith('http')) return firstImage;
+      return `${backendUrl}${firstImage.startsWith('/') ? '' : '/'}${firstImage}`;
+    } catch (err) {
+      console.error("Error parsing images:", err);
+      return 'https://via.placeholder.com/600x400?text=No+Image';
     }
   };
 
@@ -201,7 +233,9 @@ export default function BuyerDashboard() {
             >
               <LayoutGrid size={20} strokeWidth={1.5} color={categoryFilter === '' ? '#F88000' : '#1e293b'} />
               <span style={styles.categoryText}>All Items</span>
-              <span style={styles.categoryCount}>{items.length}</span>
+              <span style={styles.categoryCount}>
+                {buyOnlyItems.length}
+              </span>
             </button>
             
             {categories.map(category => (
@@ -216,7 +250,7 @@ export default function BuyerDashboard() {
                 {getCategoryIcon(category, categoryFilter === category)}
                 <span style={styles.categoryText}>{category}</span>
                 <span style={styles.categoryCount}>
-                  {items.filter(item => item.category === category).length}
+                  {buyOnlyItems.filter(item => item.category === category).length}
                 </span>
               </button>
             ))}
@@ -272,7 +306,7 @@ export default function BuyerDashboard() {
         {/* Main Content */}
         <div style={styles.mainContent}>
           {/* Hero Carousel */}
-          <div style={{...styles.heroSection, background: '#FFFFFF', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.05)'}}>
+          <div style={{...styles.heroSection, background: '#FFFFFF', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.05)', position: 'relative', zIndex: 1}}>
             <div style={styles.carousel}>
               <div style={styles.carouselSlide}>
                 <div style={styles.slideBackground}></div>
@@ -282,7 +316,7 @@ export default function BuyerDashboard() {
                     <p style={styles.slideSubtitle}>Your premium student marketplace</p>
                     <div style={styles.slideStats}>
                       <div style={styles.statBadge}>
-                        <span style={styles.statNumber}>{items.length}</span>
+                        <span style={styles.statNumber}>{buyOnlyItems.length}</span>
                         <span style={styles.statText}>Items Available</span>
                       </div>
                       <div style={styles.statBadge}>
@@ -312,27 +346,28 @@ export default function BuyerDashboard() {
                      priceRange.split('-').map(p => `रू ${parseInt(p).toLocaleString()}`).join(' - ')}
                 </span>
               )}
-              ({items.length})
+              ({buyOnlyItems.length})
             </h3>
             
             <div style={styles.productsGrid}>
-              {items.map(item => {
-                const images = item.images ? JSON.parse(item.images) : [];
-                const imageUrl = images.length > 0 ? images[0] : 
-                  `https://dummyimage.com/400x300/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 15))}`;
+              {buyOnlyItems
+                .filter(item => !categoryFilter || item.category === categoryFilter)
+                .map(item => {
+                const mainImage = getSafeImageUrl(item.images);
                 
                 const isSold = item.is_sold || false;
                 
                 return (
                   <div key={item.id} style={styles.productCard}>
                     <div 
-                      style={styles.productImageContainer}
-                      onClick={() => handleProductClick(item)}
+                      style={styles.imageWrapper}
+                      onClick={() => navigate(`/product/${item.id}`)}
                     >
                       <img 
-                        src={imageUrl} 
-                        alt={item.title}
+                        src={mainImage} 
+                        alt={item.title} 
                         style={styles.productImage}
+                        onError={(e) => { e.target.src = 'https://via.placeholder.com/300?text=Reload+Page'; }}
                       />
                       {isSold && (
                         <div style={styles.soldOverlay}>
@@ -398,7 +433,7 @@ export default function BuyerDashboard() {
               })}
             </div>
 
-            {items.length === 0 && (
+            {buyOnlyItems.length === 0 && (
               <div style={styles.emptyState}>
                 <div style={styles.emptyIcon}>
                   {debouncedSearchTerm ? <Search size={48} color="#94a3b8" /> : <Package size={48} color="#94a3b8" />}

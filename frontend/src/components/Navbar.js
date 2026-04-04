@@ -38,21 +38,21 @@ const Navbar = () => {
             Orders
           </Link>
           
-          {availableRoles?.includes('seller') && (
+          {(availableRoles?.includes('seller') || user?.role?.toLowerCase() === 'seller') && (
             <Link to="/dashboard?mode=seller" style={styles.navLink} className="nav-link">
               <span style={styles.navIcon}><Store size={16} strokeWidth={2} /></span>
               Sell
             </Link>
           )}
           
-          {availableRoles?.includes('rider') && (
+          {(availableRoles?.includes('rider') || user?.role?.toLowerCase() === 'rider') && (
             <Link to="/dashboard?mode=rider" style={styles.navLink} className="nav-link">
               <span style={styles.navIcon}><Truck size={16} strokeWidth={2} /></span>
               Deliver
             </Link>
           )}
           
-          {availableRoles?.includes('admin') && (
+          {(availableRoles?.includes('admin') || user?.role?.toLowerCase() === 'admin') && (
             <Link to="/dashboard?mode=admin" style={styles.navLink} className="nav-link">
               <span style={styles.navIcon}><Settings size={16} strokeWidth={2} /></span>
               Admin

@@ -4,6 +4,19 @@ import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 import { MapPin, CreditCard, Banknote, Smartphone, Package, User, Mail, Info } from 'lucide-react';
 
+// This prevents the page from crashing if images are a string or a JSON array
+const safeParseImages = (imageData) => {
+  if (!imageData) return [];
+  if (Array.isArray(imageData)) return imageData;
+  try {
+    const parsed = JSON.parse(imageData);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch (e) {
+    // If it's a plain string like "/uploads/...", just return it in an array
+    return [imageData];
+  }
+};
+
 export default function CheckoutPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -173,9 +186,11 @@ export default function CheckoutPage() {
     return null;
   }
 
-  const images = item.images ? JSON.parse(item.images) : [];
-  const mainImage = images.length > 0 ? images[0] : 
-    `https://dummyimage.com/200x200/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 3))}`;
+  const images = safeParseImages(item.images);
+  let mainImage = images[0] || `https://dummyimage.com/200x200/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 3))}`;
+  if (mainImage.startsWith('/uploads')) {
+    mainImage = `http://localhost:5000${mainImage}`;
+  }
 
   const totalAmount = item.price;
 

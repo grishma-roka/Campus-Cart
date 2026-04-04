@@ -386,7 +386,10 @@ router.post('/login', async (req, res) => {
         is_buyer: !!user.is_buyer,
         is_seller: !!user.is_seller,
         is_rider: !!user.is_rider,
-        is_admin: !!user.is_admin
+        is_admin: !!user.is_admin,
+        student_id: user.student_id,
+        created_at: user.created_at,
+        phone: user.phone
       }
     });
 

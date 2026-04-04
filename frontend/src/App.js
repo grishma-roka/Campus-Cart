@@ -14,6 +14,7 @@ import CheckoutPage from "./pages/CheckoutPage";
 import Profile from "./pages/Profile";
 import Messages from "./pages/Messages";
 import BorrowPage from "./pages/BorrowPage";
+import AddBorrowItem from "./pages/AddBorrowItem";
 import PaymentVerifyPage from "./pages/PaymentVerifyPage";
 import PaymentFailedPage from "./pages/PaymentFailedPage";
 import './App.css';
@@ -68,6 +69,12 @@ export default function App() {
             <Route path="/borrow" element={
               <ProtectedRoute>
                 <BorrowPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/add-borrow" element={
+              <ProtectedRoute>
+                <AddBorrowItem />
               </ProtectedRoute>
             } />
 

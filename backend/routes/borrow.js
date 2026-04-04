@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../config/db');
 const auth = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/roleMiddleware');
+const upload = require('../utils/multer');
 
 // ─── BORROW ITEMS ──────────────────────────────────────────────────────────────
 
@@ -12,10 +13,11 @@ router.get('/items', auth, async (req, res) => {
     const [rows] = await db.query(`
       SELECT i.id, i.title, i.description, i.images, i.borrow_price_per_day as deposit,
              i.max_borrow_days as duration, i.is_available, i.seller_id,
-             u.full_name as owner_name, u.phone as owner_phone
+             u.full_name as owner_name, u.phone as owner_phone,
+             i.transaction_type
       FROM items i
       JOIN users u ON i.seller_id = u.id
-      WHERE i.is_borrowable = TRUE
+      WHERE i.transaction_type = 'borrow' AND i.is_borrowable = 1
       ORDER BY i.created_at DESC
     `);
     res.json(rows);
@@ -26,23 +28,36 @@ router.get('/items', auth, async (req, res) => {
 });
 
 // ADD borrow item (seller only)
-router.post('/items', auth, requireRole(['seller']), async (req, res) => {
+router.post('/items', auth, requireRole(['seller']), upload.single('image'), async (req, res) => {
   try {
-    const { title, description, image, duration, deposit, location, is_available } = req.body;
+    const { title, description, duration, deposit, location, is_available } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required' });
+
+    let imageArray = [];
+    if (req.file) {
+      imageArray = [ `/uploads/items/${req.file.filename}` ];
+    } else if (req.body.image) {
+      // Fallback for string URL if still sent
+      imageArray = [ req.body.image ];
+    }
+
+    const transaction_type = req.body.transaction_type || 'borrow';
+    const is_borrowable_val = (transaction_type === 'borrow' ? 1 : 0);
 
     const [result] = await db.query(`
       INSERT INTO items (seller_id, title, description, price, category, images,
-                         is_borrowable, borrow_price_per_day, max_borrow_days, is_available)
-      VALUES (?, ?, ?, 0, 'Borrow', ?, TRUE, ?, ?, ?)
+                         is_borrowable, borrow_price_per_day, max_borrow_days, is_available, transaction_type)
+      VALUES (?, ?, ?, 0, 'Borrow', ?, ?, ?, ?, ?, ?)
     `, [
       req.user.id,
       title,
       description || '',
-      image ? JSON.stringify([image]) : JSON.stringify([]),
+      JSON.stringify(imageArray),
+      is_borrowable_val,
       parseFloat(deposit) || 0,
       parseInt(duration) || 7,
-      is_available !== false ? 1 : 0,
+      (is_available === 'true' || is_available === true ? 1 : 0),
+      transaction_type
     ]);
 
     res.json({ message: 'Borrow item added', id: result.insertId });

@@ -13,6 +13,7 @@ export default function Messages() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const backendUrl = 'http://localhost:5000';
   const [sending, setSending] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
   
@@ -215,8 +216,8 @@ export default function Messages() {
                           boxShadow: '0 4px 16px rgba(0,0,0,0.05)'
                         }}>
                           {message.image_url && (
-                            <a href={message.image_url} target="_blank" rel="noreferrer">
-                              <img src={message.image_url} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: message.message ? '8px' : '0' }} />
+                            <a href={message.image_url.startsWith('http') ? message.image_url : `${backendUrl}${message.image_url}`} target="_blank" rel="noreferrer">
+                              <img src={message.image_url.startsWith('http') ? message.image_url : `${backendUrl}${message.image_url}`} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: message.message ? '8px' : '0' }} />
                             </a>
                           )}
                           {message.message && <p style={styles.messageText}>{message.message}</p>}
