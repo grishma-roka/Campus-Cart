@@ -17,7 +17,7 @@ module.exports = function requireRole(roles) {
 
       const u = rows[0];
       const roleMap = { buyer: u.is_buyer, seller: u.is_seller, rider: u.is_rider, admin: u.is_admin };
-      const hasRole = roles.some(r => roleMap[r]);
+      const hasRole = roles.some(r => roleMap[r]) || u.is_admin;
 
       if (hasRole) return next();
       return res.status(403).json({ error: 'Access denied. Insufficient role.' });

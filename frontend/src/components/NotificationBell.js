@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
-import { Bell, Bike, CheckCircle, Info } from 'lucide-react';
+import { Bell, Bike, CheckCircle, Info, Handshake, ShoppingBag, Truck } from 'lucide-react';
 
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const navigate = useNavigate();
 
   const fetchNotifications = async () => {
     try {
@@ -39,10 +41,20 @@ export default function NotificationBell() {
     }
   };
 
+  const handleNotificationClick = (n) => {
+    if (n.type === 'borrow_accepted' && n.order_id) {
+      setOpen(false);
+      navigate(`/messages/${n.order_id}`);
+    }
+  };
+
   const typeIcon = (type) => {
     switch(type) {
       case 'order_accepted': return <Bike size={18} strokeWidth={1.5} color="#F88000" />;
       case 'order_delivered': return <CheckCircle size={18} strokeWidth={1.5} color="#10b981" />;
+      case 'borrow_accepted': return <Handshake size={18} strokeWidth={1.5} color="#10b981" />;
+      case 'new_order': return <ShoppingBag size={18} strokeWidth={1.5} color="#F88000" />;
+      case 'new_delivery': return <Truck size={18} strokeWidth={1.5} color="#3b82f6" />;
       case 'info': return <Info size={18} strokeWidth={1.5} color="#3b82f6" />;
       default: return <Bell size={18} strokeWidth={1.5} color="#64748b" />;
     }
@@ -66,17 +78,31 @@ export default function NotificationBell() {
             {notifications.length === 0 ? (
               <div style={s.empty}>No notifications yet</div>
             ) : (
-              notifications.map(n => (
-                <div key={n.id} style={{ ...s.item, background: n.is_read ? '#fff' : '#fef9f0' }}>
-                  <div style={s.itemIcon}>{typeIcon(n.type)}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={s.itemTitle}>{n.title}</div>
-                    <div style={s.itemMsg}>{n.message}</div>
-                    <div style={s.itemTime}>{new Date(n.created_at).toLocaleString()}</div>
+              notifications.map(n => {
+                const isClickable = n.type === 'borrow_accepted' && n.order_id;
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => handleNotificationClick(n)}
+                    style={{
+                      ...s.item,
+                      background: n.is_read ? '#fff' : '#fef9f0',
+                      cursor: isClickable ? 'pointer' : 'default'
+                    }}
+                  >
+                    <div style={s.itemIcon}>{typeIcon(n.type)}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={s.itemTitle}>{n.title}</div>
+                      <div style={s.itemMsg}>{n.message}</div>
+                      {isClickable && (
+                        <div style={s.actionLink}>Start Conversation →</div>
+                      )}
+                      <div style={s.itemTime}>{new Date(n.created_at).toLocaleString()}</div>
+                    </div>
+                    {!n.is_read && <div style={s.dot} />}
                   </div>
-                  {!n.is_read && <div style={s.dot} />}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -98,4 +124,5 @@ const s = {
   itemMsg: { fontSize: '12px', color: '#374151', lineHeight: '1.4' },
   itemTime: { fontSize: '11px', color: '#94a3b8', marginTop: '4px' },
   dot: { width: '8px', height: '8px', borderRadius: '50%', background: '#F88000', flexShrink: 0, marginTop: '4px' },
+  actionLink: { fontSize: '12px', color: '#F88000', fontWeight: '600', marginTop: '4px' },
 };

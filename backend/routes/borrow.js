@@ -27,8 +27,8 @@ router.get('/items', auth, async (req, res) => {
   }
 });
 
-// ADD borrow item (seller only)
-router.post('/items', auth, requireRole(['seller']), upload.single('image'), async (req, res) => {
+// ADD borrow item (any authenticated user)
+router.post('/items', auth, upload.single('image'), async (req, res) => {
   try {
     const { title, description, duration, deposit, location, is_available } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required' });
@@ -67,8 +67,8 @@ router.post('/items', auth, requireRole(['seller']), upload.single('image'), asy
   }
 });
 
-// DELETE borrow item (seller, own items only)
-router.delete('/items/:id', auth, requireRole(['seller']), async (req, res) => {
+// DELETE borrow item (owner only)
+router.delete('/items/:id', auth, async (req, res) => {
   try {
     const [result] = await db.query(
       'DELETE FROM items WHERE id = ? AND seller_id = ? AND is_borrowable = TRUE',
@@ -145,10 +145,12 @@ router.post('/request', auth, async (req, res) => {
 router.get('/my-requests', auth, async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT br.*, i.title, i.description, i.images, u.full_name as seller_name, u.email as seller_email
+      SELECT br.*, i.title, i.description, i.images, u.full_name as seller_name, u.email as seller_email,
+             c.id as conversation_id
       FROM borrow_requests br
       JOIN items i ON br.item_id = i.id
       JOIN users u ON br.seller_id = u.id
+      LEFT JOIN conversations c ON c.item_id = br.item_id AND (c.buyer_id = br.borrower_id OR c.seller_id = br.borrower_id)
       WHERE br.borrower_id = ?
       ORDER BY br.created_at DESC
     `, [req.user.id]);
@@ -160,14 +162,16 @@ router.get('/my-requests', auth, async (req, res) => {
   }
 });
 
-// GET BORROW REQUESTS FOR SELLER
-router.get('/seller-requests', auth, requireRole(['seller']), async (req, res) => {
+// GET BORROW REQUESTS FOR ITEM OWNER (any user who listed borrow items)
+router.get('/seller-requests', auth, async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT br.*, i.title, i.description, i.images, u.full_name as borrower_name, u.email as borrower_email, u.phone as borrower_phone
+      SELECT br.*, i.title, i.description, i.images, u.full_name as borrower_name, u.email as borrower_email, u.phone as borrower_phone,
+             c.id as conversation_id
       FROM borrow_requests br
       JOIN items i ON br.item_id = i.id
       JOIN users u ON br.borrower_id = u.id
+      LEFT JOIN conversations c ON c.item_id = br.item_id AND (c.buyer_id = br.borrower_id OR c.seller_id = br.borrower_id)
       WHERE br.seller_id = ?
       ORDER BY br.created_at DESC
     `, [req.user.id]);
@@ -179,8 +183,8 @@ router.get('/seller-requests', auth, requireRole(['seller']), async (req, res) =
   }
 });
 
-// APPROVE/REJECT BORROW REQUEST (seller only)
-router.put('/respond/:id', auth, requireRole(['seller']), async (req, res) => {
+// APPROVE/REJECT BORROW REQUEST (item owner)
+router.put('/respond/:id', auth, async (req, res) => {
   const requestId = req.params.id;
   const { status } = req.body; 
 
@@ -205,19 +209,43 @@ router.put('/respond/:id', auth, requireRole(['seller']), async (req, res) => {
         // Mark Item Unavailable
         await db.query("UPDATE items SET is_available = FALSE WHERE id = ?", [info.item_id]);
 
-        // FAIL-SAFE NOTIFICATION
+        // Create or find conversation
+        let conversation_id = null;
+        const [existing] = await db.query(
+          "SELECT id FROM conversations WHERE item_id = ? AND (buyer_id = ? OR seller_id = ?) LIMIT 1",
+          [info.item_id, info.borrower_id, info.borrower_id]
+        );
+        if (existing.length > 0) {
+          conversation_id = existing[0].id;
+        } else {
+          const [conv] = await db.query(
+            "INSERT INTO conversations (buyer_id, seller_id, item_id) VALUES (?, ?, ?)",
+            [info.borrower_id, info.seller_id, info.item_id]
+          );
+          conversation_id = conv.insertId;
+        }
+
+        // Notification to borrower
         try {
           const [item] = await db.query("SELECT title FROM items WHERE id = ?", [info.item_id]);
           const [owner] = await db.query("SELECT full_name FROM users WHERE id = ?", [info.seller_id]);
           if (item.length > 0 && owner.length > 0) {
             await db.query(
-              "INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, ?)",
-              [info.borrower_id, 'Request Accepted', `Your borrow request for ${item[0].title} has been accepted by ${owner[0].full_name}. Start a conversation now.`, 'borrow_accepted']
+              "INSERT INTO notifications (user_id, title, message, type, order_id) VALUES (?, ?, ?, ?, ?)",
+              [
+                info.borrower_id,
+                'Borrow Request Accepted',
+                `Your borrow request for "${item[0].title}" has been accepted by ${owner[0].full_name}. Start a conversation now.`,
+                'borrow_accepted',
+                conversation_id
+              ]
             );
           }
         } catch (e) {
           console.error("Notification skipped:", e.message);
         }
+
+        return res.status(200).json({ success: true, message: 'Request accepted successfully', conversation_id });
       }
     }
 
@@ -230,7 +258,7 @@ router.put('/respond/:id', auth, requireRole(['seller']), async (req, res) => {
 });
 
 // START BORROWING (mark as active)
-router.put('/start/:id', auth, requireRole(['seller']), async (req, res) => {
+router.put('/start/:id', auth, async (req, res) => {
   try {
     const { condition_before, images_before } = req.body;
     const requestId = req.params.id;
@@ -261,7 +289,7 @@ router.put('/start/:id', auth, requireRole(['seller']), async (req, res) => {
 });
 
 // RETURN ITEM
-router.put('/return/:id', auth, requireRole(['seller']), async (req, res) => {
+router.put('/return/:id', auth, async (req, res) => {
   try {
     const { condition_after, images_after, damage_reported, damage_description, refund_amount } = req.body;
     const requestId = req.params.id;

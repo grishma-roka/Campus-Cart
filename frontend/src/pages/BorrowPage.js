@@ -7,7 +7,7 @@ import io from 'socket.io-client';
 
 export default function BorrowPage() {
   const navigate = useNavigate();
-  const { user, isSeller } = useAuth();
+  const { user, isSeller, isAdmin } = useAuth();
   const [items, setItems] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
   const [sellerRequests, setSellerRequests] = useState([]);
@@ -27,7 +27,7 @@ export default function BorrowPage() {
       setItems(itemsRes.data);
       setMyRequests(myReqRes.data);
 
-      if (isSeller) {
+      if (true) { // fetch for all users who may have listed borrow items
         const sellerRes = await axios.get('/borrow/seller-requests');
         setSellerRequests(sellerRes.data);
       }
@@ -36,7 +36,7 @@ export default function BorrowPage() {
     } finally {
       setLoading(false);
     }
-  }, [isSeller]);
+  }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -55,11 +55,10 @@ export default function BorrowPage() {
             <p style={s.subtitle}>Borrow items temporarily from fellow students</p>
           </div>
         </div>
-        {isSeller && (
-          <button onClick={() => navigate('/add-borrow')} style={s.addBtn}>
-            + Add Borrow Item
-          </button>
-        )}
+        {/* always show add borrow item button */}
+        <button onClick={() => navigate('/add-borrow')} style={s.addBtn}>
+          + Add Borrow Item
+        </button>
       </div>
 
       {/* Tabs */}
@@ -67,7 +66,7 @@ export default function BorrowPage() {
         {[
           { key: 'browse', icon: <Store size={16} strokeWidth={1.5} />, label: 'Browse Items', count: items.filter(item => item.transaction_type === 'borrow').length },
           { key: 'my-requests', icon: <ClipboardList size={16} strokeWidth={1.5} />, label: 'My Requests', count: myRequests.length },
-          ...(isSeller ? [{ key: 'manage', icon: <Settings size={16} strokeWidth={1.5} />, label: 'Manage Requests', count: sellerRequests.filter(r => r.status === 'pending').length }] : []),
+          ...(sellerRequests.length > 0 ? [{ key: 'manage', icon: <Settings size={16} strokeWidth={1.5} />, label: 'Manage Requests', count: sellerRequests.filter(r => r.status === 'pending').length }] : []),
           { key: 'chat', icon: <MessageCircle size={16} strokeWidth={1.5} />, label: 'Chat' },
         ].map(t => (
           <button
@@ -101,8 +100,8 @@ export default function BorrowPage() {
         />
       )}
 
-      {/* Manage Requests (seller) */}
-      {activeTab === 'manage' && isSeller && (
+      {/* Manage Requests (item owner) */}
+      {activeTab === 'manage' && (
         <ManageRequestsTab
           requests={sellerRequests}
           onRespond={async (id, status) => {
@@ -216,6 +215,8 @@ function BrowseTab({ items, userId, isSeller, onRequest, onRefresh }) {
 
 // ─── My Requests Tab ───────────────────────────────────────────────────────────
 function MyRequestsTab({ requests, onChat }) {
+  const navigate = useNavigate();
+
   if (requests.length === 0) {
     return (
       <div style={s.empty}>
@@ -249,7 +250,12 @@ function MyRequestsTab({ requests, onChat }) {
             <div style={s.requestRight}>
               <span style={{ ...s.statusBadge, background: statusColor(req.status) }}>{displayStatus(req.status)}</span>
               {(req.status === 'approved' || req.status === 'active' || req.status === 'accepted') && (
-                <button onClick={() => onChat(req)} style={{...s.chatBtn, display: 'flex', alignItems: 'center', gap: '6px'}}><MessageCircle size={14} /> Start Conversation</button>
+                <button
+                  onClick={() => req.conversation_id ? navigate(`/messages/${req.conversation_id}`) : onChat(req)}
+                  style={{...s.chatBtn, display: 'flex', alignItems: 'center', gap: '6px'}}
+                >
+                  <MessageCircle size={14} /> Start Conversation
+                </button>
               )}
             </div>
           </div>
@@ -261,6 +267,8 @@ function MyRequestsTab({ requests, onChat }) {
 
 // ─── Manage Requests Tab (Seller) ──────────────────────────────────────────────
 function ManageRequestsTab({ requests, onRespond, onChat }) {
+  const navigate = useNavigate();
+
   if (requests.length === 0) {
     return (
       <div style={s.empty}>
@@ -295,9 +303,9 @@ function ManageRequestsTab({ requests, onRespond, onChat }) {
               </div>
             )}
             {(req.status === 'accepted' || req.status === 'approved') ? (
-              <button 
-                onClick={() => onChat(req)} 
-                style={s.chatBtn}
+              <button
+                onClick={() => req.conversation_id ? navigate(`/messages/${req.conversation_id}`) : onChat(req)}
+                style={{...s.chatBtn, display: 'flex', alignItems: 'center', gap: '6px'}}
               >
                 <MessageCircle size={14} /> Chat with Borrower
               </button>

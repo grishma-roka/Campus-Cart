@@ -12,7 +12,7 @@ router.post('/create', auth, async (req, res) => {
 
     // Get item details with lock to prevent race conditions
     const [itemRows] = await db.query(
-      "SELECT * FROM items WHERE id = ? AND is_available = TRUE AND is_sold = FALSE FOR UPDATE",
+      "SELECT * FROM items WHERE id = ? AND is_available = TRUE AND is_sold = FALSE",
       [item_id]
     );
 
@@ -46,9 +46,27 @@ router.post('/create', auth, async (req, res) => {
 
     // Create delivery record with coords
     await db.query(`
-      INSERT INTO deliveries (order_id, transaction_id, pickup_address, delivery_address, delivery_lat, delivery_lng, status)
-      VALUES (?, NULL, 'Seller Location', ?, ?, ?, 'pending')
+      INSERT INTO deliveries (order_id, pickup_address, delivery_address, delivery_lat, delivery_lng)
+      VALUES (?, 'Seller Location', ?, ?, ?)
     `, [result.insertId, delivery_address, delivery_lat || null, delivery_lng || null]);
+
+    // Notify seller that their item was ordered
+    try {
+      const [buyerRows] = await db.query("SELECT full_name FROM users WHERE id = ?", [buyer_id]);
+      const buyerName = buyerRows[0]?.full_name || 'A buyer';
+      await db.query(
+        "INSERT INTO notifications (user_id, title, message, type, order_id) VALUES (?, ?, ?, ?, ?)",
+        [
+          item.seller_id,
+          '🛒 New Order Received!',
+          `${buyerName} has placed a Cash on Delivery order for "${item.title}". Go to your seller dashboard to search for a rider.`,
+          'new_order',
+          result.insertId
+        ]
+      );
+    } catch (e) {
+      console.error('Seller notification failed (non-fatal):', e.message);
+    }
 
     console.log(`✅ Item ${item_id} sold to buyer ${buyer_id}`);
 
@@ -61,7 +79,7 @@ router.post('/create', auth, async (req, res) => {
 
   } catch (err) {
     console.error('❌ Purchase error:', err);
-    res.status(500).json({ error: "Failed to purchase item" });
+    res.status(500).json({ error: "Failed to purchase item", details: err.message });
   }
 });
 
@@ -233,6 +251,61 @@ router.put('/cancel/:id', auth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to cancel order" });
+  }
+});
+
+// SEARCH FOR RIDERS — seller triggers this to notify available riders
+router.post('/search-riders/:orderId', auth, async (req, res) => {
+  try {
+    const orderId = req.params.orderId;
+
+    // Verify this order belongs to the seller
+    const [orderRows] = await db.query(
+      `SELECT o.*, i.title as item_title, u.full_name as buyer_name, u.phone as buyer_phone
+       FROM orders o
+       JOIN items i ON o.item_id = i.id
+       JOIN users u ON o.buyer_id = u.id
+       WHERE o.id = ? AND o.seller_id = ?`,
+      [orderId, req.user.id]
+    );
+
+    if (!orderRows.length) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const order = orderRows[0];
+
+    // Get seller info for pickup address
+    const [sellerRows] = await db.query("SELECT full_name FROM users WHERE id = ?", [req.user.id]);
+    const sellerName = sellerRows[0]?.full_name || 'Seller';
+
+    // Find all available riders
+    const [riders] = await db.query(
+      "SELECT id FROM users WHERE role = 'rider' AND is_active = TRUE AND rider_availability = 'available'"
+    );
+
+    if (riders.length === 0) {
+      return res.json({ message: 'No riders available right now. Try again shortly.', notified: 0 });
+    }
+
+    // Notify each available rider
+    for (const rider of riders) {
+      await db.query(
+        "INSERT INTO notifications (user_id, title, message, type, order_id) VALUES (?, ?, ?, ?, ?)",
+        [
+          rider.id,
+          '📦 New Delivery Available!',
+          `New delivery: "${order.item_title}"\nPickup from: ${sellerName}\nDeliver to: ${order.delivery_address}\nBuyer: ${order.buyer_name} (${order.buyer_phone || 'N/A'})\nAmount: रू ${order.total_amount} (COD)`,
+          'new_delivery',
+          orderId
+        ]
+      );
+    }
+
+    res.json({ message: `Notified ${riders.length} rider(s)!`, notified: riders.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to search for riders' });
   }
 });
 

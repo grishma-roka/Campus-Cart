@@ -106,6 +106,15 @@ export default function SellerDashboard() {
     }
   };
 
+  const handleSearchRiders = async (orderId) => {
+    try {
+      const res = await axios.post(`/orders/search-riders/${orderId}`);
+      alert(`✅ ${res.data.message}`);
+    } catch (error) {
+      alert('Failed: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
   const handleConfirmOrder = async (orderId, orderTitle) => {
     try {
       await axios.put(`/orders/confirm/${orderId}`);
@@ -557,6 +566,19 @@ export default function SellerDashboard() {
                         >
                           Confirm Order
                         </button>
+                      </div>
+                    )}
+                    {['confirmed', 'pending'].includes(order.status) && order.delivery_status === 'pending' && !order.rider_name && (
+                      <div style={{ marginTop: '12px' }}>
+                        <button
+                          onClick={() => handleSearchRiders(order.id)}
+                          style={{ ...styles.confirmButton, background: '#F88000', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', width: '100%' }}
+                        >
+                          🔍 Search for Riders
+                        </button>
+                        <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px', textAlign: 'center' }}>
+                          Notify available riders about this delivery
+                        </p>
                       </div>
                     )}
                   </div>

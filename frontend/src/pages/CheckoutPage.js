@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
+import { useCart } from '../context/CartContext';
 import { MapPin, CreditCard, Banknote, Smartphone, Package, User, Mail, Info } from 'lucide-react';
 
 // This prevents the page from crashing if images are a string or a JSON array
@@ -21,6 +22,7 @@ export default function CheckoutPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { cartItems, getCartTotal, clearCart } = useCart();
   
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,7 +47,26 @@ export default function CheckoutPage() {
       navigate('/login');
       return;
     }
-    fetchItemDetails();
+
+    if (id) {
+      fetchItemDetails();
+    } else {
+      if (cartItems && cartItems.length > 0) {
+        setItem({
+          id: 'cart',
+          title: `Shopping Cart (${cartItems.length} items)`,
+          price: getCartTotal(),
+          images: cartItems[0].image || cartItems[0].images || '[]',
+          seller_id: null,
+          is_sold: false
+        });
+        setLoading(false);
+      } else {
+        alert("Your cart is empty");
+        navigate('/dashboard');
+      }
+    }
+
     // Capture buyer's current location for delivery proximity
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -127,7 +148,6 @@ export default function CheckoutPage() {
       setSubmitting(true);
 
       const orderData = {
-        item_id: parseInt(id),
         delivery_address: formData.deliveryLocation,
         delivery_lat: deliveryCoords.lat,
         delivery_lng: deliveryCoords.lng,
@@ -135,35 +155,73 @@ export default function CheckoutPage() {
         notes: formData.notes,
       };
 
-      if (formData.paymentMethod === 'esewa') {
-        // Initiate eSewa payment — get form data from backend
-        const res = await axios.post('/payment/esewa/initiate', orderData);
-        const { formUrl, formData: esewaFields, checkoutContext } = res.data;
+      if (id) {
+        // Direct Single Item Checkout Mode
+        orderData.item_id = parseInt(id);
 
-        // Save checkout context to localStorage so verify page can use it after redirect
-        localStorage.setItem('esewa_checkout', JSON.stringify(checkoutContext));
+        if (formData.paymentMethod === 'esewa') {
+          // Initiate eSewa payment
+          const res = await axios.post('/payment/esewa/initiate', orderData);
+          const { formUrl, formData: esewaFields, checkoutContext } = res.data;
 
-        // Build and auto-submit a hidden form to eSewa
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = formUrl;
-        Object.entries(esewaFields).forEach(([key, val]) => {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = key;
-          input.value = val;
-          form.appendChild(input);
-        });
-        document.body.appendChild(form);
-        form.submit();
+          localStorage.setItem('esewa_checkout', JSON.stringify(checkoutContext));
+
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = formUrl;
+          Object.entries(esewaFields).forEach(([key, val]) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = val;
+            form.appendChild(input);
+          });
+          document.body.appendChild(form);
+          form.submit();
+        } else {
+          // COD Create order directly
+          const res = await axios.post('/orders/create', { ...orderData, payment_method: 'cod' });
+          navigate('/order-success', {
+            state: {
+              orderDetails: {
+                item_title: item.title,
+                fullName: formData.fullName,
+                phone: formData.phone,
+                deliveryLocation: formData.deliveryLocation,
+                total_amount: item.price
+              }
+            }
+          });
+        }
       } else {
-        // COD — create order directly
-        const response = await axios.post('/orders/create', {
-          ...orderData,
-          payment_method: 'cod',
+        // Global Cart Bulk Checkout Mode
+        if (formData.paymentMethod === 'esewa') {
+          alert('eSewa payment currently only supports single items. Please use Cash on Delivery for full cart checkouts.');
+          setSubmitting(false);
+          return;
+        }
+
+        // Standard COD Loop Processing
+        for (const cartItem of cartItems) {
+          await axios.post('/orders/create', {
+            ...orderData,
+            item_id: parseInt(cartItem.id),
+            payment_method: 'cod'
+          });
+        }
+        
+        clearCart();
+        navigate('/order-success', {
+          state: {
+            orderDetails: {
+              item_title: `${cartItems.length} items`,
+              fullName: formData.fullName,
+              phone: formData.phone,
+              deliveryLocation: formData.deliveryLocation,
+              total_amount: getCartTotal()
+            }
+          }
         });
-        alert('Order placed successfully! The seller has been notified.');
-        navigate('/dashboard?tab=orders');
       }
     } catch (error) {
       console.error('Checkout error:', error);

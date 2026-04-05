@@ -17,6 +17,7 @@ import BorrowPage from "./pages/BorrowPage";
 import AddBorrowItem from "./pages/AddBorrowItem";
 import PaymentVerifyPage from "./pages/PaymentVerifyPage";
 import PaymentFailedPage from "./pages/PaymentFailedPage";
+import OrderSuccessPage from "./pages/OrderSuccessPage";
 import './App.css';
 
 export default function App() {
@@ -42,6 +43,14 @@ export default function App() {
               </ProtectedRoute>
             } />
             
+            {/* Generic Cart Checkout Route */}
+            <Route path="/checkout" element={
+              <ProtectedRoute>
+                <CheckoutPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Direct Item Checkout Route */}
             <Route path="/checkout/:id" element={
               <ProtectedRoute>
                 <CheckoutPage />
@@ -87,6 +96,12 @@ export default function App() {
             <Route path="/payment/failed" element={
               <ProtectedRoute>
                 <PaymentFailedPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/order-success" element={
+              <ProtectedRoute>
+                <OrderSuccessPage />
               </ProtectedRoute>
             } />
             

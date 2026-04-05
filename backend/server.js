@@ -134,7 +134,40 @@ async function runMigrations() {
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`);
 
+  // ── conversations table ────────────────────────────────────────────────────
+  await run(`CREATE TABLE IF NOT EXISTS conversations (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    buyer_id INT NOT NULL,
+    seller_id INT NOT NULL,
+    item_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (buyer_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
+  )`);
+
+  // ── messages table ─────────────────────────────────────────────────────────
+  await run(`CREATE TABLE IF NOT EXISTS messages (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    conversation_id INT NOT NULL,
+    sender_id INT NOT NULL,
+    message TEXT,
+    image_url VARCHAR(500),
+    message_type ENUM('text','image') DEFAULT 'text',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+
   console.log('✅ Migrations done');
+
+  // Ensure admin account has all roles
+  try {
+    await db.query(`
+      UPDATE users SET role='admin', is_admin=1, is_buyer=1, is_seller=1, is_rider=1
+      WHERE email='np03cs4a230143@heraldcollege.edu.np'
+    `);
+  } catch(e) { /* silent */ }
 }
 
 runMigrations();

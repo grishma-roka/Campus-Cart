@@ -319,8 +319,8 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // Check rider approval status
-    if (user.role === 'rider' || user.is_rider) {
+    // Check rider approval status (skip for admins)
+    if (!user.is_admin && (user.role === 'rider' || user.is_rider)) {
       console.log('🏍️ Checking rider approval status...');
       const [riderRequests] = await db.query(
         "SELECT status FROM rider_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",

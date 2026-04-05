@@ -6,7 +6,7 @@ import { useCart } from '../context/CartContext';
 import CartSidebar from '../components/CartSidebar';
 import ProductDetailModal from '../components/ProductDetailModal';
 import NotificationBell from '../components/NotificationBell';
-import { ShoppingBag, Store, Bike, LayoutGrid, BookOpen, Laptop, Shirt, Trophy, Package, Handshake, Tag, Armchair, Watch, Search, ChevronDown, User, Calendar } from 'lucide-react';
+import { ShoppingBag, Store, Bike, LayoutGrid, BookOpen, Laptop, Shirt, Trophy, Package, Handshake, Tag, Armchair, Watch, Search, ChevronDown, User, Calendar, ClipboardList, MapPin, CheckCircle, Clock } from 'lucide-react';
 
 export default function BuyerDashboard() {
   const { user } = useAuth();
@@ -23,6 +23,8 @@ export default function BuyerDashboard() {
   const [addingToCart, setAddingToCart] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  const [myOrders, setMyOrders] = useState([]);
+  const [activeTab, setActiveTab] = useState('shop'); // shop | orders
   
   const backendUrl = 'http://localhost:5000';
 
@@ -73,8 +75,12 @@ export default function BuyerDashboard() {
         if (max && max !== 'above') itemsParams.append('max_price', max);
       }
       
-      const itemsRes = await axios.get(`/items?${itemsParams.toString()}`);
+      const [itemsRes, ordersRes] = await Promise.all([
+        axios.get(`/items?${itemsParams.toString()}`),
+        axios.get('/orders/my-orders')
+      ]);
       setItems(itemsRes.data);
+      setMyOrders(ordersRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -210,12 +216,100 @@ export default function BuyerDashboard() {
     <div style={styles.dashboardContainer}>
       {/* Cart Sidebar */}
       <CartSidebar />
-      
 
-      {/* Main Layout */}
-      <div style={styles.mainLayout}>
-        {/* Sidebar */}
-        <div style={{...styles.sidebar}}>
+      {/* Tab Switcher */}
+      <div style={styles.tabBar}>
+        <button
+          onClick={() => setActiveTab('shop')}
+          style={{ ...styles.tabBtn, ...(activeTab === 'shop' ? styles.tabBtnActive : {}) }}
+        >
+          <ShoppingBag size={16} strokeWidth={1.5} />
+          Shop
+        </button>
+        <button
+          onClick={() => setActiveTab('orders')}
+          style={{ ...styles.tabBtn, ...(activeTab === 'orders' ? styles.tabBtnActive : {}) }}
+        >
+          <ClipboardList size={16} strokeWidth={1.5} />
+          My Orders
+          {myOrders.length > 0 && <span style={styles.tabBadge}>{myOrders.length}</span>}
+        </button>
+      </div>
+
+      {/* My Orders Tab */}
+      {activeTab === 'orders' && (
+        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 24px 40px' }}>
+          {myOrders.length === 0 ? (
+            <div style={styles.emptyOrders}>
+              <Package size={56} color="#94a3b8" strokeWidth={1.5} />
+              <p style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', margin: '16px 0 8px' }}>No orders yet</p>
+              <p style={{ color: '#94a3b8', fontSize: '14px' }}>Items you purchase will appear here</p>
+              <button onClick={() => setActiveTab('shop')} style={styles.shopNowBtn}>Browse Items</button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {myOrders.map(order => {
+                const img = (() => {
+                  try {
+                    const imgs = typeof order.images === 'string' ? JSON.parse(order.images) : order.images;
+                    const first = Array.isArray(imgs) ? imgs[0] : imgs;
+                    if (!first) return null;
+                    return first.startsWith('http') ? first : `http://localhost:5000${first}`;
+                  } catch { return null; }
+                })();
+
+                const statusInfo = {
+                  confirmed:  { label: 'Order Confirmed',     color: '#3b82f6', icon: <CheckCircle size={16} /> },
+                  pending:    { label: 'Order Placed',        color: '#f59e0b', icon: <Clock size={16} /> },
+                  assigned:   { label: 'Rider Assigned',      color: '#8b5cf6', icon: <Bike size={16} /> },
+                  picked_up:  { label: 'Out for Delivery',    color: '#F88000', icon: <Bike size={16} /> },
+                  delivered:  { label: 'Delivered',           color: '#10b981', icon: <CheckCircle size={16} /> },
+                  cancelled:  { label: 'Cancelled',           color: '#ef4444', icon: <Package size={16} /> },
+                }[order.status] || { label: order.status, color: '#94a3b8', icon: <Package size={16} /> };
+
+                return (
+                  <div key={order.id} style={styles.orderCard}>
+                    <div style={styles.orderCardLeft}>
+                      {img
+                        ? <img src={img} alt={order.title} style={styles.orderImg} onError={e => e.target.style.display='none'} />
+                        : <div style={styles.orderImgPlaceholder}><Package size={28} color="#94a3b8" /></div>
+                      }
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={styles.orderTitle}>{order.title}</div>
+                        <div style={styles.orderMeta}>Seller: {order.seller_name}</div>
+                        <div style={styles.orderMeta}>
+                          <MapPin size={12} /> {order.delivery_address}
+                        </div>
+                        <div style={styles.orderMeta}>
+                          Ordered: {new Date(order.created_at).toLocaleDateString()}
+                        </div>
+                        {order.rider_name && (
+                          <div style={styles.orderMeta}>
+                            <Bike size={12} /> Rider: {order.rider_name} {order.rider_phone && `· ${order.rider_phone}`}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div style={styles.orderCardRight}>
+                      <div style={{ ...styles.statusBadge, background: statusInfo.color }}>
+                        {statusInfo.icon} {statusInfo.label}
+                      </div>
+                      <div style={styles.orderAmount}>रू {parseFloat(order.total_amount).toLocaleString()}</div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '500' }}>Cash on Delivery</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Shop Tab */}
+      {activeTab === 'shop' && (
+        <div style={styles.mainLayout}>
+          {/* Sidebar */}
+          <div style={{...styles.sidebar}}>
           <div style={styles.sidebarHeader}>
             <h3 style={styles.sidebarTitle}>
               <LayoutGrid size={20} color="#1e293b" strokeWidth={1.5} />
@@ -460,6 +554,7 @@ export default function BuyerDashboard() {
           </div>
         </div>
       </div>
+      )} {/* end shop tab */}
 
     </div>
   );

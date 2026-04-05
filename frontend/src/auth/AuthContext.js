@@ -176,6 +176,7 @@ export const AuthProvider = ({ children }) => {
       };
     }
   };
+  const adminCheck = !!user?.is_admin || user?.role?.toLowerCase() === 'admin';
 
   const value = {
     user,
@@ -189,11 +190,11 @@ export const AuthProvider = ({ children }) => {
     applyForRider,
     loading,
     isAuthenticated: !!user,
-    // Role checks based on additive system (DB flags)
-    isAdmin: !!user?.is_admin || user?.role?.toLowerCase() === 'admin',
-    isSeller: !!user?.is_seller || user?.role?.toLowerCase() === 'seller',
-    isBuyer: !!user?.is_buyer || user?.role?.toLowerCase() === 'buyer',
-    isRider: !!user?.is_rider || user?.role?.toLowerCase() === 'rider',
+    // Role checks based on additive system (DB flags). Admins intrinsically access all.
+    isAdmin: adminCheck,
+    isSeller: adminCheck || !!user?.is_seller || user?.role?.toLowerCase() === 'seller',
+    isBuyer: adminCheck || !!user?.is_buyer || user?.role?.toLowerCase() === 'buyer',
+    isRider: adminCheck || !!user?.is_rider || user?.role?.toLowerCase() === 'rider',
     // Available roles array (retained for backward compatibility if needed)
     availableRoles: userRoles?.available_roles || [],
     primaryRole: userRoles?.primary_role || user?.role

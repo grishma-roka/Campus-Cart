@@ -27,6 +27,19 @@ export default function Header() {
     navigate(`/dashboard?mode=${mode}`);
   };
 
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+
+  if (isAuthPage) {
+    return (
+      <header style={styles.header}>
+        <div style={styles.logo}>
+          <span style={styles.logoText}>Campus</span>
+          <span style={{ ...styles.logoText, color: '#F88000' }}>Cart</span>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header style={styles.header}>
       {/* 1. Logo Section */}

@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { ShoppingBag, Store, Plus, Bike, Settings, ClipboardList, Camera, Send } from 'lucide-react';
 
 export default function RoleSwitcher({ user, currentMode, onModeChange }) {
-  const { userRoles, becomeSeller, applyForRider, isRider } = useAuth();
+  const { userRoles, becomeSeller, applyForRider, isRider, isAdmin } = useAuth();
   
   const handleModeClick = (mode) => {
     console.log("Switching to mode:", mode);
@@ -141,7 +141,7 @@ export default function RoleSwitcher({ user, currentMode, onModeChange }) {
           </button>
 
           {/* Seller Mode - Neutral White or Active */}
-          {(availableRoles.includes('seller') || user?.role?.toLowerCase() === 'seller') ? (
+          {(isAdmin || availableRoles.includes('seller') || user?.role?.toLowerCase() === 'seller') ? (
             <button
               onClick={() => handleModeClick('seller')}
               className="mode-pill-button"
@@ -168,7 +168,7 @@ export default function RoleSwitcher({ user, currentMode, onModeChange }) {
           )}
 
           {/* Rider Mode - Vibrant Amber with Motorcycle Icon */}
-          {(isRider || user?.role?.toLowerCase() === 'rider') ? (
+          {(isAdmin || isRider || user?.role?.toLowerCase() === 'rider') ? (
             <button
               onClick={() => handleModeClick('rider')}
               className="mode-pill-button"
@@ -197,7 +197,7 @@ export default function RoleSwitcher({ user, currentMode, onModeChange }) {
           )}
 
           {/* Admin Mode - If Available */}
-          {(availableRoles.includes('admin') || user?.role?.toLowerCase() === 'admin') && (
+          {(isAdmin || availableRoles.includes('admin') || user?.role?.toLowerCase() === 'admin') && (
             <button
               onClick={() => handleModeClick('admin')}
               className="mode-pill-button"

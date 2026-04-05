@@ -44,18 +44,21 @@ router.get('/my-roles', auth, async (req, res) => {
     
     // Additive roles based on database boolean flags
     const roles = {
-      primary_role: user.role, // Current active dashboard mode
+      primary_role: user.is_admin ? 'admin' : user.role,
       is_buyer: !!user.is_buyer,
       is_seller: !!user.is_seller,
       is_rider: !!user.is_rider,
       is_admin: !!user.is_admin,
-      available_roles: ['buyer'] // Everyone starts as buyer
+      available_roles: ['buyer']
     };
 
-    // Add available roles based on database flags
-    if (roles.is_seller) roles.available_roles.push('seller');
-    if (roles.is_rider) roles.available_roles.push('rider');
-    if (roles.is_admin) roles.available_roles.push('admin');
+    // Admin gets everything
+    if (user.is_admin) {
+      roles.available_roles = ['buyer', 'seller', 'rider', 'admin'];
+    } else {
+      if (roles.is_seller) roles.available_roles.push('seller');
+      if (roles.is_rider) roles.available_roles.push('rider');
+    }
 
     console.log(`✅ User roles: ${JSON.stringify(roles)}`);
     res.json(roles);
@@ -128,11 +131,12 @@ router.post('/apply-rider', auth, upload.single('license_image'), async (req, re
       }
     }
 
-    // Create new rider request (only with required fields for now)
+    // Create new rider request with dates
     await db.query(`
-      INSERT INTO rider_requests (user_id, license_number, license_image)
-      VALUES (?, ?, ?)
-    `, [req.user.id, license_number, license_image]);
+      INSERT INTO rider_requests (user_id, license_number, license_image, license_issue_date, license_expiry_date)
+      VALUES (?, ?, ?, ?, ?)
+    `, [req.user.id, license_number, license_image,
+        license_issue_date || null, license_expiry_date || null]);
 
     // Get user details for email
     const [userRows] = await db.query("SELECT full_name, email FROM users WHERE id = ?", [req.user.id]);
