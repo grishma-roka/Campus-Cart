@@ -127,10 +127,9 @@ export default function SellerDashboard() {
 
   const handleBorrowResponse = async (requestId, status, itemTitle) => {
     try {
-      const notes = status === 'rejected' ? window.prompt('Reason for rejection (optional):') : '';
       const response = await axios.put(`/borrow/respond/${requestId}`, {
         status,
-        admin_notes: notes
+        admin_notes: ''
       });
       alert(`Borrow request for "${itemTitle}" ${status} successfully!`);
       if (status === 'approved' && response.data.conversation_id) {
@@ -145,11 +144,8 @@ export default function SellerDashboard() {
 
   const handleStartBorrow = async (requestId, itemTitle) => {
     try {
-      const condition = window.prompt('Describe the current condition of the item:');
-      if (!condition) return;
-
       await axios.put(`/borrow/start/${requestId}`, {
-        condition_before: condition,
+        condition_before: 'Good condition',
         images_before: []
       });
       alert(`Borrowing started for "${itemTitle}" successfully!`);
@@ -161,22 +157,12 @@ export default function SellerDashboard() {
 
   const handleReturnItem = async (requestId, itemTitle) => {
     try {
-      const condition = window.prompt('Describe the condition after return:');
-      const damageReported = window.confirm('Is there any damage to report?');
-      let damageDescription = '';
-      let refundAmount = 0;
-
-      if (damageReported) {
-        damageDescription = window.prompt('Describe the damage:');
-        refundAmount = parseFloat(window.prompt('Refund amount (if any):') || '0');
-      }
-
       await axios.put(`/borrow/return/${requestId}`, {
-        condition_after: condition,
+        condition_after: 'Returned',
         images_after: [],
-        damage_reported: damageReported,
-        damage_description: damageDescription,
-        refund_amount: refundAmount
+        damage_reported: false,
+        damage_description: '',
+        refund_amount: 0
       });
       alert(`Return processed for "${itemTitle}" successfully!`);
       fetchData();

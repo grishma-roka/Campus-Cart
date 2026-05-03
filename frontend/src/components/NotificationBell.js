@@ -42,8 +42,12 @@ export default function NotificationBell() {
   };
 
   const handleNotificationClick = (n) => {
-    if (n.type === 'borrow_accepted' && n.order_id) {
-      setOpen(false);
+    setOpen(false);
+    if (n.type === 'new_delivery') {
+      navigate('/dashboard?tab=rider');
+    } else if (n.type === 'order_accepted' || n.type === 'order_delivered') {
+      navigate('/dashboard?tab=orders');
+    } else if (n.type === 'borrow_accepted' && n.order_id) {
       navigate(`/messages/${n.order_id}`);
     }
   };
@@ -79,7 +83,18 @@ export default function NotificationBell() {
               <div style={s.empty}>No notifications yet</div>
             ) : (
               notifications.map(n => {
-                const isClickable = n.type === 'borrow_accepted' && n.order_id;
+                const isClickable =
+                  n.type === 'new_delivery' ||
+                  n.type === 'order_accepted' ||
+                  n.type === 'order_delivered' ||
+                  (n.type === 'borrow_accepted' && n.order_id);
+
+                const actionLabel =
+                  n.type === 'new_delivery' ? '🏍️ Go to Rider Dashboard →' :
+                  n.type === 'order_accepted' ? '📦 View My Orders →' :
+                  n.type === 'order_delivered' ? '✅ View My Orders →' :
+                  n.type === 'borrow_accepted' ? '💬 Start Conversation →' : null;
+
                 return (
                   <div
                     key={n.id}
@@ -87,15 +102,18 @@ export default function NotificationBell() {
                     style={{
                       ...s.item,
                       background: n.is_read ? '#fff' : '#fef9f0',
-                      cursor: isClickable ? 'pointer' : 'default'
+                      cursor: isClickable ? 'pointer' : 'default',
+                      transition: 'background 0.2s',
                     }}
+                    onMouseEnter={e => { if (isClickable) e.currentTarget.style.background = '#fef3e2'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = n.is_read ? '#fff' : '#fef9f0'; }}
                   >
                     <div style={s.itemIcon}>{typeIcon(n.type)}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={s.itemTitle}>{n.title}</div>
                       <div style={s.itemMsg}>{n.message}</div>
-                      {isClickable && (
-                        <div style={s.actionLink}>Start Conversation →</div>
+                      {actionLabel && (
+                        <div style={s.actionLink}>{actionLabel}</div>
                       )}
                       <div style={s.itemTime}>{new Date(n.created_at).toLocaleString()}</div>
                     </div>

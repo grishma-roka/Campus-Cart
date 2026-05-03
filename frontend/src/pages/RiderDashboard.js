@@ -15,6 +15,8 @@ export default function RiderDashboard() {
   const [activeTab, setActiveTab] = useState('available');
   const [showRiderRequest, setShowRiderRequest] = useState(false);
   const [riderRequest, setRiderRequest] = useState({ license_number: '', license_image: '' });
+  const [newDeliveryBanner, setNewDeliveryBanner] = useState(false);
+  const prevDeliveryCountRef = useRef(0);
 
   // Location state
   const [locationPermission, setLocationPermission] = useState('pending'); // pending|granted|denied
@@ -102,9 +104,19 @@ export default function RiderDashboard() {
           axios.get('/rider/stats'),
           axios.get('/rider/income'),
         ]);
-        const availData = availableRes.data;
-        setAvailableDeliveries(Array.isArray(availData) ? availData : (availData.deliveries || []));
-        setMyDeliveries(myDeliveriesRes.data);
+        // Always normalize to array
+        const rawAvail = availableRes.data;
+        const deliveries = Array.isArray(rawAvail) ? rawAvail : (rawAvail?.deliveries || []);
+        
+        // Show banner if new deliveries appeared
+        if (deliveries.length > prevDeliveryCountRef.current && prevDeliveryCountRef.current >= 0) {
+          setNewDeliveryBanner(true);
+          setTimeout(() => setNewDeliveryBanner(false), 5000);
+        }
+        prevDeliveryCountRef.current = deliveries.length;
+        
+        setAvailableDeliveries(deliveries);
+        setMyDeliveries(Array.isArray(myDeliveriesRes.data) ? myDeliveriesRes.data : []);
         setStats(statsRes.data);
         setIncome(incomeRes.data);
       }
@@ -117,23 +129,26 @@ export default function RiderDashboard() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // On mount: check permission then start tracking
+  // On mount: auto-set rider to 'available' and start tracking
   useEffect(() => {
     if (user?.role !== 'rider') return;
 
-    const init = () => startTracking(riderAvailability);
+    // Auto-mark as available immediately on dashboard open
+    axios.put('/delivery/location', { rider_availability: 'available' }).catch(() => {});
+
+    const init = () => startTracking('available');
 
     if (navigator.permissions) {
       navigator.permissions.query({ name: 'geolocation' }).then((result) => {
         if (result.state === 'denied') {
           setLocationPermission('denied');
-          setOffline();
+          // Even if location denied, mark as available so deliveries are shown
+          axios.put('/delivery/location', { rider_availability: 'available', latitude: null, longitude: null }).catch(() => {});
         } else {
           init();
         }
-        // Listen for permission changes
         result.onchange = () => {
-          if (result.state === 'denied') { setLocationPermission('denied'); stopTracking(); }
+          if (result.state === 'denied') { setLocationPermission('denied'); }
           else { init(); }
         };
       }).catch(init);
@@ -141,7 +156,8 @@ export default function RiderDashboard() {
       init();
     }
 
-    const interval = setInterval(fetchData, 15000);
+    // Poll every 8 seconds for new delivery requests
+    const interval = setInterval(fetchData, 8000);
     return () => {
       clearInterval(interval);
       if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current);
@@ -352,7 +368,7 @@ export default function RiderDashboard() {
       {/* Tabs */}
       <div style={s.tabs}>
         <button style={{...(activeTab === 'available' ? s.activeTab : s.tab), display: 'flex', alignItems: 'center', gap: '6px'}} onClick={() => setActiveTab('available')}>
-          <Bell size={16} /> Available ({availableDeliveries.length})
+          <Bell size={16} /> Requests {availableDeliveries.length > 0 && <span style={s.tabBadge}>{availableDeliveries.length}</span>}
         </button>
         <button style={{...(activeTab === 'my-deliveries' ? s.activeTab : s.tab), display: 'flex', alignItems: 'center', gap: '6px'}} onClick={() => setActiveTab('my-deliveries')}>
           <ClipboardList size={16} /> My Deliveries ({myDeliveries.length})
@@ -362,30 +378,31 @@ export default function RiderDashboard() {
         </button>
       </div>
 
+      {/* New delivery banner */}
+      {newDeliveryBanner && (
+        <div style={s.newDeliveryBanner}>
+          <Bell size={18} /> New delivery request received! Check the Requests tab.
+        </div>
+      )}
+
       {/* Available Deliveries */}
       {activeTab === 'available' && (
         <div>
-          {locationPermission === 'denied' ? (
-            <div style={s.locationBanner}>
-              <div style={s.locationBannerIcon}><Ban size={56} color="#ef4444" strokeWidth={1.5} /></div>
-              <div style={s.locationBannerTitle}>Location Off — Enable location to receive delivery requests</div>
-              <p style={s.locationBannerText}>
-                Without location access, you won't appear to buyers and won't receive any orders.
-              </p>
-              <button onClick={() => startTracking(riderAvailability)} style={s.primaryBtn}>
-                Enable Location
+          {/* Location warning strip (non-blocking) */}
+          {locationPermission === 'denied' && (
+            <div style={s.locationWarnStrip}>
+              <MapPin size={14} /> Location disabled — deliveries shown without distance info.
+              <button onClick={() => startTracking(riderAvailability)} style={s.locationWarnBtn}>
+                Enable
               </button>
             </div>
-          ) : locationPermission === 'pending' ? (
-            <div style={s.emptyState}>
-              <div style={s.emptyIcon}><MapPin size={48} color="#94a3b8" /></div>
-              <p>Requesting your location...</p>
-            </div>
-          ) : availableDeliveries.length === 0 ? (
+          )}
+
+          {availableDeliveries.length === 0 ? (
             <div style={s.emptyState}>
               <div style={s.emptyIcon}><Inbox size={48} color="#94a3b8" /></div>
-              <p>No deliveries available near you right now.</p>
-              <p style={{ color: '#94a3b8', fontSize: '13px' }}>Orders expand to more riders every 30 seconds.</p>
+              <p>No delivery requests right now.</p>
+              <p style={{ color: '#94a3b8', fontSize: '13px' }}>You'll be notified when a seller searches for a rider. Checking every 8 seconds...</p>
             </div>
           ) : (
             <div style={s.grid}>
@@ -777,4 +794,36 @@ const s = {
   coordLabel: { fontSize: '11px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' },
   coordValue: { fontSize: '14px', fontWeight: '700', color: '#000', fontFamily: 'monospace' },
   coordDivider: { width: '1px', height: '36px', background: '#e2e8f0', flexShrink: 0 },
+
+  // New delivery banner
+  newDeliveryBanner: {
+    display: 'flex', alignItems: 'center', gap: '10px',
+    background: 'linear-gradient(135deg, #F88000 0%, #E67500 100%)',
+    color: '#fff', borderRadius: '14px', padding: '14px 20px',
+    marginBottom: '16px', fontSize: '14px', fontWeight: '700',
+    boxShadow: '0 8px 20px rgba(248,128,0,0.3)',
+    animation: 'pulse 0.6s ease'
+  },
+
+  // Tab badge
+  tabBadge: {
+    background: 'rgba(255,255,255,0.3)',
+    borderRadius: '10px', padding: '1px 7px',
+    fontSize: '11px', fontWeight: '800',
+  },
+
+  // Location warning strip (non-blocking)
+  locationWarnStrip: {
+    display: 'flex', alignItems: 'center', gap: '8px',
+    background: '#fff7ed', border: '1px solid rgba(248,128,0,0.2)',
+    borderRadius: '12px', padding: '10px 16px',
+    fontSize: '13px', fontWeight: '500', color: '#92400e',
+    marginBottom: '16px',
+  },
+  locationWarnBtn: {
+    marginLeft: 'auto', padding: '4px 14px',
+    background: '#F88000', color: '#fff', border: 'none',
+    borderRadius: '8px', cursor: 'pointer', fontSize: '12px',
+    fontWeight: '700', fontFamily: 'Inter, sans-serif',
+  },
 };

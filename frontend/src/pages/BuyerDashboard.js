@@ -259,13 +259,13 @@ export default function BuyerDashboard() {
                 })();
 
                 const statusInfo = {
-                  confirmed:  { label: 'Order Confirmed',     color: '#3b82f6', icon: <CheckCircle size={16} /> },
-                  pending:    { label: 'Order Placed',        color: '#f59e0b', icon: <Clock size={16} /> },
-                  assigned:   { label: 'Rider Assigned',      color: '#8b5cf6', icon: <Bike size={16} /> },
-                  picked_up:  { label: 'Out for Delivery',    color: '#F88000', icon: <Bike size={16} /> },
                   delivered:  { label: 'Delivered',           color: '#10b981', icon: <CheckCircle size={16} /> },
                   cancelled:  { label: 'Cancelled',           color: '#ef4444', icon: <Package size={16} /> },
-                }[order.status] || { label: order.status, color: '#94a3b8', icon: <Package size={16} /> };
+                  confirmed:  { label: 'Pending Delivery',     color: '#f59e0b', icon: <Clock size={16} /> },
+                  pending:    { label: 'Pending',              color: '#f59e0b', icon: <Clock size={16} /> },
+                  assigned:   { label: 'Pending Delivery',     color: '#f59e0b', icon: <Clock size={16} /> },
+                  picked_up:  { label: 'Out for Delivery',    color: '#F88000', icon: <Bike size={16} /> },
+                }[order.status] || { label: 'Pending', color: '#f59e0b', icon: <Clock size={16} /> };
 
                 return (
                   <div key={order.id} style={styles.orderCard}>
@@ -399,6 +399,52 @@ export default function BuyerDashboard() {
 
         {/* Main Content */}
         <div style={styles.mainContent}>
+          {/* Recent Purchases Section */}
+          {myOrders.length > 0 && (
+            <div style={{ marginBottom: '32px' }}>
+              <div style={styles.recentPurchasesLabel}>
+                <Package size={16} strokeWidth={2} />
+                Recent Purchases
+              </div>
+              <div style={styles.recentPurchasesContainer}>
+                {myOrders.slice(0, 4).map(order => {
+                  const img = (() => {
+                    try {
+                      const imgs = typeof order.images === 'string' ? JSON.parse(order.images) : order.images;
+                      const first = Array.isArray(imgs) ? imgs[0] : imgs;
+                      if (!first) return null;
+                      return first.startsWith('http') ? first : `http://localhost:5000${first}`;
+                    } catch { return null; }
+                  })();
+
+                  const status = {
+                    delivered: { label: 'Delivered', color: '#10b981', icon: <CheckCircle size={14} /> },
+                    cancelled: { label: 'Cancelled', color: '#ef4444', icon: <Package size={14} /> },
+                  }[order.status] || { label: 'Pending Delivery', color: '#f59e0b', icon: <Clock size={14} /> };
+
+                  return (
+                    <div 
+                      key={order.id} 
+                      style={styles.recentPurchaseCard}
+                      onClick={() => setActiveTab('orders')}
+                    >
+                      {img 
+                        ? <img src={img} alt={order.title} style={styles.recentPurchaseImg} />
+                        : <div style={{...styles.recentPurchaseImg, display: 'flex', alignItems: 'center', justifyContent: 'center'}}><Package size={20} color="#94a3b8" /></div>
+                      }
+                      <div style={styles.recentPurchaseInfo}>
+                        <h4 style={styles.recentPurchaseTitle}>{order.title}</h4>
+                        <span style={{...styles.recentPurchaseStatus, color: status.color}}>
+                          {status.icon} {status.label}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Hero Carousel */}
           <div style={{...styles.heroSection, background: '#FFFFFF', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.05)', position: 'relative', zIndex: 1}}>
             <div style={styles.carousel}>
@@ -568,6 +614,44 @@ const styles = {
     background: '#EAF4FE',
     display: 'flex',
     flexDirection: 'column'
+  },
+  tabBar: {
+    display: 'flex',
+    gap: '12px',
+    padding: '0 24px',
+    marginBottom: '32px',
+    background: 'transparent',
+  },
+  tabBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '12px 24px',
+    borderRadius: '14px',
+    border: '1px solid rgba(0,0,0,0.05)',
+    background: 'white',
+    color: '#64748b',
+    fontSize: '14px',
+    fontWeight: '700',
+    fontFamily: 'Inter, sans-serif',
+    cursor: 'pointer',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.02)',
+  },
+  tabBtnActive: {
+    background: '#F88000',
+    color: 'white',
+    borderColor: '#F88000',
+    boxShadow: '0 8px 20px rgba(248,128,0,0.25)',
+    transform: 'translateY(-1px)',
+  },
+  tabBadge: {
+    padding: '2px 8px',
+    background: 'rgba(255,255,255,0.25)',
+    borderRadius: '10px',
+    fontSize: '11px',
+    fontWeight: '800',
+    marginLeft: '6px',
   },
 
   // Loading State
@@ -1034,6 +1118,67 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     boxShadow: '0 4px 16px rgba(248, 128, 0, 0.3)'
+  },
+  recentPurchasesLabel: {
+    fontSize: '14px',
+    fontWeight: '700',
+    color: '#64748b',
+    marginBottom: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em'
+  },
+  recentPurchasesContainer: {
+    display: 'flex',
+    gap: '16px',
+    marginBottom: '24px',
+    overflowX: 'auto',
+    padding: '4px 0 16px 0',
+    scrollbarWidth: 'none',
+    msOverflowStyle: 'none',
+  },
+  recentPurchaseCard: {
+    minWidth: '260px',
+    background: 'white',
+    borderRadius: '16px',
+    padding: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    border: '1px solid rgba(0,0,0,0.03)',
+  },
+  recentPurchaseImg: {
+    width: '50px',
+    height: '50px',
+    borderRadius: '12px',
+    objectFit: 'cover',
+    background: '#f1f5f9'
+  },
+  recentPurchaseInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  recentPurchaseTitle: {
+    fontSize: '14px',
+    fontWeight: '700',
+    color: '#1e293b',
+    margin: 0,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  recentPurchaseStatus: {
+    fontSize: '12px',
+    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    marginTop: '2px',
   }
 };
 

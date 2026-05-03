@@ -4,6 +4,7 @@ import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 import io from 'socket.io-client';
 import { Image, Send, Image as ImageIcon } from 'lucide-react';
+import InlineImageComparison from '../components/InlineImageComparison';
 
 export default function Messages() {
   const { conversationId } = useParams();
@@ -16,6 +17,7 @@ export default function Messages() {
   const backendUrl = 'http://localhost:5000';
   const [sending, setSending] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
+  const [imageUploadType, setImageUploadType] = useState(null);
   
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -95,6 +97,7 @@ export default function Messages() {
       reader.readAsDataURL(e.target.files[0]);
     } else {
       setPreviewImg(null);
+      setImageUploadType(null);
     }
   };
 
@@ -115,6 +118,9 @@ export default function Messages() {
       if (fileInputRef.current?.files[0]) {
         formData.append('image', fileInputRef.current.files[0]);
         formData.append('message_type', 'image');
+        if (imageUploadType) {
+          formData.append('image_type', imageUploadType);
+        }
       }
 
       await axios.post('/chat/send', formData, {
@@ -124,6 +130,7 @@ export default function Messages() {
       setNewMessage('');
       if (fileInputRef.current) fileInputRef.current.value = '';
       setPreviewImg(null);
+      setImageUploadType(null);
       
       fetchMessages(selectedConversation.id);
       fetchConversations();
@@ -137,6 +144,9 @@ export default function Messages() {
   if (loading) {
     return <div style={styles.loading}>Loading messages...</div>;
   }
+
+  const hasBeforeImage = messages.some(m => m.image_type === 'before');
+  const hasAfterImage = messages.some(m => m.image_type === 'after');
 
   return (
     <div style={styles.container}>
@@ -187,10 +197,14 @@ export default function Messages() {
           {selectedConversation ? (
             <>
               <div style={styles.messagesHeader}>
-                <h3>{selectedConversation.other_user_name}</h3>
-                {selectedConversation.item_title && (
-                  <p style={styles.itemContext}>Regarding: {selectedConversation.item_title}</p>
-                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3>{selectedConversation.other_user_name}</h3>
+                    {selectedConversation.item_title && (
+                      <p style={styles.itemContext}>Regarding: {selectedConversation.item_title}</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div style={styles.messagesList}>
@@ -216,9 +230,16 @@ export default function Messages() {
                           boxShadow: '0 4px 16px rgba(0,0,0,0.05)'
                         }}>
                           {message.image_url && (
-                            <a href={message.image_url.startsWith('http') ? message.image_url : `${backendUrl}${message.image_url}`} target="_blank" rel="noreferrer">
-                              <img src={message.image_url.startsWith('http') ? message.image_url : `${backendUrl}${message.image_url}`} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: message.message ? '8px' : '0' }} />
-                            </a>
+                            <div style={{marginBottom: message.message ? '8px' : '0'}}>
+                              {message.image_type && (
+                                <div style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '4px', color: mine ? '#fff' : '#666', textTransform: 'capitalize' }}>
+                                  {message.image_type} Image
+                                </div>
+                              )}
+                              <a href={message.image_url.startsWith('http') ? message.image_url : `${backendUrl}${message.image_url}`} target="_blank" rel="noreferrer">
+                                <img src={message.image_url.startsWith('http') ? message.image_url : `${backendUrl}${message.image_url}`} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+                              </a>
+                            </div>
                           )}
                           {message.message && <p style={styles.messageText}>{message.message}</p>}
                           <div style={{...styles.messageTime, textAlign: mine ? 'right' : 'left'}}>
@@ -229,23 +250,38 @@ export default function Messages() {
                     )
                   })
                 )}
+                
+                {(hasBeforeImage && hasAfterImage) && (
+                   <InlineImageComparison messages={messages} />
+                )}
+
                 <div ref={bottomRef} />
               </div>
 
               {previewImg && (
                 <div style={styles.previewContainer}>
-                  <img src={previewImg} alt="Preview" style={{ height: '60px', borderRadius: '4px' }} />
-                  <button type="button" onClick={() => { setPreviewImg(null); fileInputRef.current.value = ''; }} style={styles.removePreviewBtn}>✕</button>
+                  <div style={{display: 'flex', flexDirection: 'column'}}>
+                     <span style={{fontSize: '0.8rem', fontWeight: 'bold', color: '#666'}}>
+                       {imageUploadType === 'before' ? 'Before Image' : imageUploadType === 'after' ? 'After Image' : 'Attached Image'}
+                     </span>
+                     <img src={previewImg} alt="Preview" style={{ height: '60px', borderRadius: '4px', marginTop: '4px' }} />
+                  </div>
+                  <button type="button" onClick={() => { setPreviewImg(null); fileInputRef.current.value = ''; setImageUploadType(null); }} style={styles.removePreviewBtn}>✕</button>
                 </div>
               )}
 
-              <form onSubmit={handleSendMessage} style={styles.messageForm}>
-                <button 
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()} 
-                  style={{ ...styles.imageUploadBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  title="Attach Image"
-                >
+              <form onSubmit={handleSendMessage} style={{...styles.messageForm, flexDirection: 'column', alignItems: 'stretch'}}>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                   <button type="button" onClick={() => { setImageUploadType('before'); fileInputRef.current?.click(); }} style={styles.actionBtn}>Before Product Image</button>
+                   <button type="button" onClick={() => { setImageUploadType('after'); fileInputRef.current?.click(); }} style={styles.actionBtn}>After Product Image</button>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <button 
+                    type="button"
+                    onClick={() => { setImageUploadType(null); fileInputRef.current?.click(); }} 
+                    style={{ ...styles.imageUploadBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Attach Image"
+                  >
                   <Image size={20} />
                 </button>
                 <input 
@@ -265,6 +301,7 @@ export default function Messages() {
                 <button type="submit" style={{ ...styles.sendButton, display: 'flex', alignItems: 'center', justifyContent: 'center' }} disabled={sending || (!newMessage.trim() && !fileInputRef.current?.files?.[0])}>
                   {sending ? '...' : <Send size={18} />}
                 </button>
+                </div>
               </form>
             </>
           ) : (
@@ -471,5 +508,25 @@ const styles = {
     textAlign: 'center',
     padding: '2rem',
     color: '#666'
+  },
+  actionBtn: {
+    padding: '0.5rem 1rem',
+    backgroundColor: '#eaf4fe',
+    color: '#2196f3',
+    border: '1px solid #2196f3',
+    borderRadius: '16px',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+    fontWeight: 'bold'
+  },
+  actionBtn: {
+    padding: '0.5rem 1rem',
+    backgroundColor: '#eaf4fe',
+    color: '#2196f3',
+    border: '1px solid #2196f3',
+    borderRadius: '16px',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+    fontWeight: 'bold'
   }
 };

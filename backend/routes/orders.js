@@ -68,6 +68,22 @@ router.post('/create', auth, async (req, res) => {
       console.error('Seller notification failed (non-fatal):', e.message);
     }
 
+    // Notify buyer that their order is on the way
+    try {
+      await db.query(
+        "INSERT INTO notifications (user_id, title, message, type, order_id) VALUES (?, ?, ?, ?, ?)",
+        [
+          buyer_id,
+          '📦 Your order is on the way!',
+          `You have successfully placed an order for "${item.title}". We'll notify you when a rider picks it up.`,
+          'order_placed',
+          result.insertId
+        ]
+      );
+    } catch (e) {
+      console.error('Buyer notification failed (non-fatal):', e.message);
+    }
+
     console.log(`✅ Item ${item_id} sold to buyer ${buyer_id}`);
 
     res.json({ 
@@ -254,7 +270,7 @@ router.put('/cancel/:id', auth, async (req, res) => {
   }
 });
 
-// SEARCH FOR RIDERS — seller triggers this to notify available riders
+// SEARCH FOR RIDERS — seller triggers this to notify ALL active riders and create a delivery record
 router.post('/search-riders/:orderId', auth, async (req, res) => {
   try {
     const orderId = req.params.orderId;
@@ -276,26 +292,52 @@ router.post('/search-riders/:orderId', auth, async (req, res) => {
     const order = orderRows[0];
 
     // Get seller info for pickup address
-    const [sellerRows] = await db.query("SELECT full_name FROM users WHERE id = ?", [req.user.id]);
+    const [sellerRows] = await db.query("SELECT full_name, phone FROM users WHERE id = ?", [req.user.id]);
     const sellerName = sellerRows[0]?.full_name || 'Seller';
+    const sellerPhone = sellerRows[0]?.phone || 'N/A';
 
-    // Find all available riders
+    // Ensure a pending delivery record exists so riders can see & accept it
+    const [existingDelivery] = await db.query(
+      "SELECT id FROM deliveries WHERE order_id = ?",
+      [orderId]
+    );
+    if (existingDelivery.length === 0) {
+      await db.query(
+        `INSERT INTO deliveries (order_id, pickup_address, delivery_address, status, delivery_fee)
+         VALUES (?, ?, ?, 'pending', 50)`,
+        [orderId, `${sellerName} (Campus Cart Seller)`, order.delivery_address]
+      );
+    } else {
+      // Reset to pending if it was previously cancelled/stale
+      await db.query(
+        "UPDATE deliveries SET status = 'pending', rider_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE order_id = ? AND status IN ('cancelled', 'pending')",
+        [orderId]
+      );
+    }
+
+    // Update order status to 'confirmed' so it becomes searchable
+    await db.query(
+      "UPDATE orders SET status = 'confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'pending'",
+      [orderId]
+    );
+
+    // Find ALL active riders (regardless of their current availability status)
     const [riders] = await db.query(
-      "SELECT id FROM users WHERE role = 'rider' AND is_active = TRUE AND rider_availability = 'available'"
+      "SELECT id, full_name FROM users WHERE (role = 'rider' OR is_rider = 1) AND is_active = TRUE"
     );
 
     if (riders.length === 0) {
-      return res.json({ message: 'No riders available right now. Try again shortly.', notified: 0 });
+      return res.json({ message: 'No riders are registered on Campus Cart yet.', notified: 0 });
     }
 
-    // Notify each available rider
+    // Notify every active rider
     for (const rider of riders) {
       await db.query(
         "INSERT INTO notifications (user_id, title, message, type, order_id) VALUES (?, ?, ?, ?, ?)",
         [
           rider.id,
-          '📦 New Delivery Available!',
-          `New delivery: "${order.item_title}"\nPickup from: ${sellerName}\nDeliver to: ${order.delivery_address}\nBuyer: ${order.buyer_name} (${order.buyer_phone || 'N/A'})\nAmount: रू ${order.total_amount} (COD)`,
+          '🛵 New Delivery Request!',
+          `Order: "${order.item_title}"\nPickup from: ${sellerName} (${sellerPhone})\nDeliver to: ${order.delivery_address}\nBuyer: ${order.buyer_name} (${order.buyer_phone || 'N/A'})\nAmount: रू ${order.total_amount}\n\nOpen your Rider Dashboard to accept!`,
           'new_delivery',
           orderId
         ]

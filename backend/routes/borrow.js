@@ -206,8 +206,8 @@ router.put('/respond/:id', auth, async (req, res) => {
       const info = reqData[0];
 
       if (status === 'accepted' || status === 'approved') {
-        // Mark Item Unavailable
-        await db.query("UPDATE items SET is_available = FALSE WHERE id = ?", [info.item_id]);
+        // NOTE: Item is NOT marked unavailable at approval — only when borrowing actually starts
+        // (so the item can still be seen by others until the physical handover happens)
 
         // Create or find conversation
         let conversation_id = null;
@@ -257,7 +257,7 @@ router.put('/respond/:id', auth, async (req, res) => {
   }
 });
 
-// START BORROWING (mark as active)
+// START BORROWING (mark as active — only NOW mark item unavailable)
 router.put('/start/:id', auth, async (req, res) => {
   try {
     const { condition_before, images_before } = req.body;
@@ -274,17 +274,68 @@ router.put('/start/:id', auth, async (req, res) => {
       return res.status(404).json({ error: "Approved or Accepted borrow request not found" });
     }
 
-    // Record initial condition
+    // Get item_id from this request
+    const [reqData] = await db.query("SELECT item_id FROM borrow_requests WHERE id = ?", [requestId]);
+    if (reqData.length > 0) {
+      // Mark item unavailable NOW (physical handover just happened)
+      await db.query("UPDATE items SET is_available = FALSE WHERE id = ?", [reqData[0].item_id]);
+    }
+
+    // Record initial condition (optional — can be empty)
     await db.query(`
       INSERT INTO item_conditions (borrow_request_id, condition_before, images_before)
       VALUES (?, ?, ?)
-    `, [requestId, condition_before, JSON.stringify(images_before || [])]);
+    `, [requestId, condition_before || 'Not recorded', JSON.stringify(images_before || [])]);
 
     res.json({ message: "Borrowing started successfully" });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to start borrowing" });
+  }
+});
+
+// MARK BORROWING COMPLETE (lender confirms item returned)
+router.put('/complete/:id', auth, async (req, res) => {
+  try {
+    const requestId = req.params.id;
+
+    // Only the lender (seller_id) can mark complete
+    const [result] = await db.query(`
+      UPDATE borrow_requests 
+      SET status = 'returned', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND seller_id = ? AND status IN ('active', 'approved', 'accepted')
+    `, [requestId, req.user.id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Active borrow request not found or you are not the lender" });
+    }
+
+    // Re-open the item for borrowing
+    const [reqData] = await db.query("SELECT item_id, borrower_id, total_cost FROM borrow_requests WHERE id = ?", [requestId]);
+    if (reqData.length > 0) {
+      await db.query("UPDATE items SET is_available = TRUE WHERE id = ?", [reqData[0].item_id]);
+
+      // Notify the borrower
+      const [itemData] = await db.query("SELECT title FROM items WHERE id = ?", [reqData[0].item_id]);
+      if (itemData.length > 0) {
+        await db.query(
+          "INSERT INTO notifications (user_id, title, message, type, order_id) VALUES (?, ?, ?, ?, ?)",
+          [
+            reqData[0].borrower_id,
+            '✅ Borrow Complete!',
+            `Your borrow of "${itemData[0].title}" has been marked as returned. Total: रू ${reqData[0].total_cost}. Thank you!`,
+            'borrow_returned',
+            requestId
+          ]
+        ).catch(() => {}); // non-fatal
+      }
+    }
+
+    res.json({ message: "Borrowing marked complete. Income recorded and item is available again." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to complete borrow" });
   }
 });
 

@@ -178,11 +178,10 @@ router.post('/esewa/verify', auth, async (req, res) => {
       } catch (e) { console.log('payment_status update skipped:', e.message); }
 
       // Create delivery record
-      await db.query('ALTER TABLE deliveries DROP COLUMN transaction_id').catch(() => {});
       await conn.query(
-        `INSERT INTO deliveries (order_id, transaction_id, pickup_address, delivery_address, delivery_lat, delivery_lng, status)
-         VALUES (?, ?, 'Seller Location', ?, ?, ?, 'pending')`,
-        [orderId, transaction_uuid, delivery_address || 'Not specified', delivery_lat || null, delivery_lng || null]
+        `INSERT INTO deliveries (order_id, pickup_address, delivery_address, delivery_lat, delivery_lng, status)
+         VALUES (?, 'Seller Location', ?, ?, ?, 'pending')`,
+        [orderId, delivery_address || 'Not specified', delivery_lat || null, delivery_lng || null]
       );
       console.log('✅ delivery created');
 
@@ -197,8 +196,6 @@ router.post('/esewa/verify', auth, async (req, res) => {
 
     // Record transaction OUTSIDE the DB transaction so it never causes rollback
     try {
-      // Ensure transactions table has nullable transaction_id
-      await db.query('ALTER TABLE transactions MODIFY COLUMN transaction_id VARCHAR(100) DEFAULT NULL').catch(() => {});
       await db.query(
         `INSERT INTO transactions (order_id, buyer_id, amount, payment_method, transaction_id, status, raw_response)
          VALUES (?, ?, ?, 'esewa', ?, 'success', ?)`,

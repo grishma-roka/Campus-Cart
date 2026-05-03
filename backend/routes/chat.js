@@ -20,7 +20,7 @@ const upload = multer({ storage: storage });
 // SEND MESSAGE
 router.post('/send', auth, upload.single('image'), async (req, res) => {
   try {
-    const { conversation_id, message, message_type } = req.body;
+    const { conversation_id, message, message_type, image_type } = req.body;
     const sender_id = req.user.id;
     let image_url = null;
 
@@ -45,9 +45,9 @@ router.post('/send', auth, upload.single('image'), async (req, res) => {
     const type = message_type && message_type === 'image' ? 'image' : (image_url ? 'image' : 'text');
 
     const [result] = await db.query(`
-      INSERT INTO messages (conversation_id, sender_id, message, image_url, message_type)
-      VALUES (?, ?, ?, ?, ?)
-    `, [conversation_id, sender_id, message ? message.trim() : null, image_url, type]);
+      INSERT INTO messages (conversation_id, sender_id, message, image_url, message_type, image_type)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [conversation_id, sender_id, message ? message.trim() : null, image_url, type, image_type || null]);
 
     // Fetch the newly created message to broadcast via socket
     const [newMsgs] = await db.query(`

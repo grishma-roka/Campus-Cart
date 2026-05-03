@@ -24,15 +24,11 @@ router.put('/location', auth, requireRole(['rider']), async (req, res) => {
     const { latitude, longitude, rider_availability } = req.body;
     const availability = rider_availability || 'available';
 
-    // Allow null coords when going offline
-    if (availability !== 'offline' && (latitude == null || longitude == null)) {
-      return res.status(400).json({ error: 'latitude and longitude are required' });
-    }
-
     if (availability === 'offline' || latitude == null) {
+      // Going offline OR no coords yet — just update availability status
       await db.query(
-        `UPDATE users SET rider_availability = 'offline' WHERE id = ?`,
-        [req.user.id]
+        `UPDATE users SET rider_availability = ? WHERE id = ?`,
+        [latitude == null && availability !== 'offline' ? 'available' : 'offline', req.user.id]
       );
     } else {
       await db.query(
@@ -57,9 +53,10 @@ router.get('/available', auth, requireRole(['rider']), async (req, res) => {
     );
     const rider = riderRows[0];
 
-    // Block offline riders or riders with no location
-    if (!rider || rider.rider_availability === 'offline' || rider.latitude == null || rider.longitude == null) {
-      return res.json({ locationRequired: true, deliveries: [] });
+    // If rider is offline, still return list (they may have just switched to available)
+    // Block only if rider explicitly has no record in DB
+    if (!rider) {
+      return res.json([]);
     }
 
     const [rows] = await db.query(`
@@ -79,7 +76,7 @@ router.get('/available', auth, requireRole(['rider']), async (req, res) => {
     const riderLng = parseFloat(rider.longitude);
     const hasLocation = !isNaN(riderLat) && !isNaN(riderLng);
 
-    // Attach distance to each delivery
+    // Attach distance to each delivery (null if no coords available)
     const deliveries = rows.map(d => {
       const dLat = parseFloat(d.delivery_lat);
       const dLng = parseFloat(d.delivery_lng);
@@ -96,8 +93,7 @@ router.get('/available', auth, requireRole(['rider']), async (req, res) => {
       return { ...d, distance_km: distance, order_age_seconds: Math.floor(ageSeconds) };
     });
 
-    // Radius expansion: start at 3 km, expand by 2 km every 30 seconds
-    // If no coords available, show all
+    // If rider has GPS: filter by radius (expanding over time). Otherwise show all.
     let visible = deliveries;
     if (hasLocation) {
       visible = deliveries.filter(d => {
@@ -108,7 +104,7 @@ router.get('/available', auth, requireRole(['rider']), async (req, res) => {
       });
     }
 
-    // Sort nearest first
+    // Sort nearest first (nulls go to end)
     visible.sort((a, b) => {
       if (a.distance_km === null && b.distance_km === null) return 0;
       if (a.distance_km === null) return 1;

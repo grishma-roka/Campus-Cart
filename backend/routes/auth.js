@@ -421,6 +421,91 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+/* ---------------------- INCOME SUMMARY ---------------------- */
+router.get('/income-summary', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const [userRows] = await db.query(
+      "SELECT role, is_buyer, is_seller, is_rider FROM users WHERE id = ?",
+      [userId]
+    );
+    if (!userRows.length) return res.status(404).json({ error: "User not found" });
+    const u = userRows[0];
+
+    const result = {};
+
+    // SELLER income: sum of all confirmed/delivered orders where they are seller
+    if (u.role === 'seller' || u.is_seller) {
+      const [sellerRows] = await db.query(`
+        SELECT
+          COUNT(*) as total_orders,
+          SUM(total_amount) as total_sales,
+          SUM(CASE WHEN status = 'delivered' THEN total_amount ELSE 0 END) as delivered_amount,
+          SUM(CASE WHEN status = 'pending' OR status = 'confirmed' OR status = 'assigned' OR status = 'picked_up' THEN total_amount ELSE 0 END) as pending_amount
+        FROM orders WHERE seller_id = ? AND status != 'cancelled'
+      `, [userId]);
+      result.seller = sellerRows[0];
+    }
+
+    // BUYER spending: total amount spent on all non-cancelled orders
+    if (u.is_buyer || u.role === 'buyer') {
+      const [buyerRows] = await db.query(`
+        SELECT
+          COUNT(*) as total_orders,
+          SUM(total_amount) as total_spent,
+          SUM(CASE WHEN status = 'delivered' THEN total_amount ELSE 0 END) as delivered_amount,
+          SUM(CASE WHEN status IN ('pending','confirmed','assigned','picked_up') THEN total_amount ELSE 0 END) as pending_amount
+        FROM orders WHERE buyer_id = ? AND status != 'cancelled'
+      `, [userId]);
+      result.buyer = buyerRows[0];
+    }
+
+    // RIDER income: delivery fees from completed deliveries
+    if (u.role === 'rider' || u.is_rider) {
+      const [riderRows] = await db.query(`
+        SELECT
+          COUNT(*) as total_deliveries,
+          SUM(CASE WHEN status = 'delivered' THEN delivery_fee ELSE 0 END) as total_earned,
+          COUNT(CASE WHEN status = 'delivered' THEN 1 END) as completed,
+          COUNT(CASE WHEN status IN ('assigned','picked_up') THEN 1 END) as active
+        FROM deliveries WHERE rider_id = ?
+      `, [userId]);
+      result.rider = riderRows[0];
+    }
+
+    // BORROW LENDER income: total cost from returned borrow requests where user is the lender
+    const [borrowLendRows] = await db.query(`
+      SELECT
+        COUNT(*) as total_lent,
+        SUM(CASE WHEN status = 'returned' THEN total_cost ELSE 0 END) as total_earned,
+        COUNT(CASE WHEN status = 'returned' THEN 1 END) as completed,
+        COUNT(CASE WHEN status = 'active' THEN 1 END) as currently_active
+      FROM borrow_requests WHERE seller_id = ?
+    `, [userId]);
+    if (borrowLendRows[0].total_lent > 0) {
+      result.borrow_lender = borrowLendRows[0];
+    }
+
+    // BORROW BORROWER spending: total cost from borrow requests they placed
+    const [borrowSpendRows] = await db.query(`
+      SELECT
+        COUNT(*) as total_borrowed,
+        SUM(CASE WHEN status = 'returned' THEN total_cost ELSE 0 END) as total_spent,
+        COUNT(CASE WHEN status = 'active' THEN 1 END) as currently_active
+      FROM borrow_requests WHERE borrower_id = ?
+    `, [userId]);
+    if (borrowSpendRows[0].total_borrowed > 0) {
+      result.borrow_borrower = borrowSpendRows[0];
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 /* ---------------------- UPDATE PROFILE ---------------------- */
 router.put('/profile', authMiddleware, async (req, res) => {
   try {

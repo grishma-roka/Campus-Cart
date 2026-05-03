@@ -20,17 +20,14 @@ export default function BorrowPage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [itemsRes, myReqRes] = await Promise.all([
+      const [itemsRes, myReqRes, sellerRes] = await Promise.all([
         axios.get('/borrow/items'),
         axios.get('/borrow/my-requests'),
+        axios.get('/borrow/seller-requests')
       ]);
       setItems(itemsRes.data);
       setMyRequests(myReqRes.data);
-
-      if (true) { // fetch for all users who may have listed borrow items
-        const sellerRes = await axios.get('/borrow/seller-requests');
-        setSellerRequests(sellerRes.data);
-      }
+      setSellerRequests(sellerRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -55,7 +52,6 @@ export default function BorrowPage() {
             <p style={s.subtitle}>Borrow items temporarily from fellow students</p>
           </div>
         </div>
-        {/* always show add borrow item button */}
         <button onClick={() => navigate('/add-borrow')} style={s.addBtn}>
           + Add Borrow Item
         </button>
@@ -64,7 +60,7 @@ export default function BorrowPage() {
       {/* Tabs */}
       <div style={s.tabs}>
         {[
-          { key: 'browse', icon: <Store size={16} strokeWidth={1.5} />, label: 'Browse Items', count: items.filter(item => item.transaction_type === 'borrow').length },
+          { key: 'browse', icon: <Store size={16} strokeWidth={1.5} />, label: 'Browse Items', count: items.filter(item => item.transaction_type === 'borrow' || item.is_borrowable).length },
           { key: 'my-requests', icon: <ClipboardList size={16} strokeWidth={1.5} />, label: 'My Requests', count: myRequests.length },
           ...(sellerRequests.length > 0 ? [{ key: 'manage', icon: <Settings size={16} strokeWidth={1.5} />, label: 'Manage Requests', count: sellerRequests.filter(r => r.status === 'pending').length }] : []),
           { key: 'chat', icon: <MessageCircle size={16} strokeWidth={1.5} />, label: 'Chat' },
@@ -96,7 +92,7 @@ export default function BorrowPage() {
       {activeTab === 'my-requests' && (
         <MyRequestsTab
           requests={myRequests}
-          onChat={(req) => { setChatTarget({ userId: req.seller_id, userName: req.seller_name, requestId: req.id, itemTitle: req.title }); setActiveTab('chat'); }}
+          onChat={(req) => { setChatTarget({ id: req.conversation_id, userName: req.seller_name, itemTitle: req.title }); setActiveTab('chat'); }}
         />
       )}
 
@@ -106,18 +102,31 @@ export default function BorrowPage() {
           requests={sellerRequests}
           onRespond={async (id, status) => {
             try {
-              const response = await axios.put(`/borrow/respond/${id}`, { status });
-              if (status === 'accepted' && response.data.conversation_id) {
-                navigate(`/messages/${response.data.conversation_id}`);
-              } else {
-                fetchAll();
-              }
+              await axios.put(`/borrow/respond/${id}`, { status });
+              fetchAll();
             } catch (err) {
               console.error("Error updating request:", err);
               alert(err.response?.data?.error || "An error occurred while responding to the request.");
             }
           }}
-          onChat={(req) => { setChatTarget({ userId: req.borrower_id, userName: req.borrower_name, requestId: req.id, itemTitle: req.title }); setActiveTab('chat'); }}
+          onStart={async (id) => {
+            try {
+              await axios.put(`/borrow/start/${id}`);
+              fetchAll();
+            } catch (err) {
+              alert(err.response?.data?.error || 'Failed to start borrowing');
+            }
+          }}
+          onComplete={async (id) => {
+            try {
+              await axios.put(`/borrow/complete/${id}`);
+              alert('Borrowing marked as complete! Item is now available again and income recorded.');
+              fetchAll();
+            } catch (err) {
+              alert(err.response?.data?.error || 'Failed to mark complete');
+            }
+          }}
+          onChat={(req) => { setChatTarget({ id: req.conversation_id, userName: req.borrower_name, itemTitle: req.title }); setActiveTab('chat'); }}
         />
       )}
 
@@ -126,13 +135,7 @@ export default function BorrowPage() {
         <ChatTab userId={user?.id} initialTarget={chatTarget} />
       )}
 
-      {/* Add Item Modal */}
-      {showAddForm && (
-        <AddItemModal
-          onClose={() => setShowAddForm(false)}
-          onSaved={() => { setShowAddForm(false); fetchAll(); }}
-        />
-      )}
+      {/* Add Item Modal is handled by navigation to /add-borrow now, but keeping for completeness if needed */}
 
       {/* Borrow Request Modal */}
       {requestModal && (
@@ -147,7 +150,7 @@ export default function BorrowPage() {
 }
 
 // ─── Browse Tab ────────────────────────────────────────────────────────────────
-function BrowseTab({ items, userId, isSeller, onRequest, onRefresh }) {
+function BrowseTab({ items, userId, onRequest, onRefresh }) {
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this borrow item?')) return;
     try {
@@ -158,21 +161,20 @@ function BrowseTab({ items, userId, isSeller, onRequest, onRefresh }) {
     }
   };
 
-  if (items.length === 0) {
+  const borrowItems = items.filter(item => item.transaction_type === 'borrow' || item.is_borrowable);
+
+  if (borrowItems.length === 0) {
     return (
       <div style={s.empty}>
         <div style={s.emptyIcon}><Package size={48} strokeWidth={1.5} color="#94a3b8" /></div>
         <p>No items available for borrowing yet.</p>
-        {isSeller && <p style={{ color: '#94a3b8', fontSize: '13px' }}>Add the first borrow item using the button above.</p>}
       </div>
     );
   }
 
   return (
     <div style={s.grid}>
-      {items
-        .filter(item => item.transaction_type === 'borrow' || item.is_borrowable === 1 || item.is_borrowable === true)
-        .map(item => {
+      {borrowItems.map(item => {
         const images = item.images ? (typeof item.images === 'string' ? JSON.parse(item.images) : item.images) : [];
         const img = images[0] || null;
         const isOwner = item.seller_id === userId;
@@ -199,9 +201,9 @@ function BrowseTab({ items, userId, isSeller, onRequest, onRefresh }) {
             </div>
             <div style={s.cardActions}>
               {isOwner ? (
-                <button onClick={() => handleDelete(item.id)} style={{...s.dangerBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}><Trash2 size={14} /> Remove</button>
+                <button onClick={() => handleDelete(item.id)} style={s.dangerBtn}>Remove</button>
               ) : item.is_available ? (
-                <button onClick={() => onRequest(item)} style={{...s.primaryBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}><Handshake size={14} /> Borrow Request</button>
+                <button onClick={() => onRequest(item)} style={s.primaryBtn}>Borrow Request</button>
               ) : (
                 <button disabled style={{ ...s.primaryBtn, opacity: 0.4, cursor: 'not-allowed' }}>Unavailable</button>
               )}
@@ -244,7 +246,6 @@ function MyRequestsTab({ requests, onChat }) {
                   {new Date(req.start_date).toLocaleDateString()} → {new Date(req.end_date).toLocaleDateString()}
                   &nbsp;·&nbsp; {req.total_days} days &nbsp;·&nbsp; रू {req.total_cost}
                 </div>
-                {req.message && <div style={s.requestMeta}>"{req.message}"</div>}
               </div>
             </div>
             <div style={s.requestRight}>
@@ -252,9 +253,9 @@ function MyRequestsTab({ requests, onChat }) {
               {(req.status === 'approved' || req.status === 'active' || req.status === 'accepted') && (
                 <button
                   onClick={() => req.conversation_id ? navigate(`/messages/${req.conversation_id}`) : onChat(req)}
-                  style={{...s.chatBtn, display: 'flex', alignItems: 'center', gap: '6px'}}
+                  style={s.chatBtn}
                 >
-                  <MessageCircle size={14} /> Start Conversation
+                  <MessageCircle size={14} /> Chat
                 </button>
               )}
             </div>
@@ -266,7 +267,7 @@ function MyRequestsTab({ requests, onChat }) {
 }
 
 // ─── Manage Requests Tab (Seller) ──────────────────────────────────────────────
-function ManageRequestsTab({ requests, onRespond, onChat }) {
+function ManageRequestsTab({ requests, onRespond, onStart, onComplete, onChat }) {
   const navigate = useNavigate();
 
   if (requests.length === 0) {
@@ -285,33 +286,64 @@ function ManageRequestsTab({ requests, onRespond, onChat }) {
           <div style={s.requestLeft}>
             <div>
               <div style={s.requestTitle}>{req.title}</div>
-              <div style={s.requestMeta}>Borrower: {req.borrower_name} · {req.borrower_phone || ''}</div>
+              <div style={s.requestMeta}>Borrower: {req.borrower_name}</div>
               <div style={s.requestMeta}>
                 {new Date(req.start_date).toLocaleDateString()} → {new Date(req.end_date).toLocaleDateString()}
-                &nbsp;·&nbsp; {req.total_days} days &nbsp;·&nbsp; रू {req.total_cost}
+                &nbsp;·&nbsp; रू {req.total_cost}
               </div>
-              {req.message && <div style={s.requestMeta}>Message: "{req.message}"</div>}
-              <div style={s.requestMeta}>Requested: {new Date(req.created_at).toLocaleDateString()}</div>
             </div>
           </div>
           <div style={s.requestRight}>
             <span style={{ ...s.statusBadge, background: statusColor(req.status) }}>{displayStatus(req.status)}</span>
+            
             {req.status === 'pending' && (
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <button onClick={() => onRespond(req.id, 'accepted')} style={{...s.acceptBtn, display: 'flex', alignItems: 'center', gap: '4px'}}><CheckCircle size={14} /> Accept</button>
-                <button onClick={() => onRespond(req.id, 'rejected')} style={{...s.rejectBtn, display: 'flex', alignItems: 'center', gap: '4px'}}><XCircle size={14} /> Reject</button>
+                <button onClick={() => onRespond(req.id, 'accepted')} style={s.acceptBtn}>Accept</button>
+                <button onClick={() => onRespond(req.id, 'rejected')} style={s.rejectBtn}>Reject</button>
               </div>
             )}
-            {(req.status === 'accepted' || req.status === 'approved') ? (
-              <button
-                onClick={() => req.conversation_id ? navigate(`/messages/${req.conversation_id}`) : onChat(req)}
-                style={{...s.chatBtn, display: 'flex', alignItems: 'center', gap: '6px'}}
-              >
-                <MessageCircle size={14} /> Chat with Borrower
-              </button>
-            ) : req.status === 'pending' ? (
-              <div style={{ ...s.statusBadge, background: '#fef3c7', color: '#92400e' }}>Waiting for Acceptance to Chat</div>
-            ) : null}
+
+            {(req.status === 'accepted' || req.status === 'approved') && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => onStart(req.id)}
+                    style={{ ...s.primaryBtn, padding: '6px 12px', fontSize: '12px' }}
+                  >
+                    Start Borrow (Handover)
+                  </button>
+                  <button
+                    onClick={() => onComplete(req.id)}
+                    style={s.completeBtn}
+                  >
+                    <CheckCircle size={14} /> Borrowing Complete
+                  </button>
+                </div>
+                <button
+                  onClick={() => req.conversation_id ? navigate(`/messages/${req.conversation_id}`) : onChat(req)}
+                  style={s.chatBtn}
+                >
+                  <MessageCircle size={14} /> Chat
+                </button>
+              </div>
+            )}
+
+            {req.status === 'active' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                <button
+                  onClick={() => onComplete(req.id)}
+                  style={s.completeBtn}
+                >
+                  <CheckCircle size={14} /> Borrowing Complete
+                </button>
+                <button
+                  onClick={() => req.conversation_id ? navigate(`/messages/${req.conversation_id}`) : onChat(req)}
+                  style={s.chatBtn}
+                >
+                  <MessageCircle size={14} /> Chat
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ))}
@@ -332,14 +364,14 @@ function ChatTab({ userId, initialTarget }) {
   const socketRef = useRef(null);
   const backendUrl = 'http://localhost:5000';
 
-  const fetchConversations = React.useCallback(async () => {
+  const fetchConversations = useCallback(async () => {
     try {
       const res = await axios.get('/chat/conversations');
       setConversations(res.data);
     } catch { /* silent */ }
   }, []);
 
-  const fetchMessages = React.useCallback(async (conversationId) => {
+  const fetchMessages = useCallback(async (conversationId) => {
     try {
       const res = await axios.get(`/chat/messages/${conversationId}`);
       setMessages(res.data);
@@ -349,24 +381,17 @@ function ChatTab({ userId, initialTarget }) {
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
   useEffect(() => {
-    socketRef.current = io(axios.defaults.baseURL.replace('/api', '') || 'http://localhost:5000');
+    socketRef.current = io('http://localhost:5000');
     return () => socketRef.current.disconnect();
   }, []);
 
   useEffect(() => {
     if (selected?.id) {
-      if (socketRef.current) {
-        socketRef.current.emit('join_conversation', selected.id);
-        socketRef.current.off('receive_message');
-        socketRef.current.on('receive_message', (msg) => {
-          setMessages(prev => {
-            if (prev.find(m => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
-          // Also refresh conversations to update last message
-          fetchConversations();
-        });
-      }
+      socketRef.current.emit('join_conversation', selected.id);
+      socketRef.current.on('receive_message', (msg) => {
+        setMessages(prev => [...prev, msg]);
+        fetchConversations();
+      });
       fetchMessages(selected.id);
     }
     return () => {
@@ -384,32 +409,23 @@ function ChatTab({ userId, initialTarget }) {
     try {
       const formData = new FormData();
       formData.append('conversation_id', selected.id);
-      
       if (text.trim()) {
         formData.append('message', text.trim());
         formData.append('message_type', 'text');
       }
-
       if (fileInputRef.current?.files[0]) {
         formData.append('image', fileInputRef.current.files[0]);
         formData.append('message_type', 'image');
       }
-
       await axios.post('/chat/send', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-
       setText('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
       setPreviewImg(null);
-      
       fetchMessages(selected.id);
       fetchConversations();
-    } catch (err) { 
-      alert(err.response?.data?.error || 'Failed to send'); 
-    } finally {
-      setSending(false);
-    }
+    } catch { /* silent */ } 
+    finally { setSending(false); }
   };
 
   const handleFileChange = (e) => {
@@ -417,223 +433,48 @@ function ChatTab({ userId, initialTarget }) {
       const reader = new FileReader();
       reader.onload = (ev) => setPreviewImg(ev.target.result);
       reader.readAsDataURL(e.target.files[0]);
-    } else {
-      setPreviewImg(null);
     }
   };
 
   return (
     <div style={s.chatLayout}>
-      {/* Conversation list */}
       <div style={s.convList}>
         <div style={s.convHeader}>Conversations</div>
-        {conversations.length === 0 && (
-          <div style={{ padding: '20px', color: '#94a3b8', fontSize: '13px', textAlign: 'center' }}>
-            No conversations yet.<br />Accept a borrow request to start chatting.
-          </div>
-        )}
         {conversations.map(c => (
-          <div
-            key={c.id}
-            onClick={() => setSelected({ id: c.id, userName: c.other_user_name, itemTitle: c.item_title })}
-            style={{
-              ...s.convItem,
-              background: selected?.id === c.id ? '#EAF4FE' : '#fff',
-            }}
-          >
-            <div style={s.convAvatar}>{c.other_user_name?.charAt(0)?.toUpperCase()}</div>
+          <div key={c.id} onClick={() => setSelected({ id: c.id, userName: c.other_user_name, itemTitle: c.item_title })} style={{ ...s.convItem, background: selected?.id === c.id ? '#EAF4FE' : '#fff' }}>
+            <div style={s.convAvatar}>{c.other_user_name?.charAt(0)}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={s.convName}>{c.other_user_name} <span style={{fontSize: '11px', color: '#64748b', fontWeight: 'normal'}}>{c.item_title}</span></div>
-              <div style={s.convLast}>
-                {c.last_message_type === 'image' ? '📸 Image' : c.last_message || 'Start chatting...'}
-              </div>
+              <div style={s.convName}>{c.other_user_name}</div>
+              <div style={s.convLast}>{c.last_message || 'Re: ' + c.item_title}</div>
             </div>
-            {c.unread_count > 0 && <div style={s.unreadDot}>{c.unread_count}</div>}
           </div>
         ))}
       </div>
-
-      {/* Message pane */}
       <div style={s.msgPane}>
         {!selected ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
-            Select a conversation or accept a borrow request to start chatting
-          </div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>Select a conversation</div>
         ) : (
           <>
-            <div style={s.msgHeader}>
-              <div style={s.convAvatar}>{selected.userName?.charAt(0)?.toUpperCase()}</div>
-              <div>
-                <div style={{ fontWeight: '700', fontSize: '15px' }}>{selected.userName}</div>
-                {selected.itemTitle && <div style={{ fontSize: '12px', color: '#64748b' }}>Re: {selected.itemTitle}</div>}
-              </div>
-            </div>
+            <div style={s.msgHeader}><strong>{selected.userName}</strong> &nbsp; <span style={{fontSize: '12px', color: '#64748b'}}>{selected.itemTitle}</span></div>
             <div style={s.msgList}>
-              {messages.map(m => {
-                const mine = m.sender_id === userId;
-                return (
-                  <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
-                    <div style={{ ...s.bubble, background: mine ? '#F88000' : '#FFFFFF', color: mine ? '#fff' : '#000', boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>
-                      {m.image_url && (
-                        <a href={m.image_url.startsWith('http') ? m.image_url : `${backendUrl}${m.image_url}`} target="_blank" rel="noreferrer">
-                          <img src={m.image_url.startsWith('http') ? m.image_url : `${backendUrl}${m.image_url}`} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: m.message ? '8px' : '0' }} />
-                        </a>
-                      )}
-                      {m.message && <div>{m.message}</div>}
-                      <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px', textAlign: 'right' }}>
-                        {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
+              {messages.map(m => (
+                <div key={m.id} style={{ display: 'flex', justifyContent: m.sender_id === userId ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
+                  <div style={{ ...s.bubble, background: m.sender_id === userId ? '#F88000' : '#FFFFFF', color: m.sender_id === userId ? '#fff' : '#000' }}>
+                    {m.image_url && <img src={`http://localhost:5000${m.image_url}`} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px' }} />}
+                    {m.message && <div>{m.message}</div>}
                   </div>
-                );
-              })}
+                </div>
+              ))}
               <div ref={bottomRef} />
             </div>
-            {previewImg && (
-              <div style={{ padding: '8px 16px', background: '#f8fafc', borderTop: '1px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                <img src={previewImg} alt="Preview" style={{ height: '60px', borderRadius: '4px' }} />
-                <button onClick={() => { setPreviewImg(null); fileInputRef.current.value = ''; }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontWeight: 'bold' }}>✕</button>
-              </div>
-            )}
             <div style={s.msgInput}>
-              <button 
-                onClick={() => fileInputRef.current?.click()} 
-                style={{ ...s.sendBtn, background: '#e2e8f0', color: '#475569', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                title="Attach Image"
-              >
-                <Camera size={18} strokeWidth={1.5} />
-              </button>
-              <input 
-                type="file" 
-                accept="image/*" 
-                ref={fileInputRef} 
-                style={{ display: 'none' }} 
-                onChange={handleFileChange}
-              />
-              <input
-                value={text}
-                onChange={e => setText(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                placeholder="Type a message..."
-                style={s.textInput}
-              />
-              <button onClick={sendMessage} disabled={sending || (!text.trim() && !fileInputRef.current?.files?.[0])} style={s.sendBtn}>
-                {sending ? '...' : '➤'}
-              </button>
+              <button onClick={() => fileInputRef.current?.click()} style={s.chatBtn}><Camera size={18} /></button>
+              <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
+              <input value={text} onChange={e => setText(e.target.value)} placeholder="Message..." style={s.textInput} />
+              <button onClick={sendMessage} style={s.sendBtn}>➤</button>
             </div>
           </>
         )}
-      </div>
-    </div>
-  );
-}
-
-// need useCallback in ChatTab — already using React.useCallback above
-
-// ─── Add Item Modal ────────────────────────────────────────────────────────────
-function AddItemModal({ onClose, onSaved }) {
-  const [form, setForm] = useState({ title: '', description: '', duration: 7, deposit: '', location: '', is_available: true });
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-  const onFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const formData = new FormData();
-      formData.append('title', form.title);
-      formData.append('description', form.description);
-      formData.append('duration', form.duration);
-      formData.append('deposit', form.deposit);
-      formData.append('location', form.location);
-      formData.append('is_available', form.is_available);
-      formData.append('transaction_type', 'borrow');
-      
-      if (selectedFile) {
-        formData.append('image', selectedFile);
-      }
-
-      await axios.post('/borrow/items', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      onSaved();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to add item');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div style={s.overlay}>
-      <div style={s.modal}>
-        <h3 style={s.modalTitle}>Add Borrow Item</h3>
-        <form onSubmit={handleSubmit} style={s.form}>
-          <label style={s.label}>Item Name *</label>
-          <input required value={form.title} onChange={e => set('title', e.target.value)} style={s.input} placeholder="e.g. Scientific Calculator" />
-
-          <label style={s.label}>Description</label>
-          <textarea value={form.description} onChange={e => set('description', e.target.value)} style={{ ...s.input, height: '80px', resize: 'vertical' }} placeholder="Describe the item..." />
-
-          <label style={s.label}>Item Image</label>
-          <div 
-            style={s.dropzone}
-            onClick={() => document.getElementById('borrow_image').click()}
-          >
-            <input 
-              type="file" 
-              id="borrow_image"
-              accept="image/*" 
-              onChange={onFileChange}
-              style={{ display: 'none' }}
-            />
-            {previewUrl ? (
-              <div style={s.previewContainer}>
-                <img src={previewUrl} alt="Preview" style={s.previewImage} />
-                <div style={s.changeOverlay}>
-                  <Camera size={20} color="#fff" />
-                  <span style={{color: '#fff', fontSize: '11px', fontWeight: 'bold'}}>Change</span>
-                </div>
-              </div>
-            ) : (
-              <div style={s.dropzonePlaceholder}>
-                <Camera size={24} color="#F88000" />
-                <span style={s.dropzoneText}>Upload Photo</span>
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div>
-              <label style={s.label}>Max Borrow Duration (days)</label>
-              <input type="number" min="1" value={form.duration} onChange={e => set('duration', e.target.value)} style={s.input} />
-            </div>
-            <div>
-              <label style={s.label}>Deposit per day (रू, optional)</label>
-              <input type="number" min="0" value={form.deposit} onChange={e => set('deposit', e.target.value)} style={s.input} placeholder="0" />
-            </div>
-          </div>
-
-          <label style={s.label}>Pickup Location</label>
-          <input value={form.location} onChange={e => set('location', e.target.value)} style={s.input} placeholder="e.g. Block A, Room 201" />
-
-
-          <div style={s.modalActions}>
-            <button type="submit" disabled={saving} style={s.primaryBtn}>{saving ? 'Saving...' : 'Add for Borrow'}</button>
-            <button type="button" onClick={onClose} style={s.ghostBtn}>Cancel</button>
-          </div>
-        </form>
       </div>
     </div>
   );
@@ -644,8 +485,49 @@ function BorrowRequestModal({ item, onClose, onSent }) {
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({ start_date: today, end_date: '', message: '' });
   const [sending, setSending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  let maxEndDate = '';
+  if (form.start_date && item.duration) {
+    const start = new Date(form.start_date);
+    start.setDate(start.getDate() + parseInt(item.duration, 10));
+    maxEndDate = start.toISOString().split('T')[0];
+  }
+
+  const handleEndDateChange = (e) => {
+    const selectedDate = e.target.value;
+    if (selectedDate && maxEndDate && selectedDate > maxEndDate) {
+      setErrorMsg(`Maximum borrow duration is ${item.duration} days.`);
+      set('end_date', '');
+    } else {
+      setErrorMsg('');
+      set('end_date', selectedDate);
+    }
+  };
+
+  const handleStartDateChange = (e) => {
+    const newStart = e.target.value;
+    set('start_date', newStart);
+    if (form.end_date) {
+      let newMax = '';
+      if (newStart && item.duration) {
+        const start = new Date(newStart);
+        start.setDate(start.getDate() + parseInt(item.duration, 10));
+        newMax = start.toISOString().split('T')[0];
+      }
+      if (newMax && form.end_date > newMax) {
+        set('end_date', '');
+        setErrorMsg(`Maximum borrow duration is ${item.duration} days.`);
+      } else if (newStart > form.end_date) {
+         set('end_date', '');
+         setErrorMsg('');
+      } else {
+         setErrorMsg('');
+      }
+    }
+  };
 
   const totalDays = form.start_date && form.end_date
     ? Math.max(1, Math.ceil((new Date(form.end_date) - new Date(form.start_date)) / 86400000))
@@ -675,29 +557,31 @@ function BorrowRequestModal({ item, onClose, onSent }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
               <label style={s.label}>Start Date</label>
-              <input type="date" required min={today} value={form.start_date} onChange={e => set('start_date', e.target.value)} style={s.input} />
+              <input type="date" required min={today} value={form.start_date} onChange={handleStartDateChange} style={s.input} />
             </div>
             <div>
               <label style={s.label}>End Date</label>
-              <input type="date" required min={form.start_date || today} value={form.end_date} onChange={e => set('end_date', e.target.value)} style={s.input} />
+              <input type="date" required min={form.start_date || today} max={maxEndDate} value={form.end_date} onChange={handleEndDateChange} style={s.input} />
             </div>
           </div>
+          {errorMsg && (
+            <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <AlertTriangle size={14} /> {errorMsg}
+            </div>
+          )}
 
           {totalDays > 0 && (
             <div style={{ background: '#EAF4FE', borderRadius: '12px', padding: '12px 16px', fontSize: '13px' }}>
               {totalDays} day{totalDays !== 1 ? 's' : ''}
               {totalCost > 0 ? ` · Deposit: रू ${totalCost}` : ' · No deposit required'}
-              {item.duration && totalDays > item.duration && (
-                <span style={{ color: '#ef4444' }}> ⚠️ Exceeds max {item.duration} days</span>
-              )}
             </div>
           )}
 
-          <label style={s.label}>Message to owner (optional)</label>
-          <textarea value={form.message} onChange={e => set('message', e.target.value)} style={{ ...s.input, height: '72px', resize: 'vertical' }} placeholder="Why do you need it? When can you pick up?" />
+          <label style={s.label}>Message (optional)</label>
+          <textarea value={form.message} onChange={e => set('message', e.target.value)} style={{ ...s.input, height: '72px' }} />
 
           <div style={s.modalActions}>
-            <button type="submit" disabled={sending} style={{...s.primaryBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}>{sending ? 'Sending...' : <><Handshake size={16}/> Send Request</>}</button>
+            <button type="submit" disabled={sending} style={s.primaryBtn}>{sending ? 'Sending...' : 'Send Request'}</button>
             <button type="button" onClick={onClose} style={s.ghostBtn}>Cancel</button>
           </div>
         </form>
@@ -712,7 +596,7 @@ function statusColor(st) {
 }
 
 function displayStatus(st) {
-  const map = { pending: 'Pending', approved: 'Accepted', accepted: 'Accepted', rejected: 'Rejected', active: 'Active', returned: 'Returned', overdue: 'Overdue' };
+  const map = { pending: 'Pending', approved: 'Accepted', accepted: 'Accepted', rejected: 'Rejected', active: 'Active', returned: 'Complete', overdue: 'Overdue' };
   return map[st] || st;
 }
 
@@ -720,121 +604,62 @@ function displayStatus(st) {
 const s = {
   container: { maxWidth: '1200px', margin: '0 auto', padding: '24px', backgroundColor: '#EAF4FE', minHeight: '100vh', fontFamily: 'Inter, sans-serif' },
   loading: { textAlign: 'center', padding: '4rem', fontSize: '1.2rem', color: '#64748b' },
-
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' },
   headerLeft: { display: 'flex', alignItems: 'center', gap: '16px' },
-  headerIcon: { fontSize: '40px', background: '#F88000', borderRadius: '16px', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  headerIcon: { width: '56px', height: '56px', background: '#F88000', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: '24px', fontWeight: '700', color: '#000', margin: 0 },
   subtitle: { color: '#64748b', margin: '4px 0 0', fontSize: '14px' },
-
   tabs: { display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' },
-  tab: { padding: '10px 18px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '12px', background: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: '500', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: '6px' },
-  activeTab: { padding: '10px 18px', border: 'none', borderRadius: '12px', background: '#F88000', color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: '600', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: '6px' },
-  badge: { background: 'rgba(255,255,255,0.3)', borderRadius: '20px', padding: '1px 7px', fontSize: '12px', fontWeight: '700' },
-
+  tab: { padding: '10px 18px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '12px', background: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' },
+  activeTab: { padding: '10px 18px', border: 'none', borderRadius: '12px', background: '#F88000', color: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' },
+  badge: { background: 'rgba(255,255,255,0.3)', borderRadius: '20px', padding: '1px 7px', fontSize: '11px', fontWeight: '700' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' },
   card: { background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column' },
-  cardImg: { height: '180px', background: '#f1f5f9', position: 'relative', overflow: 'hidden' },
-  cardImgPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '48px' },
+  cardImg: { height: '180px', background: '#f1f5f9', position: 'relative' },
+  cardImgPlaceholder: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   availBadge: { position: 'absolute', top: '10px', right: '10px', color: '#fff', fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '20px' },
   cardBody: { padding: '16px', flex: 1 },
   cardTitle: { fontSize: '16px', fontWeight: '700', color: '#000', margin: '0 0 6px' },
   cardDesc: { fontSize: '13px', color: '#64748b', margin: '0 0 10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
   cardMeta: { display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: '#64748b' },
   cardActions: { padding: '12px 16px', borderTop: '1px solid rgba(0,0,0,0.05)' },
-
   listCol: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  requestCard: { background: '#fff', borderRadius: '16px', padding: '16px 20px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' },
-  requestLeft: { display: 'flex', gap: '14px', flex: 1, minWidth: 0 },
-  requestThumb: { width: '64px', height: '64px', borderRadius: '12px', objectFit: 'cover', flexShrink: 0 },
-  requestTitle: { fontSize: '15px', fontWeight: '700', color: '#000', marginBottom: '4px' },
-  requestMeta: { fontSize: '12px', color: '#64748b', marginBottom: '2px' },
-  requestRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 },
-  statusBadge: { color: '#fff', fontSize: '11px', fontWeight: '700', padding: '4px 12px', borderRadius: '20px', textTransform: 'capitalize' },
-  dropzone: {
-    width: '100%',
-    height: '140px',
-    border: '2px dashed #e2e8f0',
-    borderRadius: '12px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    backgroundColor: '#f8fafc',
-    marginBottom: '8px',
-    position: 'relative',
-    overflow: 'hidden'
-  },
-  dropzonePlaceholder: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '4px'
-  },
-  dropzoneText: {
-    fontSize: '13px',
-    fontWeight: '700',
-    color: '#1e293b'
-  },
-  previewContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'relative'
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover'
-  },
-  changeOverlay: {
-    position: 'absolute',
-    inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '4px',
-    opacity: 0,
-    transition: 'opacity 0.2s ease'
-  },
-
+  requestCard: { background: '#fff', borderRadius: '16px', padding: '16px 20px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' },
+  requestLeft: { display: 'flex', gap: '14px', alignItems: 'center', flex: 1 },
+  requestThumb: { width: '56px', height: '56px', borderRadius: '10px', objectFit: 'cover' },
+  requestTitle: { fontSize: '15px', fontWeight: '700', color: '#000' },
+  requestMeta: { fontSize: '12px', color: '#64748b' },
+  requestRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' },
+  statusBadge: { color: '#fff', fontSize: '11px', fontWeight: '700', padding: '4px 12px', borderRadius: '20px' },
   empty: { textAlign: 'center', padding: '60px 20px', color: '#64748b' },
-  emptyIcon: { marginBottom: '12px', display: 'flex', justifyContent: 'center' },
-
-  // Chat
-  chatLayout: { display: 'flex', gap: '0', background: '#EAF4FE', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', height: '560px' },
-  convList: { width: '260px', borderRight: '1px solid rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', flexShrink: 0, background: '#FFFFFF' },
-  convHeader: { padding: '16px', fontWeight: '700', fontSize: '14px', borderBottom: '1px solid rgba(0,0,0,0.07)' },
-  convItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid rgba(0,0,0,0.04)' },
-  convAvatar: { width: '36px', height: '36px', borderRadius: '50%', background: '#F88000', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '14px', flexShrink: 0 },
-  convName: { fontSize: '13px', fontWeight: '600', color: '#000' },
-  convLast: { fontSize: '12px', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' },
-  unreadDot: { background: '#F88000', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', flexShrink: 0 },
-  msgPane: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
-  msgHeader: { display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.07)' },
-  msgList: { flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column' },
-  bubble: { maxWidth: '70%', padding: '10px 14px', borderRadius: '16px', fontSize: '14px', lineHeight: '1.4' },
-  msgInput: { display: 'flex', gap: '8px', padding: '12px 16px', borderTop: '1px solid rgba(0,0,0,0.07)' },
-  textInput: { flex: 1, padding: '10px 14px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '12px', fontSize: '14px', fontFamily: 'Inter, sans-serif', outline: 'none' },
-  sendBtn: { padding: '10px 18px', background: '#F88000', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '16px', fontWeight: '700' },
-
-  // Modals
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' },
-  modal: { background: '#fff', borderRadius: '20px', padding: '32px', width: '100%', maxWidth: '520px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' },
-  modalTitle: { fontSize: '20px', fontWeight: '700', marginBottom: '16px', color: '#000' },
+  emptyIcon: { marginBottom: '12px' },
+  chatLayout: { display: 'flex', background: '#fff', borderRadius: '16px', overflow: 'hidden', height: '500px' },
+  convList: { width: '240px', borderRight: '1px solid #eee', display: 'flex', flexDirection: 'column' },
+  convHeader: { padding: '16px', fontWeight: '700', borderBottom: '1px solid #eee' },
+  convItem: { padding: '12px 16px', cursor: 'pointer', display: 'flex', gap: '10px', alignItems: 'center' },
+  convAvatar: { width: '32px', height: '32px', borderRadius: '50%', background: '#F88000', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '700' },
+  convName: { fontSize: '13px', fontWeight: '600' },
+  convLast: { fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  msgPane: { flex: 1, display: 'flex', flexDirection: 'column' },
+  msgHeader: { padding: '14px 16px', borderBottom: '1px solid #eee' },
+  msgList: { flex: 1, padding: '16px', overflowY: 'auto' },
+  bubble: { maxWidth: '75%', padding: '10px 14px', borderRadius: '14px', fontSize: '13px' },
+  msgInput: { padding: '12px', borderTop: '1px solid #eee', display: 'flex', gap: '8px' },
+  textInput: { flex: 1, border: '1px solid #eee', borderRadius: '10px', padding: '8px 12px', outline: 'none' },
+  sendBtn: { background: '#F88000', color: '#fff', border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  modal: { background: '#fff', borderRadius: '20px', padding: '24px', width: '100%', maxWidth: '400px' },
+  modalTitle: { margin: '0 0 16px', fontSize: '18px' },
   form: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  label: { fontSize: '13px', fontWeight: '600', color: '#374151' },
-  input: { padding: '10px 14px', border: '1px solid rgba(0,0,0,0.12)', borderRadius: '10px', fontSize: '14px', fontFamily: 'Inter, sans-serif', outline: 'none', width: '100%', boxSizing: 'border-box' },
-  modalActions: { display: 'flex', gap: '8px', marginTop: '8px' },
-
-  // Buttons
-  primaryBtn: { padding: '11px 20px', background: '#F88000', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', fontFamily: 'Inter, sans-serif', width: '100%' },
-  ghostBtn: { padding: '11px 20px', background: 'transparent', color: '#64748b', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', fontFamily: 'Inter, sans-serif' },
-  addBtn: { padding: '11px 20px', background: '#F88000', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', fontFamily: 'Inter, sans-serif' },
-  chatBtn: { padding: '8px 16px', background: '#EAF4FE', color: '#F88000', border: '1px solid #F88000', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', fontFamily: 'Inter, sans-serif' },
-  acceptBtn: { padding: '8px 14px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', fontFamily: 'Inter, sans-serif' },
-  rejectBtn: { padding: '8px 14px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', fontFamily: 'Inter, sans-serif' },
-  dangerBtn: { padding: '10px 16px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', fontFamily: 'Inter, sans-serif', width: '100%' },
+  label: { fontSize: '12px', fontWeight: '600', color: '#64748b' },
+  input: { padding: '10px', border: '1px solid #eee', borderRadius: '8px' },
+  modalActions: { display: 'flex', gap: '8px', marginTop: '12px' },
+  primaryBtn: { padding: '10px', background: '#F88000', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' },
+  ghostBtn: { padding: '10px', background: 'transparent', border: '1px solid #eee', borderRadius: '10px', cursor: 'pointer' },
+  dangerBtn: { padding: '8px 12px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer' },
+  addBtn: { padding: '10px 18px', background: '#F88000', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '600' },
+  chatBtn: { padding: '6px 12px', background: '#EAF4FE', color: '#F88000', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' },
+  acceptBtn: { padding: '6px 12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' },
+  rejectBtn: { padding: '6px 12px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' },
+  completeBtn: { padding: '8px 14px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' },
 };
