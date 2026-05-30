@@ -18,6 +18,7 @@ import AddBorrowItem from "./pages/AddBorrowItem";
 import PaymentVerifyPage from "./pages/PaymentVerifyPage";
 import PaymentFailedPage from "./pages/PaymentFailedPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
+import DeliveriesPage from "./pages/DeliveriesPage";
 import './App.css';
 
 export default function App() {
@@ -102,6 +103,12 @@ export default function App() {
             <Route path="/order-success" element={
               <ProtectedRoute>
                 <OrderSuccessPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/deliveries" element={
+              <ProtectedRoute>
+                <DeliveriesPage />
               </ProtectedRoute>
             } />
             

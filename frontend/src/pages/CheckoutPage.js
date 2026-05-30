@@ -185,8 +185,27 @@ export default function CheckoutPage() {
         orderData.item_id = parseInt(id);
 
         if (formData.paymentMethod === 'esewa') {
-          // Initiate eSewa payment
-          const res = await axios.post('/payment/esewa/initiate', orderData);
+          // Initiate eSewa payment — in development, bypass is automatic
+          const res = await axios.post('/payment/esewa/initiate', {
+            ...orderData,
+            bypassEsewa: process.env.NODE_ENV === 'development'
+          });
+
+          // Dev bypass — order created instantly, go to success page
+          if (res.data.devBypass) {
+            navigate('/order-success', {
+              state: {
+                orderDetails: {
+                  item_title: res.data.item_title,
+                  fullName: formData.fullName,
+                  phone: formData.phone,
+                  deliveryLocation: formData.deliveryLocation,
+                  total_amount: parseFloat(res.data.total_amount) + parseFloat(res.data.delivery_fee || 0)
+                }
+              }
+            });
+            return;
+          }
           const { formUrl, formData: esewaFields, checkoutContext } = res.data;
 
           localStorage.setItem('esewa_checkout', JSON.stringify(checkoutContext));
