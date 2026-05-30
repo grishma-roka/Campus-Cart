@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Handshake, Camera, Upload, Trash2, Image as ImageIcon, RefreshCcw } from 'lucide-react';
+import { Handshake, Camera, Upload, Trash2, Image as ImageIcon, RefreshCcw, Bike, Clock, Package, CheckCircle, Truck } from 'lucide-react';
+import io from 'socket.io-client';
 
 export default function SellerDashboard() {
   const { user } = useAuth();

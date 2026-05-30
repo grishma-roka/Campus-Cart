@@ -139,9 +139,9 @@ router.put('/accept/:id', auth, requireRole(['rider']), async (req, res) => {
       return res.status(409).json({ error: 'Delivery already taken or not available' });
     }
 
-    // Assign rider
+    // Assign rider and save accepted_at timestamp
     await conn.query(
-      `UPDATE deliveries SET rider_id = ?, status = 'assigned', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      `UPDATE deliveries SET rider_id = ?, status = 'assigned', accepted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       [riderId, deliveryId]
     );
 
@@ -159,10 +159,10 @@ router.put('/accept/:id', auth, requireRole(['rider']), async (req, res) => {
 
     await conn.commit();
 
-    // Notify buyer
+    // Notify buyer & seller and emit socket events
     try {
       const [orderRows] = await db.query(
-        `SELECT o.buyer_id, o.delivery_address, i.title as item_title, u.full_name as rider_name
+        `SELECT o.buyer_id, o.seller_id, o.delivery_address, i.title as item_title, u.full_name as rider_name, u.phone as rider_phone
          FROM orders o
          JOIN items i ON o.item_id = i.id
          JOIN users u ON u.id = ?
@@ -170,14 +170,43 @@ router.put('/accept/:id', auth, requireRole(['rider']), async (req, res) => {
         [riderId, deliveryRows[0].order_id]
       );
       if (orderRows.length) {
-        const { buyer_id, item_title, rider_name } = orderRows[0];
+        const { buyer_id, seller_id, item_title, rider_name, rider_phone } = orderRows[0];
+        const notifMsg = `A rider has accepted your order for "${item_title}".`;
+
         await createNotification(
           buyer_id,
-          '🏍️ Order Accepted!',
-          `Your order for "${item_title}" has been accepted by ${rider_name} and is on the way!`,
+          '🏍️ Order Accepted',
+          notifMsg,
           'order_accepted',
           deliveryRows[0].order_id
         );
+
+        await createNotification(
+          seller_id,
+          '🏍️ Order Accepted',
+          notifMsg,
+          'order_accepted',
+          deliveryRows[0].order_id
+        );
+
+        const io = req.app.get('io');
+        if (io) {
+          // Emit socket event to the order room
+          io.to(`order_${deliveryRows[0].order_id}`).emit('delivery_status_updated', {
+            order_id: deliveryRows[0].order_id,
+            order_status: 'assigned',
+            delivery_status: 'assigned',
+            rider_name: rider_name,
+            rider_phone: rider_phone,
+            accepted_at: new Date().toISOString()
+          });
+
+          // Broadcast to riders to remove the request in real-time
+          io.to('riders').emit('delivery_accepted', {
+            delivery_id: deliveryId,
+            order_id: deliveryRows[0].order_id
+          });
+        }
       }
     } catch (notifErr) {
       console.error('Notification error (non-fatal):', notifErr.message);
@@ -217,63 +246,156 @@ router.get('/my-deliveries', auth, requireRole(['rider']), async (req, res) => {
   }
 });
 
-// UPDATE DELIVERY STATUS (picked_up / delivered)
+// UPDATE DELIVERY STATUS (sequential: picked_up -> out_for_delivery -> delivered)
 router.put('/status/:id', auth, requireRole(['rider']), async (req, res) => {
+  const conn = await db.getConnection();
   try {
+    await conn.beginTransaction();
+
     const { status, notes } = req.body;
     const deliveryId = req.params.id;
+    const riderId = req.user.id;
 
-    if (!['picked_up', 'delivered'].includes(status)) {
+    if (!['picked_up', 'out_for_delivery', 'delivered'].includes(status)) {
+      await conn.rollback();
       return res.status(400).json({ error: 'Invalid status' });
     }
 
-    const timeField = status === 'picked_up' ? 'pickup_time' : 'delivery_time';
-
-    const [result] = await db.query(
-      `UPDATE deliveries SET status = ?, ${timeField} = CURRENT_TIMESTAMP, notes = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND rider_id = ?`,
-      [status, notes || null, deliveryId, req.user.id]
+    // Lock the delivery row
+    const [deliveryRows] = await conn.query(
+      "SELECT * FROM deliveries WHERE id = ? FOR UPDATE",
+      [deliveryId]
     );
 
-    if (result.affectedRows === 0) {
+    if (!deliveryRows.length) {
+      await conn.rollback();
       return res.status(404).json({ error: 'Delivery not found' });
     }
 
-    const [deliveryData] = await db.query('SELECT order_id FROM deliveries WHERE id = ?', [deliveryId]);
-    if (deliveryData.length) {
-      await db.query(
-        `UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [status, deliveryData[0].order_id]
+    const delivery = deliveryRows[0];
+
+    // Only the assigned rider can change status
+    if (delivery.rider_id !== riderId) {
+      await conn.rollback();
+      return res.status(403).json({ error: 'You are not the assigned rider for this delivery' });
+    }
+
+    // Status changes must happen sequentially: Accept Order (assigned) -> Picked Up -> Out for Delivery -> Delivered
+    const currentStatus = delivery.status;
+    let isValidTransition = false;
+    if (currentStatus === 'assigned' && status === 'picked_up') {
+      isValidTransition = true;
+    } else if (currentStatus === 'picked_up' && status === 'out_for_delivery') {
+      isValidTransition = true;
+    } else if (currentStatus === 'out_for_delivery' && status === 'delivered') {
+      isValidTransition = true;
+    }
+
+    if (!isValidTransition) {
+      await conn.rollback();
+      return res.status(400).json({
+        error: `Riders cannot skip steps. Invalid transition from "${currentStatus}" to "${status}".`
+      });
+    }
+
+    let timeFieldUpdates = '';
+    let notifTitle = '';
+    let notifMessage = '';
+    let notifType = '';
+
+    if (status === 'picked_up') {
+      timeFieldUpdates = ', picked_up_at = CURRENT_TIMESTAMP, pickup_time = CURRENT_TIMESTAMP';
+      notifTitle = '📦 Item Picked Up';
+      notifMessage = 'Your item has been picked up by the rider.';
+      notifType = 'picked_up';
+    } else if (status === 'out_for_delivery') {
+      timeFieldUpdates = ', out_for_delivery_at = CURRENT_TIMESTAMP';
+      notifTitle = '🏍️ Out for Delivery';
+      notifMessage = 'Your order is on the way.';
+      notifType = 'out_for_delivery';
+    } else if (status === 'delivered') {
+      timeFieldUpdates = ', delivered_at = CURRENT_TIMESTAMP, delivery_time = CURRENT_TIMESTAMP';
+      notifTitle = '✅ Order Delivered';
+      notifMessage = 'Order delivered successfully.';
+      notifType = 'order_delivered';
+    }
+
+    // Update delivery status and relevant timestamp fields
+    await conn.query(
+      `UPDATE deliveries SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP ${timeFieldUpdates}
+       WHERE id = ?`,
+      [status, notes || null, deliveryId]
+    );
+
+    // Update order status
+    await conn.query(
+      `UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [status, delivery.order_id]
+    );
+
+    // If delivered, set rider back to available
+    if (status === 'delivered') {
+      await conn.query(
+        `UPDATE users SET rider_availability = 'available' WHERE id = ?`,
+        [riderId]
       );
     }
 
-    // If delivered, set rider back to available + notify buyer
-    if (status === 'delivered') {
-      await db.query(
-        `UPDATE users SET rider_availability = 'available' WHERE id = ?`,
-        [req.user.id]
-      );
+    await conn.commit();
+
+    // Fetch updated details to broadcast real-time socket events
+    const [orderRows] = await db.query(
+      `SELECT o.buyer_id, o.seller_id, i.title as item_title, u.full_name as rider_name, u.phone as rider_phone
+       FROM orders o
+       JOIN items i ON o.item_id = i.id
+       JOIN users u ON u.id = ?
+       WHERE o.id = ?`,
+      [riderId, delivery.order_id]
+    );
+
+    const [updatedDeliveryRows] = await db.query(
+      "SELECT * FROM deliveries WHERE id = ?",
+      [deliveryId]
+    );
+    const updatedDelivery = updatedDeliveryRows[0];
+
+    if (orderRows.length) {
+      const { buyer_id, seller_id, item_title, rider_name, rider_phone } = orderRows[0];
+
+      // Add database notifications
       try {
-        const [oRows] = await db.query(
-          `SELECT o.buyer_id, i.title as item_title FROM orders o JOIN items i ON o.item_id = i.id WHERE o.id = ?`,
-          [deliveryData[0].order_id]
-        );
-        if (oRows.length) {
-          await createNotification(
-            oRows[0].buyer_id,
-            '✅ Order Delivered!',
-            `Your order for "${oRows[0].item_title}" has been delivered successfully!`,
-            'order_delivered',
-            deliveryData[0].order_id
-          );
-        }
-      } catch (e) { /* non-fatal */ }
+        await createNotification(buyer_id, notifTitle, notifMessage, notifType, delivery.order_id);
+        await createNotification(seller_id, notifTitle, notifMessage, notifType, delivery.order_id);
+      } catch (notifErr) {
+        console.error('Notification db logging failed:', notifErr.message);
+      }
+
+      // Emit real-time Socket.io update to room order_${orderId}
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`order_${delivery.order_id}`).emit('delivery_status_updated', {
+          order_id: delivery.order_id,
+          order_status: status,
+          delivery_status: status,
+          rider_name: rider_name,
+          rider_phone: rider_phone,
+          pickup_time: updatedDelivery.pickup_time,
+          delivery_time: updatedDelivery.delivery_time,
+          accepted_at: updatedDelivery.accepted_at,
+          picked_up_at: updatedDelivery.picked_up_at,
+          out_for_delivery_at: updatedDelivery.out_for_delivery_at,
+          delivered_at: updatedDelivery.delivered_at
+        });
+      }
     }
 
     res.json({ message: `Delivery marked as ${status}` });
   } catch (err) {
+    await conn.rollback();
     console.error(err);
     res.status(500).json({ error: 'Failed to update delivery status' });
+  } finally {
+    conn.release();
   }
 });
 

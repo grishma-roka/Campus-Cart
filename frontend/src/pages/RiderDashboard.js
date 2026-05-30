@@ -3,6 +3,7 @@ import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 import LiveMap from '../components/LiveMap';
 import { Bike, Hourglass, XCircle, CheckCircle, Package, Truck, CircleDollarSign, Star, Bell, ClipboardList, Ban, MapPin, Inbox, Sun, Calendar, Trophy, BarChart2, User, Store, Clock, Banknote } from 'lucide-react';
+import io from 'socket.io-client';
 
 export default function RiderDashboard() {
   const { user } = useAuth();
@@ -17,6 +18,10 @@ export default function RiderDashboard() {
   const [riderRequest, setRiderRequest] = useState({ license_number: '', license_image: '' });
   const [newDeliveryBanner, setNewDeliveryBanner] = useState(false);
   const prevDeliveryCountRef = useRef(0);
+
+  // Real-time notification modal state
+  const [realTimeRequest, setRealTimeRequest] = useState(null);
+  const socketRef = useRef(null);
 
   // Location state
   const [locationPermission, setLocationPermission] = useState('pending'); // pending|granted|denied
@@ -128,6 +133,30 @@ export default function RiderDashboard() {
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (user?.role !== 'rider') return;
+
+    socketRef.current = io(axios.defaults.baseURL?.replace('/api', '') || 'http://localhost:5000');
+
+    socketRef.current.emit('join_riders');
+
+    socketRef.current.on('new_delivery_request', (data) => {
+      setRealTimeRequest(data);
+      setNewDeliveryBanner(true);
+      setTimeout(() => setNewDeliveryBanner(false), 8000);
+      fetchData();
+    });
+
+    socketRef.current.on('delivery_accepted', (data) => {
+      setAvailableDeliveries(prev => prev.filter(d => d.order_id !== data.order_id && d.id !== data.delivery_id));
+      setRealTimeRequest(prev => prev && prev.order_id === data.order_id ? null : prev);
+    });
+
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
+    };
+  }, [user, fetchData]);
 
   // On mount: auto-set rider to 'available' and start tracking
   useEffect(() => {
@@ -315,6 +344,95 @@ export default function RiderDashboard() {
   // Approved rider dashboard
   return (
     <div style={s.container}>
+      {/* Real-time Delivery Request Modal/Overlay */}
+      {realTimeRequest && (
+        <div style={s.realTimeOverlay}>
+          <div style={s.realTimeModal}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ ...s.modalTitle, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#F88000', fontSize: '18px' }}>
+                <Bell size={20} /> New Delivery Request!
+              </h3>
+              <button 
+                onClick={() => setRealTimeRequest(null)} 
+                style={{ border: 'none', background: 'none', color: '#64748b', cursor: 'pointer' }}
+              >
+                <XCircle size={24} />
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', textAlign: 'left', marginBottom: '20px' }}>
+              <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#0f172a', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
+                {realTimeRequest.product_name}
+              </div>
+              <div style={s.realTimeRow}>
+                <span style={s.realTimeLabel}>Amount:</span>
+                <span style={s.realTimeVal}>रू {realTimeRequest.order_amount}</span>
+              </div>
+              <div style={s.realTimeRow}>
+                <span style={s.realTimeLabel}>Payment:</span>
+                <span style={s.realTimeVal}>{realTimeRequest.payment_method === 'esewa' ? 'Online (eSewa)' : 'Cash on Delivery (COD)'}</span>
+              </div>
+              <div style={s.realTimeRow}>
+                <span style={s.realTimeLabel}>Buyer:</span>
+                <span style={s.realTimeVal}>{realTimeRequest.buyer_name}</span>
+              </div>
+              <div style={s.realTimeRow}>
+                <span style={s.realTimeLabel}>Seller:</span>
+                <span style={s.realTimeVal}>{realTimeRequest.seller_name}</span>
+              </div>
+              <div style={s.realTimeRow}>
+                <span style={s.realTimeLabel}>Pickup From:</span>
+                <span style={{ ...s.realTimeVal, fontSize: '12px' }}>{realTimeRequest.pickup_location}</span>
+              </div>
+              <div style={s.realTimeRow}>
+                <span style={s.realTimeLabel}>Deliver To:</span>
+                <span style={{ ...s.realTimeVal, fontSize: '12px' }}>{realTimeRequest.delivery_location}</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={async () => {
+                  const orderId = realTimeRequest.order_id;
+                  setAccepting(orderId);
+                  try {
+                    const match = availableDeliveries.find(d => d.order_id === orderId);
+                    if (match) {
+                      await handleAcceptDelivery(match.id);
+                      setRealTimeRequest(null);
+                    } else {
+                      const res = await axios.get('/delivery/available');
+                      const match2 = res.data.find(d => d.order_id === orderId);
+                      if (match2) {
+                        await handleAcceptDelivery(match2.id);
+                        setRealTimeRequest(null);
+                      } else {
+                        alert('This delivery request is no longer available.');
+                        setRealTimeRequest(null);
+                      }
+                    }
+                  } catch (err) {
+                    alert(err.response?.data?.error || 'Failed to accept delivery');
+                  } finally {
+                    setAccepting(null);
+                  }
+                }}
+                disabled={accepting}
+                style={{ ...s.primaryBtn, flex: 1, padding: '12px', fontSize: '14px' }}
+              >
+                {accepting ? 'Accepting...' : 'Accept Order'}
+              </button>
+              <button
+                onClick={() => setRealTimeRequest(null)}
+                style={{ ...s.ghostBtn, flex: 1, padding: '12px', fontSize: '14px' }}
+              >
+                Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={s.pageHeader}>
         <div style={s.pageHeaderIcon}><Bike size={40} strokeWidth={1.5} color="#fff" /></div>
@@ -657,7 +775,8 @@ function AvailableDeliveryCard({ delivery: d, onAccept, accepting }) {
 function MyDeliveryCard({ delivery: d, onUpdateStatus }) {
   const statusColor = {
     assigned: '#f59e0b',
-    picked_up: '#3b82f6',
+    picked_up: '#a855f7',
+    out_for_delivery: '#3b82f6',
     delivered: '#10b981',
     cancelled: '#ef4444',
   }[d.status] || '#94a3b8';
@@ -666,7 +785,7 @@ function MyDeliveryCard({ delivery: d, onUpdateStatus }) {
     <div style={s.deliveryCard}>
       <div style={{ ...s.statusBadge, backgroundColor: statusColor }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {statusIcon(d.status)} {d.status?.replace('_', ' ').toUpperCase()}
+          {statusIcon(d.status)} {d.status === 'assigned' ? 'ORDER ACCEPTED' : d.status?.replace(/_/g, ' ').toUpperCase()}
         </div>
       </div>
 
@@ -677,6 +796,7 @@ function MyDeliveryCard({ delivery: d, onUpdateStatus }) {
         <div style={s.infoRow}><span style={s.infoIcon}><CircleDollarSign size={14} /></span><span>रू {d.total_amount} &nbsp;·&nbsp; {paymentLabel(d.payment_method)}</span></div>
         <div style={s.infoRow}><span style={s.infoIcon}><Store size={14} /></span><span>Seller: {d.seller_name} · {d.seller_phone}</span></div>
         {d.pickup_time && <div style={s.infoRow}><span style={s.infoIcon}><Package size={14} /></span><span>Picked up: {new Date(d.pickup_time).toLocaleString()}</span></div>}
+        {d.out_for_delivery_at && <div style={s.infoRow}><span style={s.infoIcon}><Truck size={14} /></span><span>Out for delivery: {new Date(d.out_for_delivery_at).toLocaleString()}</span></div>}
         {d.delivery_time && <div style={s.infoRow}><span style={s.infoIcon}><CheckCircle size={14} /></span><span>Delivered: {new Date(d.delivery_time).toLocaleString()}</span></div>}
       </div>
 
@@ -687,6 +807,11 @@ function MyDeliveryCard({ delivery: d, onUpdateStatus }) {
           </button>
         )}
         {d.status === 'picked_up' && (
+          <button onClick={() => onUpdateStatus(d.id, 'out_for_delivery')} style={{ ...s.primaryBtn, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#3b82f6' }}>
+            <Truck size={16} /> Out for Delivery
+          </button>
+        )}
+        {d.status === 'out_for_delivery' && (
           <button onClick={() => onUpdateStatus(d.id, 'delivered')} style={{ ...s.successBtn, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
             <CheckCircle size={16} /> Mark Delivered
           </button>
@@ -701,7 +826,7 @@ function paymentLabel(pm) {
   return pm === 'esewa' ? <span style={{display:'inline-flex', alignItems:'center', gap:'4px'}}><CheckCircle size={12}/> Paid Online (eSewa)</span> : <span style={{display:'inline-flex', alignItems:'center', gap:'4px'}}><Banknote size={12}/> Collect Cash (COD)</span>;
 }
 function statusIcon(st) {
-  return { assigned: <Bike size={12}/>, picked_up: <Package size={12}/>, delivered: <CheckCircle size={12}/>, cancelled: <XCircle size={12}/> }[st] || <Hourglass size={12}/>;
+  return { assigned: <Bike size={12}/>, picked_up: <Package size={12}/>, out_for_delivery: <Truck size={12}/>, delivered: <CheckCircle size={12}/>, cancelled: <XCircle size={12}/> }[st] || <Hourglass size={12}/>;
 }
 function availColor(av) {
   return { available: '#d1fae5', busy: '#fef3c7', offline: '#fee2e2' }[av] || '#f1f5f9';
@@ -826,4 +951,9 @@ const s = {
     borderRadius: '8px', cursor: 'pointer', fontSize: '12px',
     fontWeight: '700', fontFamily: 'Inter, sans-serif',
   },
+  realTimeOverlay: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(4px)' },
+  realTimeModal: { background: '#fff', borderRadius: '24px', padding: '28px', width: '90%', maxWidth: '440px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: '1px solid rgba(248,128,0,0.1)' },
+  realTimeRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', fontSize: '13px' },
+  realTimeLabel: { fontWeight: '600', color: '#64748b', minWidth: '100px' },
+  realTimeVal: { fontWeight: '700', color: '#1e293b', textAlign: 'right', wordBreak: 'break-word' },
 };

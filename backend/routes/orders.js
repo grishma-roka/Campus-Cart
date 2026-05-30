@@ -44,16 +44,24 @@ router.post('/create', auth, async (req, res) => {
     `, [buyer_id, item.seller_id, item_id, total_amount, delivery_address,
         delivery_lat || null, delivery_lng || null, pm, phone || null]);
 
+    // Get seller info for pickup address
+    const [sellerRows] = await db.query("SELECT full_name, phone FROM users WHERE id = ?", [item.seller_id]);
+    const sellerName = sellerRows[0]?.full_name || 'Seller';
+    const sellerPhone = sellerRows[0]?.phone || 'N/A';
+    const pickupAddress = `${sellerName} (Campus Cart Seller)`;
+
     // Create delivery record with coords
     await db.query(`
       INSERT INTO deliveries (order_id, pickup_address, delivery_address, delivery_lat, delivery_lng)
-      VALUES (?, 'Seller Location', ?, ?, ?)
-    `, [result.insertId, delivery_address, delivery_lat || null, delivery_lng || null]);
+      VALUES (?, ?, ?, ?, ?)
+    `, [result.insertId, pickupAddress, delivery_address, delivery_lat || null, delivery_lng || null]);
+
+    // Get buyer info
+    const [buyerRows] = await db.query("SELECT full_name FROM users WHERE id = ?", [buyer_id]);
+    const buyerName = buyerRows[0]?.full_name || 'A buyer';
 
     // Notify seller that their item was ordered
     try {
-      const [buyerRows] = await db.query("SELECT full_name FROM users WHERE id = ?", [buyer_id]);
-      const buyerName = buyerRows[0]?.full_name || 'A buyer';
       await db.query(
         "INSERT INTO notifications (user_id, title, message, type, order_id) VALUES (?, ?, ?, ?, ?)",
         [
@@ -82,6 +90,42 @@ router.post('/create', auth, async (req, res) => {
       );
     } catch (e) {
       console.error('Buyer notification failed (non-fatal):', e.message);
+    }
+
+    // Notify all active and approved riders about the new order requiring delivery
+    try {
+      const [riders] = await db.query(
+        "SELECT id, full_name FROM users WHERE (role = 'rider' OR is_rider = 1) AND is_active = TRUE"
+      );
+
+      for (const rider of riders) {
+        await db.query(
+          "INSERT INTO notifications (user_id, title, message, type, order_id) VALUES (?, ?, ?, ?, ?)",
+          [
+            rider.id,
+            '🛵 New Delivery Request!',
+            `Order: "${item.title}"\nPickup from: ${sellerName} (${sellerPhone})\nDeliver to: ${delivery_address}\nBuyer: ${buyerName}\nAmount: रू ${total_amount}\n\nOpen your Rider Dashboard to accept!`,
+            'new_delivery',
+            result.insertId
+          ]
+        );
+      }
+
+      const io = req.app.get('io');
+      if (io) {
+        io.to('riders').emit('new_delivery_request', {
+          order_id: result.insertId,
+          product_name: item.title,
+          buyer_name: buyerName,
+          seller_name: sellerName,
+          pickup_location: pickupAddress,
+          delivery_location: delivery_address,
+          payment_method: pm,
+          order_amount: total_amount
+        });
+      }
+    } catch (e) {
+      console.error('Riders notification failed (non-fatal):', e.message);
     }
 
     console.log(`✅ Item ${item_id} sold to buyer ${buyer_id}`);
@@ -342,6 +386,20 @@ router.post('/search-riders/:orderId', auth, async (req, res) => {
           orderId
         ]
       );
+    }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to('riders').emit('new_delivery_request', {
+        order_id: orderId,
+        product_name: order.item_title,
+        buyer_name: order.buyer_name,
+        seller_name: sellerName,
+        pickup_location: `${sellerName} (Campus Cart Seller)`,
+        delivery_location: order.delivery_address,
+        payment_method: order.payment_method,
+        order_amount: order.total_amount
+      });
     }
 
     res.json({ message: `Notified ${riders.length} rider(s)!`, notified: riders.length });

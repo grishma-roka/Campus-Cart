@@ -25,6 +25,16 @@ io.on('connection', (socket) => {
     console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
   });
 
+  socket.on('join_order', (orderId) => {
+    socket.join(`order_${orderId}`);
+    console.log(`Socket ${socket.id} joined order ${orderId}`);
+  });
+
+  socket.on('join_riders', () => {
+    socket.join('riders');
+    console.log(`Socket ${socket.id} joined riders room`);
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
   });
@@ -54,7 +64,7 @@ async function runMigrations() {
   try {
     const [cols] = await db.query('DESCRIBE deliveries');
     const colNames = cols.map(c => c.Field);
-    if (!colNames.includes('order_id') || !colNames.includes('status') || !colNames.includes('pickup_address')) {
+    if (!colNames.includes('order_id') || !colNames.includes('status') || !colNames.includes('pickup_address') || !colNames.includes('accepted_at')) {
       console.log('Recreating deliveries table with correct schema...');
       await db.query('SET FOREIGN_KEY_CHECKS = 0');
       await db.query('DROP TABLE IF EXISTS deliveries');
@@ -70,7 +80,11 @@ async function runMigrations() {
           delivery_lng DECIMAL(11,8) DEFAULT NULL,
           pickup_time TIMESTAMP NULL,
           delivery_time TIMESTAMP NULL,
-          status ENUM('pending','assigned','picked_up','delivered','cancelled') DEFAULT 'pending',
+          accepted_at TIMESTAMP NULL DEFAULT NULL,
+          picked_up_at TIMESTAMP NULL DEFAULT NULL,
+          out_for_delivery_at TIMESTAMP NULL DEFAULT NULL,
+          delivered_at TIMESTAMP NULL DEFAULT NULL,
+          status ENUM('pending','assigned','picked_up','out_for_delivery','delivered','cancelled') DEFAULT 'pending',
           delivery_fee DECIMAL(10,2) DEFAULT 50.00,
           notes TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -84,6 +98,14 @@ async function runMigrations() {
   } catch (e) {
     console.log('deliveries check error:', e.message);
   }
+
+  // Run alterations for existing databases
+  await run("ALTER TABLE orders MODIFY COLUMN status ENUM('pending', 'confirmed', 'assigned', 'picked_up', 'out_for_delivery', 'delivered', 'cancelled') DEFAULT 'pending'");
+  await run("ALTER TABLE deliveries MODIFY COLUMN status ENUM('pending', 'assigned', 'picked_up', 'out_for_delivery', 'delivered', 'cancelled') DEFAULT 'pending'");
+  await run("ALTER TABLE deliveries ADD COLUMN accepted_at TIMESTAMP NULL DEFAULT NULL");
+  await run("ALTER TABLE deliveries ADD COLUMN picked_up_at TIMESTAMP NULL DEFAULT NULL");
+  await run("ALTER TABLE deliveries ADD COLUMN out_for_delivery_at TIMESTAMP NULL DEFAULT NULL");
+  await run("ALTER TABLE deliveries ADD COLUMN delivered_at TIMESTAMP NULL DEFAULT NULL");
 
   // ── Fix deliveries.transaction_id if it exists (shouldn't be there) ────────
   try {

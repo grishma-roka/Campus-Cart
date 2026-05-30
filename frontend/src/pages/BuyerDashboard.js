@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -6,7 +6,8 @@ import { useCart } from '../context/CartContext';
 import CartSidebar from '../components/CartSidebar';
 import ProductDetailModal from '../components/ProductDetailModal';
 import NotificationBell from '../components/NotificationBell';
-import { ShoppingBag, Store, Bike, LayoutGrid, BookOpen, Laptop, Shirt, Trophy, Package, Handshake, Tag, Armchair, Watch, Search, ChevronDown, User, Calendar, ClipboardList, MapPin, CheckCircle, Clock } from 'lucide-react';
+import { ShoppingBag, Store, Bike, LayoutGrid, BookOpen, Laptop, Shirt, Trophy, Package, Handshake, Tag, Armchair, Watch, Search, ChevronDown, User, Calendar, ClipboardList, MapPin, CheckCircle, Clock, Truck } from 'lucide-react';
+import io from 'socket.io-client';
 
 export default function BuyerDashboard() {
   const { user } = useAuth();
@@ -25,6 +26,8 @@ export default function BuyerDashboard() {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [myOrders, setMyOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('shop'); // shop | orders
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const socketRef = useRef(null);
   
   const backendUrl = 'http://localhost:5000';
 
@@ -86,6 +89,96 @@ export default function BuyerDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Socket connection and listener for live order status updates
+  useEffect(() => {
+    socketRef.current = io(axios.defaults.baseURL?.replace('/api', '') || 'http://localhost:5000');
+
+    socketRef.current.on('delivery_status_updated', (data) => {
+      setMyOrders((prevOrders) =>
+        prevOrders.map((order) => {
+          if (order.id === data.order_id) {
+            return {
+              ...order,
+              status: data.order_status,
+              delivery_status: data.delivery_status,
+              rider_name: data.rider_name,
+              rider_phone: data.rider_phone,
+              pickup_time: data.pickup_time,
+              delivery_time: data.delivery_time,
+              accepted_at: data.accepted_at,
+              picked_up_at: data.picked_up_at,
+              out_for_delivery_at: data.out_for_delivery_at,
+              delivered_at: data.delivered_at,
+            };
+          }
+          return order;
+        })
+      );
+    });
+
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
+    };
+  }, []);
+
+  // Join Socket.io rooms for all retrieved orders
+  useEffect(() => {
+    if (socketRef.current && myOrders.length > 0) {
+      myOrders.forEach((order) => {
+        socketRef.current.emit('join_order', order.id);
+      });
+    }
+  }, [myOrders]);
+
+  const renderDeliveryStepper = (order) => {
+    const steps = [
+      { key: 'placed', label: 'Order Placed', checked: ['confirmed', 'assigned', 'picked_up', 'out_for_delivery', 'delivered'].includes(order.status), time: order.created_at },
+      { key: 'accepted', label: 'Rider Accepted', checked: ['assigned', 'picked_up', 'out_for_delivery', 'delivered'].includes(order.status), time: order.accepted_at },
+      { key: 'picked_up', label: 'Picked Up', checked: ['picked_up', 'out_for_delivery', 'delivered'].includes(order.status), time: order.picked_up_at || order.pickup_time },
+      { key: 'out_for_delivery', label: 'Out for Delivery', checked: ['out_for_delivery', 'delivered'].includes(order.status), time: order.out_for_delivery_at },
+      { key: 'delivered', label: 'Delivered', checked: order.status === 'delivered', time: order.delivered_at || order.delivery_time }
+    ];
+
+    return (
+      <div style={styles.stepperContainer}>
+        <h4 style={{ margin: '0 0 16px 0', fontSize: '15px', color: '#1e293b', fontWeight: 'bold' }}>Live Delivery Tracker</h4>
+        {steps.map((step, idx) => (
+          <div key={step.key} style={styles.stepItem}>
+            <div style={styles.stepIndicatorCol}>
+              <div style={{
+                ...styles.stepDot,
+                backgroundColor: step.checked ? '#10b981' : '#cbd5e1',
+                boxShadow: step.checked ? '0 0 0 4px rgba(16,185,129,0.15)' : 'none'
+              }}>
+                {step.checked ? '✓' : ''}
+              </div>
+              {idx < steps.length - 1 && (
+                <div style={{
+                  ...styles.stepLine,
+                  backgroundColor: steps[idx + 1].checked ? '#10b981' : '#e2e8f0'
+                }} />
+              )}
+            </div>
+            <div style={styles.stepContentCol}>
+              <div style={{
+                ...styles.stepLabel,
+                color: step.checked ? '#1e293b' : '#64748b',
+                fontWeight: step.checked ? '700' : '500'
+              }}>
+                {step.label}
+              </div>
+              {step.checked && step.time && (
+                <div style={styles.stepTime}>
+                  {new Date(step.time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const categories = [...new Set(buyOnlyItems.map(item => item.category))];
@@ -259,44 +352,59 @@ export default function BuyerDashboard() {
                 })();
 
                 const statusInfo = {
-                  delivered:  { label: 'Delivered',           color: '#10b981', icon: <CheckCircle size={16} /> },
-                  cancelled:  { label: 'Cancelled',           color: '#ef4444', icon: <Package size={16} /> },
-                  confirmed:  { label: 'Pending Delivery',     color: '#f59e0b', icon: <Clock size={16} /> },
-                  pending:    { label: 'Pending',              color: '#f59e0b', icon: <Clock size={16} /> },
-                  assigned:   { label: 'Pending Delivery',     color: '#f59e0b', icon: <Clock size={16} /> },
-                  picked_up:  { label: 'Out for Delivery',    color: '#F88000', icon: <Bike size={16} /> },
+                  delivered:        { label: 'Delivered',           color: '#10b981', icon: <CheckCircle size={16} /> },
+                  cancelled:        { label: 'Cancelled',           color: '#ef4444', icon: <Package size={16} /> },
+                  confirmed:        { label: 'Pending Delivery',     color: '#f59e0b', icon: <Clock size={16} /> },
+                  pending:          { label: 'Pending',              color: '#f59e0b', icon: <Clock size={16} /> },
+                  assigned:         { label: 'Order Accepted',       color: '#a855f7', icon: <Bike size={16} /> },
+                  picked_up:        { label: 'Picked Up',            color: '#a855f7', icon: <Package size={16} /> },
+                  out_for_delivery: { label: 'Out for Delivery',     color: '#3b82f6', icon: <Truck size={16} /> },
                 }[order.status] || { label: 'Pending', color: '#f59e0b', icon: <Clock size={16} /> };
 
                 return (
                   <div key={order.id} style={styles.orderCard}>
-                    <div style={styles.orderCardLeft}>
-                      {img
-                        ? <img src={img} alt={order.title} style={styles.orderImg} onError={e => e.target.style.display='none'} />
-                        : <div style={styles.orderImgPlaceholder}><Package size={28} color="#94a3b8" /></div>
-                      }
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={styles.orderTitle}>{order.title}</div>
-                        <div style={styles.orderMeta}>Seller: {order.seller_name}</div>
-                        <div style={styles.orderMeta}>
-                          <MapPin size={12} /> {order.delivery_address}
-                        </div>
-                        <div style={styles.orderMeta}>
-                          Ordered: {new Date(order.created_at).toLocaleDateString()}
-                        </div>
-                        {order.rider_name && (
+                    <div style={styles.orderCardHeader}>
+                      <div style={styles.orderCardLeft}>
+                        {img
+                          ? <img src={img} alt={order.title} style={styles.orderImg} onError={e => e.target.style.display='none'} />
+                          : <div style={styles.orderImgPlaceholder}><Package size={28} color="#94a3b8" /></div>
+                        }
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={styles.orderTitle}>{order.title}</div>
+                          <div style={styles.orderMeta}>Seller: {order.seller_name}</div>
                           <div style={styles.orderMeta}>
-                            <Bike size={12} /> Rider: {order.rider_name} {order.rider_phone && `· ${order.rider_phone}`}
+                            <MapPin size={12} /> {order.delivery_address}
                           </div>
-                        )}
+                          <div style={styles.orderMeta}>
+                            Ordered: {new Date(order.created_at).toLocaleDateString()}
+                          </div>
+                          {order.rider_name && (
+                            <div style={styles.orderMeta}>
+                              <Bike size={12} /> Rider: {order.rider_name} {order.rider_phone && `· ${order.rider_phone}`}
+                            </div>
+                          )}
+                          {order.status !== 'cancelled' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedOrderId(expandedOrderId === order.id ? null : order.id);
+                              }}
+                              style={styles.trackBtn}
+                            >
+                              {expandedOrderId === order.id ? 'Hide Live Tracking' : 'Track Live Delivery'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div style={styles.orderCardRight}>
+                        <div style={{ ...styles.statusBadge, background: statusInfo.color }}>
+                          {statusInfo.icon} {statusInfo.label}
+                        </div>
+                        <div style={styles.orderAmount}>रू {parseFloat(order.total_amount).toLocaleString()}</div>
+                        <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '500' }}>Cash on Delivery</div>
                       </div>
                     </div>
-                    <div style={styles.orderCardRight}>
-                      <div style={{ ...styles.statusBadge, background: statusInfo.color }}>
-                        {statusInfo.icon} {statusInfo.label}
-                      </div>
-                      <div style={styles.orderAmount}>रू {parseFloat(order.total_amount).toLocaleString()}</div>
-                      <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '500' }}>Cash on Delivery</div>
-                    </div>
+                    {expandedOrderId === order.id && renderDeliveryStepper(order)}
                   </div>
                 );
               })}
@@ -1179,6 +1287,104 @@ const styles = {
     alignItems: 'center',
     gap: '4px',
     marginTop: '2px',
+  },
+  orderCard: {
+    background: '#fff',
+    borderRadius: '16px',
+    padding: '24px',
+    boxShadow: '0 8px 30px rgba(0,0,0,0.04)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    border: '1px solid rgba(0,0,0,0.03)'
+  },
+  orderCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    width: '100%'
+  },
+  orderCardLeft: {
+    display: 'flex',
+    gap: '16px',
+    flex: 1,
+    minWidth: 0
+  },
+  orderCardRight: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: '8px',
+    flexShrink: 0
+  },
+  trackBtn: {
+    marginTop: '12px',
+    padding: '8px 16px',
+    background: 'linear-gradient(135deg, #F88000, #ff9f2e)',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '700',
+    fontFamily: 'Inter, sans-serif',
+    boxShadow: '0 4px 10px rgba(248,128,0,0.15)',
+    transition: 'all 0.2s ease',
+    alignSelf: 'flex-start'
+  },
+  stepperContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    padding: '20px',
+    backgroundColor: '#f8fafc',
+    borderRadius: '14px',
+    marginTop: '16px',
+    border: '1px solid #e2e8f0',
+    textAlign: 'left'
+  },
+  stepItem: {
+    display: 'flex',
+    gap: '16px'
+  },
+  stepIndicatorCol: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    width: '24px'
+  },
+  stepDot: {
+    width: '24px',
+    height: '24px',
+    borderRadius: '50%',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    zIndex: 2
+  },
+  stepLine: {
+    width: '2px',
+    flex: 1,
+    minHeight: '24px',
+    zIndex: 1,
+    marginTop: '4px',
+    marginBottom: '4px'
+  },
+  stepContentCol: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center'
+  },
+  stepLabel: {
+    fontSize: '14px',
+  },
+  stepTime: {
+    fontSize: '11px',
+    color: '#64748b',
+    marginTop: '2px'
   }
 };
 
