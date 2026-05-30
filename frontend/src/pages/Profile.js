@@ -21,8 +21,7 @@ export default function Profile() {
   }, [user]);
 
   const handleLogout = () => {
-    logout();
-    window.location.href = '/login';
+    logout(); // AuthContext handles redirect to /login
   };
 
   if (!user) {

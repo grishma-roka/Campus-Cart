@@ -8,8 +8,7 @@ const Navbar = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    logout(); // AuthContext handles redirect to /login
   };
 
   if (!isAuthenticated) return null;

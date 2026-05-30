@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../auth/AuthContext';
+import { useLocation } from 'react-router-dom';
 import LiveMap from '../components/LiveMap';
 import { Bike, Hourglass, XCircle, CheckCircle, Package, Truck, CircleDollarSign, Star, Bell, ClipboardList, Ban, MapPin, Inbox, Sun, Calendar, Trophy, BarChart2, User, Store, Clock, Banknote } from 'lucide-react';
 import io from 'socket.io-client';
 
 export default function RiderDashboard() {
   const { user } = useAuth();
+  const location = useLocation();
   const [availableDeliveries, setAvailableDeliveries] = useState([]);
   const [myDeliveries, setMyDeliveries] = useState([]);
   const [riderStatus, setRiderStatus] = useState(null);
@@ -136,6 +138,15 @@ export default function RiderDashboard() {
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Switch tab when URL rtab param changes (e.g. from notification click)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const rtab = params.get('rtab');
+    if (rtab && ['available', 'my-deliveries', 'income'].includes(rtab)) {
+      setActiveTab(rtab);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (user?.role !== 'rider') return;

@@ -134,6 +134,8 @@ export const AuthProvider = ({ children }) => {
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
     setUserRoles(null);
+    // Always redirect to login after logout
+    window.location.href = '/login';
   };
 
   const updateUserRole = (newRole) => {
