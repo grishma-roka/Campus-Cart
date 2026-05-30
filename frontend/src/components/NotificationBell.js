@@ -44,30 +44,27 @@ export default function NotificationBell() {
   const handleNotificationClick = (n) => {
     setOpen(false);
     switch (n.type) {
-      // Rider: new job available → rider dashboard, available tab
       case 'new_delivery':
         navigate('/dashboard?mode=rider&rtab=available');
         break;
-      // Rider: their delivery was accepted/in progress → my deliveries tab
       case 'picked_up':
       case 'out_for_delivery':
         navigate('/dashboard?mode=rider&rtab=my-deliveries');
         break;
-      // Seller: someone ordered their item
       case 'new_order':
         navigate('/dashboard?mode=seller');
         break;
-      // Buyer: rider accepted, picked up, on the way, delivered → orders tab
       case 'order_accepted':
       case 'order_delivered':
       case 'order_placed':
         navigate('/dashboard?mode=buyer');
         break;
-      // Borrow accepted → open conversation
       case 'borrow_accepted':
         if (n.order_id) navigate(`/messages/${n.order_id}`);
         break;
       default:
+        // Fallback: go to dashboard
+        navigate('/dashboard');
         break;
     }
   };
@@ -103,16 +100,6 @@ export default function NotificationBell() {
               <div style={s.empty}>No notifications yet</div>
             ) : (
               notifications.map(n => {
-                const isClickable =
-                  n.type === 'new_delivery' ||
-                  n.type === 'new_order' ||
-                  n.type === 'order_accepted' ||
-                  n.type === 'order_delivered' ||
-                  n.type === 'order_placed' ||
-                  n.type === 'picked_up' ||
-                  n.type === 'out_for_delivery' ||
-                  (n.type === 'borrow_accepted' && n.order_id);
-
                 const actionLabel =
                   n.type === 'new_delivery'     ? '🏍️ Accept Delivery →' :
                   n.type === 'new_order'         ? '📦 View in Seller Dashboard →' :
@@ -121,7 +108,8 @@ export default function NotificationBell() {
                   n.type === 'picked_up'         ? '🏍️ View Delivery →' :
                   n.type === 'out_for_delivery'  ? '🛵 View Delivery →' :
                   n.type === 'order_delivered'   ? '✅ View Order →' :
-                  n.type === 'borrow_accepted'   ? '💬 Start Conversation →' : null;
+                  n.type === 'borrow_accepted'   ? '💬 Start Conversation →' :
+                  '→ View';
 
                 return (
                   <div
@@ -130,10 +118,10 @@ export default function NotificationBell() {
                     style={{
                       ...s.item,
                       background: n.is_read ? '#fff' : '#fef9f0',
-                      cursor: isClickable ? 'pointer' : 'default',
+                      cursor: 'pointer',
                       transition: 'background 0.2s',
                     }}
-                    onMouseEnter={e => { if (isClickable) e.currentTarget.style.background = '#fef3e2'; }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#fef3e2'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = n.is_read ? '#fff' : '#fef9f0'; }}
                   >
                     <div style={s.itemIcon}>{typeIcon(n.type)}</div>
