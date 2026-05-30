@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  // Changed from http://localhost:5000/api to your live Render URL
+  baseURL: "https://campus-cart-on6p.onrender.com/api",
 });
 
 api.interceptors.request.use((config) => {
