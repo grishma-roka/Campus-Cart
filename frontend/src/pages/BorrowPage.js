@@ -40,7 +40,7 @@ export default function BorrowPage() {
   if (loading) return <div style={s.loading}>Loading...</div>;
 
   return (
-    <div style={s.container}>
+    <div className="borrow-container" style={s.container}>
       {/* Header */}
       <div style={s.header}>
         <div style={s.headerLeft}>
@@ -173,14 +173,14 @@ function BrowseTab({ items, userId, onRequest, onRefresh }) {
   }
 
   return (
-    <div style={s.grid}>
+    <div className="borrow-grid" style={s.grid}>
       {borrowItems.map(item => {
         const images = item.images ? (typeof item.images === 'string' ? JSON.parse(item.images) : item.images) : [];
         const img = images[0] || null;
         const isOwner = item.seller_id === userId;
 
         return (
-          <div key={item.id} style={s.card}>
+          <div key={item.id} className="borrow-card" style={s.card}>
             <div style={s.cardImg}>
               {img
                 ? <img src={img.startsWith('http') ? img : `http://localhost:5000${img}`} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

@@ -306,7 +306,7 @@ export default function BuyerDashboard() {
   }
 
   return (
-    <div style={styles.dashboardContainer}>
+    <div className="dashboard-container" style={styles.dashboardContainer}>
       {/* Cart Sidebar */}
       <CartSidebar />
 
@@ -415,9 +415,9 @@ export default function BuyerDashboard() {
 
       {/* Shop Tab */}
       {activeTab === 'shop' && (
-        <div style={styles.mainLayout}>
+        <div className="main-layout" style={styles.mainLayout}>
           {/* Sidebar */}
-          <div style={{...styles.sidebar}}>
+          <div className="sidebar" style={{...styles.sidebar}}>
           <div style={styles.sidebarHeader}>
             <h3 style={styles.sidebarTitle}>
               <LayoutGrid size={20} color="#1e293b" strokeWidth={1.5} />
@@ -506,7 +506,7 @@ export default function BuyerDashboard() {
         </div>
 
         {/* Main Content */}
-        <div style={styles.mainContent}>
+        <div className="main-content" style={styles.mainContent}>
           {/* Recent Purchases Section */}
           {myOrders.length > 0 && (
             <div style={{ marginBottom: '32px' }}>
@@ -554,20 +554,20 @@ export default function BuyerDashboard() {
           )}
 
           {/* Hero Carousel */}
-          <div style={{...styles.heroSection, background: '#FFFFFF', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.05)', position: 'relative', zIndex: 1}}>
-            <div style={styles.carousel}>
+          <div className="hero-section" style={{...styles.heroSection, background: '#FFFFFF', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.05)', position: 'relative', zIndex: 1}}>
+            <div className="carousel" style={styles.carousel}>
               <div style={styles.carouselSlide}>
                 <div style={styles.slideBackground}></div>
                 <div style={styles.slideOverlay}>
                   <div style={styles.slideContent}>
-                    <h2 style={styles.slideTitle}>Welcome to Campus Cart!</h2>
-                    <p style={styles.slideSubtitle}>Your premium student marketplace</p>
-                    <div style={styles.slideStats}>
-                      <div style={styles.statBadge}>
+                    <h2 className="slide-title" style={styles.slideTitle}>Welcome to Campus Cart!</h2>
+                    <p className="slide-subtitle" style={styles.slideSubtitle}>Your premium student marketplace</p>
+                    <div className="slide-stats" style={styles.slideStats}>
+                      <div className="stat-badge" style={styles.statBadge}>
                         <span style={styles.statNumber}>{buyOnlyItems.length}</span>
                         <span style={styles.statText}>Items Available</span>
                       </div>
-                      <div style={styles.statBadge}>
+                      <div className="stat-badge" style={styles.statBadge}>
                         <span style={styles.statNumber}>{categories.length}</span>
                         <span style={styles.statText}>Categories</span>
                       </div>
@@ -579,8 +579,8 @@ export default function BuyerDashboard() {
           </div>
 
           {/* Products Grid */}
-          <div style={styles.productsSection}>
-            <h3 style={styles.sectionTitle}>
+          <div className="products-section" style={styles.productsSection}>
+            <h3 className="section-title" style={styles.sectionTitle}>
               {debouncedSearchTerm ? (
                 <>Search results for "{debouncedSearchTerm}"</>
               ) : categoryFilter ? (
@@ -597,7 +597,7 @@ export default function BuyerDashboard() {
               ({buyOnlyItems.length})
             </h3>
             
-            <div style={styles.productsGrid}>
+            <div className="products-grid" style={styles.productsGrid}>
               {buyOnlyItems
                 .filter(item => !categoryFilter || item.category === categoryFilter)
                 .map(item => {
@@ -606,7 +606,7 @@ export default function BuyerDashboard() {
                 const isSold = item.is_sold || false;
                 
                 return (
-                  <div key={item.id} style={styles.productCard}>
+                  <div key={item.id} className="product-card" style={styles.productCard}>
                     <div 
                       style={styles.imageWrapper}
                       onClick={() => navigate(`/product/${item.id}`)}
@@ -625,15 +625,15 @@ export default function BuyerDashboard() {
                     </div>
                     
                     <div style={styles.productInfo}>
-                      <h4 style={styles.productTitle}>{item.title}</h4>
-                      <p style={styles.productDescription}>
+                      <h4 className="product-title" style={styles.productTitle}>{item.title}</h4>
+                      <p className="product-description" style={styles.productDescription}>
                         {item.description.length > 80 ? 
                           item.description.substring(0, 80) + '...' : 
                           item.description
                         }
                       </p>
                       
-                      <div style={styles.productPricing}>
+                      <div className="product-pricing" style={styles.productPricing}>
                         <span style={styles.priceAmount}>रू {item.price.toLocaleString()}</span>
                         {isSold ? (
                           <span style={styles.soldStatusBadge}>Sold</span>
@@ -644,9 +644,10 @@ export default function BuyerDashboard() {
                       
                       {/* Button Group */}
                       {!isSold && (
-                        <div style={styles.productButtonGroup}>
+                        <div className="product-button-group" style={styles.productButtonGroup}>
                           <button 
                             onClick={() => handleAddToCart(item)}
+                            className="add-to-cart-button"
                             style={{
                               ...styles.addToCartButton,
                               ...(addingToCart === item.id ? styles.flashingButton : {}),
@@ -663,6 +664,7 @@ export default function BuyerDashboard() {
                           </button>
                           <button 
                             onClick={() => handleBuyNow(item)}
+                            className="buy-now-button"
                             style={{...styles.buyNowButton, flex: 1}}
                           >
                             Buy Now

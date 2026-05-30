@@ -558,15 +558,15 @@ body {
 
 @media (max-width: 768px) {
   .carousel {
-    height: 280px !important;
+    height: 200px !important;
   }
   
   .slide-title {
-    font-size: 1.75rem !important;
+    font-size: 1.5rem !important;
   }
   
   .slide-subtitle {
-    font-size: 1rem !important;
+    font-size: 0.9rem !important;
   }
   
   .hero-actions {
@@ -574,13 +574,15 @@ body {
   }
   
   .slide-stats {
-    flex-direction: column;
+    flex-direction: row !important;
     gap: var(--spacing-sm);
+    justify-content: center !important;
   }
   
   .stat-badge {
-    width: 100%;
-    min-width: auto;
+    width: auto !important;
+    min-width: auto !important;
+    padding: 8px 12px !important;
   }
   
   .category-meta {
@@ -589,5 +591,85 @@ body {
   
   .price-range {
     display: none;
+  }
+
+  /* PWA Mobile App Layout Overrides */
+  .dashboard-container,
+  .seller-container,
+  .borrow-container {
+    padding: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .main-layout {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 16px !important;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    position: static !important;
+    height: auto !important;
+    padding: 16px !important;
+    margin-bottom: 0 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+  }
+
+  .main-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  /* Grid Layouts to 1 Column */
+  .products-grid,
+  .seller-items-grid,
+  .borrow-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    width: 100% !important;
+  }
+
+  .product-card {
+    padding: 16px !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Responsive Typography Scaling */
+  h1, .heading-xl {
+    font-size: 1.8rem !important;
+  }
+  h2, .heading-lg {
+    font-size: 1.5rem !important;
+  }
+  h3, .heading-md {
+    font-size: 1.25rem !important;
+  }
+  .product-title {
+    font-size: 1.1rem !important;
+  }
+  .product-description {
+    font-size: 0.85rem !important;
+  }
+
+  /* Product Cards Button Responsiveness */
+  .product-button-group {
+    flex-direction: row !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .add-to-cart-button,
+  .buy-now-button {
+    padding: 10px !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* Stepper / Timeline responsiveness */
+  .stepItem {
+    gap: 12px !important;
   }
 }

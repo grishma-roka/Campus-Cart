@@ -213,7 +213,7 @@ export default function SellerDashboard() {
   }
 
   return (
-    <div style={styles.container}>
+    <div className="seller-container" style={styles.container}>
       <div style={styles.header}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div style={{ textAlign: 'left' }}>
@@ -417,7 +417,7 @@ export default function SellerDashboard() {
             </div>
           )}
 
-          <div style={styles.itemsGrid}>
+          <div className="seller-items-grid" style={styles.itemsGrid}>
             {items.map(item => {
               const mainImage = getSafeImageUrl(item.images);
               
