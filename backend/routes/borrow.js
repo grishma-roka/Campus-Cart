@@ -35,7 +35,7 @@ router.post('/items', auth, upload.single('image'), async (req, res) => {
 
     let imageArray = [];
     if (req.file) {
-      imageArray = [ `/uploads/items/${req.file.filename}` ];
+      imageArray = [ req.file.path ];
     } else if (req.body.image) {
       // Fallback for string URL if still sent
       imageArray = [ req.body.image ];

@@ -101,7 +101,7 @@ router.post('/add', auth, requireRole(['seller']), upload.single('image'), async
     
     // 1. Optional Image Check
     const imagesValue = req.file 
-      ? JSON.stringify(['/uploads/' + req.file.filename]) 
+      ? JSON.stringify([req.file.path]) 
       : '[]';
 
     // 2. Validate Other Inputs
@@ -286,7 +286,7 @@ router.put('/:id', auth, requireRole(['seller']), upload.single('image'), async 
 
     if (req.file) {
       query += `, images = ?`;
-      params.push(JSON.stringify([ `/uploads/items/${req.file.filename}` ]));
+      params.push(JSON.stringify([ req.file.path ]));
     }
 
     query += ` WHERE id = ? AND seller_id = ?`;

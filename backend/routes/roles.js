@@ -95,7 +95,7 @@ router.post('/apply-rider', auth, upload.single('license_image'), async (req, re
     // Support file uploads directly or falback to old URL logic
     let license_image = req.body.license_image;
     if (req.file) {
-      license_image = `/uploads/${req.file.filename}`;
+      license_image = req.file.path;
     }
 
     // Validate required fields

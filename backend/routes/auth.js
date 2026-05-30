@@ -118,7 +118,7 @@ router.post('/register-rider', upload.single('license_image'), async (req, res) 
       });
     }
 
-    const license_image = `/uploads/licenses/${req.file.filename}`;
+    const license_image = req.file.path;
     const fullImagePath = req.file.path;
 
     console.log('💾 Processing license image with OCR...');
@@ -507,15 +507,23 @@ router.get('/income-summary', authMiddleware, async (req, res) => {
 });
 
 /* ---------------------- UPDATE PROFILE ---------------------- */
-router.put('/profile', authMiddleware, async (req, res) => {
+router.put('/profile', authMiddleware, upload.single('profile_image'), async (req, res) => {
   try {
     const { full_name, phone } = req.body;
     const userId = req.user.id;
 
-    await db.query(
-      "UPDATE users SET full_name = ?, phone = ? WHERE id = ?",
-      [full_name, phone, userId]
-    );
+    if (req.file) {
+      const profile_image = req.file.path;
+      await db.query(
+        "UPDATE users SET full_name = ?, phone = ?, profile_image = ? WHERE id = ?",
+        [full_name, phone, profile_image, userId]
+      );
+    } else {
+      await db.query(
+        "UPDATE users SET full_name = ?, phone = ? WHERE id = ?",
+        [full_name, phone, userId]
+      );
+    }
 
     res.json({ message: "Profile updated successfully" });
 

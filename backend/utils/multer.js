@@ -1,40 +1,40 @@
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 
-// Ensure upload directories exist
-const createDir = (dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-};
+// 1. Connect to your Cloudinary account
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    let uploadPath = 'uploads/';
-    
-    // Choose subfolder based on request
-    if (req.originalUrl.includes('items')) {
-      uploadPath += 'items/';
-    } else if (req.originalUrl.includes('profile')) {
-      uploadPath += 'profiles/';
-    } else {
-      uploadPath += 'misc/';
+// 2. Setup the dynamic Cloudinary storage configuration
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    // This function replaces your old destination logic!
+    folder: (req, file) => {
+      if (req.originalUrl.includes('items')) {
+        return 'campus_cart/items';
+      } else if (req.originalUrl.includes('profile')) {
+        return 'campus_cart/profiles';
+      } else {
+        return 'campus_cart/misc';
+      }
+    },
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+    public_id: (req, file) => {
+      // Create a clean, unique file name
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      const cleanName = file.originalname.replace(/\s+/g, '_').toLowerCase().split('.')[0];
+      return `${uniqueSuffix}-${cleanName}`;
     }
-    
-    createDir(uploadPath);
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    // Clean filename: timestamp-originalName (no spaces)
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const cleanName = file.originalname.replace(/\s+/g, '_').toLowerCase();
-    cb(null, uniqueSuffix + '-' + cleanName);
   }
 });
 
+// 3. Keep your original image-only check
 const fileFilter = (req, file, cb) => {
-  // Accept images only
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
@@ -42,6 +42,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
+// 4. Export the configured upload instance
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,

@@ -25,7 +25,7 @@ router.post('/send', auth, upload.single('image'), async (req, res) => {
     let image_url = null;
 
     if (req.file) {
-      image_url = '/uploads/' + req.file.filename;
+      image_url = req.file.path;
     }
 
     if ((!message || !message.trim()) && !image_url) {
