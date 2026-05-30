@@ -63,11 +63,14 @@ router.get('/available', auth, requireRole(['rider']), async (req, res) => {
       SELECT d.*, o.total_amount, o.delivery_address, o.payment_method,
              o.delivery_lat, o.delivery_lng,
              i.title as item_title, i.images as item_images,
-             u.full_name as buyer_name, u.phone as buyer_phone
+             ub.full_name as buyer_name, ub.phone as buyer_phone,
+             us.full_name as seller_name, us.phone as seller_phone,
+             d.pickup_address
       FROM deliveries d
       JOIN orders o ON d.order_id = o.id
       JOIN items i ON o.item_id = i.id
-      JOIN users u ON o.buyer_id = u.id
+      JOIN users ub ON o.buyer_id = ub.id
+      JOIN users us ON o.seller_id = us.id
       WHERE d.status = 'pending' AND d.rider_id IS NULL
       ORDER BY d.created_at ASC
     `);

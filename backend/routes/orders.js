@@ -334,8 +334,8 @@ router.put('/cancel/:id', auth, async (req, res) => {
   }
 });
 
-// SEARCH FOR RIDERS — seller triggers this to notify ALL active riders and create a delivery record
-router.post('/search-riders/:orderId', auth, async (req, res) => {
+// READY FOR PICKUP — seller marks item as ready, notifies all riders
+router.post('/ready-for-pickup/:orderId', auth, async (req, res) => {
   try {
     const orderId = req.params.orderId;
 
@@ -400,8 +400,8 @@ router.post('/search-riders/:orderId', auth, async (req, res) => {
         "INSERT INTO notifications (user_id, title, message, type, order_id) VALUES (?, ?, ?, ?, ?)",
         [
           rider.id,
-          '🛵 New Delivery Request!',
-          `Order: "${order.item_title}"\nPickup from: ${sellerName} (${sellerPhone})\nDeliver to: ${order.delivery_address}\nBuyer: ${order.buyer_name} (${order.buyer_phone || 'N/A'})\nAmount: रू ${order.total_amount}\n\nOpen your Rider Dashboard to accept!`,
+          '📦 Item Ready for Pickup!',
+          `"${order.item_title}" is packed and ready.\nPickup from: ${sellerName} (${sellerPhone})\nDeliver to: ${order.delivery_address}\nBuyer: ${order.buyer_name} (${order.buyer_phone || 'N/A'})\nAmount: रू ${order.total_amount}\n\nOpen your Rider Dashboard to accept!`,
           'new_delivery',
           orderId
         ]
@@ -415,7 +415,7 @@ router.post('/search-riders/:orderId', auth, async (req, res) => {
         product_name: order.item_title,
         buyer_name: order.buyer_name,
         seller_name: sellerName,
-        pickup_location: item.pickup_location || `${sellerName} (Campus Cart Seller)`,
+        pickup_location: `${sellerName} (Campus Cart Seller)`,
         delivery_location: order.delivery_address,
         payment_method: order.payment_method,
         order_amount: order.total_amount,

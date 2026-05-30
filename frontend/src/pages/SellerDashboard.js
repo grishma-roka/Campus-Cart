@@ -112,7 +112,7 @@ export default function SellerDashboard() {
 
   const handleSearchRiders = async (orderId) => {
     try {
-      const res = await axios.post(`/orders/search-riders/${orderId}`);
+      const res = await axios.post(`/orders/ready-for-pickup/${orderId}`);
       alert(`✅ ${res.data.message}`);
     } catch (error) {
       alert('Failed: ' + (error.response?.data?.error || error.message));
@@ -580,12 +580,12 @@ export default function SellerDashboard() {
                       <div style={{ marginTop: '12px' }}>
                         <button
                           onClick={() => handleSearchRiders(order.id)}
-                          style={{ ...styles.confirmButton, background: '#F88000', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', width: '100%' }}
+                          style={{ ...styles.confirmButton, background: '#10b981', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', width: '100%' }}
                         >
-                          🔍 Search for Riders
+                          📦 Ready for Pickup
                         </button>
                         <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px', textAlign: 'center' }}>
-                          Notify available riders about this delivery
+                          Notify riders — item is packed and ready to collect
                         </p>
                       </div>
                     )}

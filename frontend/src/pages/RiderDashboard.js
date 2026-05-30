@@ -800,9 +800,10 @@ function AvailableDeliveryCard({ delivery: d, onAccept, accepting }) {
         <h3 style={s.cardTitle}>{d.item_title}</h3>
 
         <div style={s.infoRow}><span style={s.infoIcon}><User size={14} /></span><span>{d.buyer_name}</span></div>
-        <div style={s.infoRow}><span style={s.infoIcon}><MapPin size={14} /></span><span style={s.infoText}>{d.delivery_address}</span></div>
+        <div style={s.infoRow}><span style={s.infoIcon}><Store size={14} /></span><span style={{ color: '#F88000', fontWeight: '600' }}>Pickup: {d.pickup_address || d.seller_name || 'Seller location'}</span></div>
+        <div style={s.infoRow}><span style={s.infoIcon}><MapPin size={14} /></span><span style={s.infoText}>Deliver to: {d.delivery_address}</span></div>
         <div style={s.infoRow}><span style={s.infoIcon}><CircleDollarSign size={14} /></span><span>रू {d.total_amount} &nbsp;·&nbsp; {paymentLabel(d.payment_method)}</span></div>
-        <div style={s.infoRow}><span style={s.infoIcon}><Truck size={14} /></span><span>Delivery fee: रू {d.delivery_fee}</span></div>
+        <div style={s.infoRow}><span style={s.infoIcon}><Truck size={14} /></span><span>Your fee: रू {d.delivery_fee}</span></div>
         <div style={s.infoRow}><span style={s.infoIcon}><Clock size={14} /></span><span style={{ color: '#94a3b8', fontSize: '12px' }}>
           Posted {ageMin < 1 ? 'just now' : `${ageMin} min ago`}
         </span></div>
