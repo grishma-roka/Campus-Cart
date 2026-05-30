@@ -20,19 +20,30 @@ app.set('io', io);
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
+  // ── Per-conversation room (chat) ────────────────────────────────────────────
   socket.on('join_conversation', (conversationId) => {
     socket.join(`conversation_${conversationId}`);
     console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
   });
 
+  // ── Per-order room (legacy delivery tracking) ───────────────────────────────
   socket.on('join_order', (orderId) => {
     socket.join(`order_${orderId}`);
     console.log(`Socket ${socket.id} joined order ${orderId}`);
   });
 
+  // ── Riders broadcast room ───────────────────────────────────────────────────
   socket.on('join_riders', () => {
     socket.join('riders');
     console.log(`Socket ${socket.id} joined riders room`);
+  });
+
+  // ── Per-user private room — buyers & sellers join this for direct targeting ─
+  socket.on('join_user_room', (userId) => {
+    if (userId) {
+      socket.join(`user_${userId}`);
+      console.log(`Socket ${socket.id} joined user room user_${userId}`);
+    }
   });
 
   socket.on('disconnect', () => {
@@ -115,6 +126,18 @@ async function runMigrations() {
   await run("ALTER TABLE orders ADD COLUMN payment_status ENUM('pending','paid','failed','refunded') DEFAULT 'pending'");
   await run("ALTER TABLE orders ADD COLUMN transaction_id VARCHAR(100) DEFAULT NULL");
   await run("ALTER TABLE orders ADD COLUMN paid_amount DECIMAL(10,2) DEFAULT NULL");
+
+  // ── Delivery pipeline additions ────────────────────────────────────────────
+  // Seller's pickup point on each item listing
+  await run("ALTER TABLE items ADD COLUMN pickup_location VARCHAR(255) DEFAULT NULL");
+
+  // Delivery fee stored per order (computed at checkout time)
+  await run("ALTER TABLE orders ADD COLUMN delivery_fee DECIMAL(10,2) DEFAULT 0.00");
+
+  // Wallet balance for sellers and riders (credited on delivery completion)
+  await run("ALTER TABLE users ADD COLUMN balance DECIMAL(10,2) DEFAULT 0.00");
+
+  console.log('✅ Delivery pipeline schema ready');
 
   // ── transactions table ─────────────────────────────────────────────────────
   try {

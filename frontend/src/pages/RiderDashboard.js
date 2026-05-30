@@ -12,6 +12,7 @@ export default function RiderDashboard() {
   const [riderStatus, setRiderStatus] = useState(null);
   const [stats, setStats] = useState(null);
   const [income, setIncome] = useState(null);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('available');
   const [showRiderRequest, setShowRiderRequest] = useState(false);
@@ -103,11 +104,12 @@ export default function RiderDashboard() {
       setRiderStatus(statusRes.data);
 
       if (user?.role === 'rider') {
-        const [availableRes, myDeliveriesRes, statsRes, incomeRes] = await Promise.all([
+        const [availableRes, myDeliveriesRes, statsRes, incomeRes, walletRes] = await Promise.all([
           axios.get('/delivery/available'),
           axios.get('/delivery/my-deliveries'),
           axios.get('/rider/stats'),
           axios.get('/rider/income'),
+          axios.get('/rider/wallet'),
         ]);
         // Always normalize to array
         const rawAvail = availableRes.data;
@@ -124,6 +126,7 @@ export default function RiderDashboard() {
         setMyDeliveries(Array.isArray(myDeliveriesRes.data) ? myDeliveriesRes.data : []);
         setStats(statsRes.data);
         setIncome(incomeRes.data);
+        setWalletBalance(walletRes.data?.balance || 0);
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -556,7 +559,7 @@ export default function RiderDashboard() {
       )}
 
       {/* Income */}
-      {activeTab === 'income' && <IncomePanel income={income} />}
+      {activeTab === 'income' && <IncomePanel income={income} walletBalance={walletBalance} />}
     </div>
   );
 }
@@ -631,7 +634,7 @@ function LocationPanel({ locationPermission, coords, address, riderAvailability,
 }
 
 // ─── Income Panel ──────────────────────────────────────────────────────────────
-function IncomePanel({ income }) {
+function IncomePanel({ income, walletBalance }) {
   if (!income) return <div style={s.emptyState}><div style={s.emptyIcon}><CircleDollarSign size={48} color="#94a3b8" /></div><p>Loading income data...</p></div>;
 
   const { periods, history, daily } = income;
@@ -656,6 +659,40 @@ function IncomePanel({ income }) {
 
   return (
     <div>
+      {/* Wallet Balance Card */}
+      <div style={{
+        background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+        borderRadius: '20px',
+        padding: '28px 32px',
+        marginBottom: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.15)'
+      }}>
+        <div>
+          <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>
+            Wallet Balance
+          </div>
+          <div style={{ fontSize: '36px', fontWeight: '800', color: '#fff', letterSpacing: '-1px' }}>
+            रू {parseFloat(walletBalance || 0).toLocaleString()}
+          </div>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+            Earned from completed deliveries
+          </div>
+        </div>
+        <div style={{
+          background: 'rgba(248,128,0,0.15)',
+          borderRadius: '16px',
+          padding: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <CircleDollarSign size={40} color="#F88000" strokeWidth={1.5} />
+        </div>
+      </div>
+
       {/* Period cards */}
       <div style={s.incomeGrid}>
         {periodCards.map(pc => (

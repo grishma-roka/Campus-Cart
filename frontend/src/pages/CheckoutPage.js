@@ -40,6 +40,8 @@ export default function CheckoutPage() {
   
   const [errors, setErrors] = useState({});
   const [deliveryCoords, setDeliveryCoords] = useState({ lat: null, lng: null });
+  const [deliveryFeeEstimate, setDeliveryFeeEstimate] = useState({ delivery_fee: 40, distance_km: 1.5 });
+  const [feeLoading, setFeeLoading] = useState(false);
   const esewaFormRef = useRef(null);
 
   useEffect(() => {
@@ -85,6 +87,29 @@ export default function CheckoutPage() {
       }));
     }
   }, [user]);
+
+  // Debounced delivery fee estimate
+  useEffect(() => {
+    if (!item || !formData.deliveryLocation) return;
+    const timer = setTimeout(async () => {
+      try {
+        setFeeLoading(true);
+        const res = await axios.get('/orders/estimate-fee', {
+          params: {
+            pickup_location: item.pickup_location || '',
+            delivery_address: formData.deliveryLocation
+          }
+        });
+        setDeliveryFeeEstimate(res.data);
+      } catch (e) {
+        // Fallback to default
+        setDeliveryFeeEstimate({ delivery_fee: 40, distance_km: 1.5 });
+      } finally {
+        setFeeLoading(false);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [formData.deliveryLocation, item]);
 
   const fetchItemDetails = async () => {
     try {
@@ -250,7 +275,9 @@ export default function CheckoutPage() {
     mainImage = `http://localhost:5000${mainImage}`;
   }
 
-  const totalAmount = item.price;
+  const itemPrice = parseFloat(item.price) || 0;
+  const deliveryFee = deliveryFeeEstimate.delivery_fee || 40;
+  const totalAmount = itemPrice + deliveryFee;
 
   return (
     <div style={styles.container}>
@@ -409,7 +436,19 @@ export default function CheckoutPage() {
               <div style={styles.priceBreakdown}>
                 <div style={styles.priceRow}>
                   <span style={styles.priceLabel}>Item Price</span>
-                  <span style={styles.priceValue}>रू {item.price?.toLocaleString()}</span>
+                  <span style={styles.priceValue}>रू {itemPrice.toLocaleString()}</span>
+                </div>
+                <div style={styles.priceRow}>
+                  <span style={styles.priceLabel}>
+                    🛵 Delivery Fee
+                    {deliveryFeeEstimate.distance_km && (
+                      <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '6px' }}>
+                        ({deliveryFeeEstimate.distance_km} km)
+                      </span>
+                    )}
+                    {feeLoading && <span style={{ fontSize: '11px', color: '#F88000', marginLeft: '6px' }}>estimating...</span>}
+                  </span>
+                  <span style={{ ...styles.priceValue, color: '#F88000' }}>रू {deliveryFee}</span>
                 </div>
                 <div style={styles.totalRow}>
                   <span style={styles.totalLabel}>Total Amount</span>

@@ -28,6 +28,7 @@ export default function BuyerDashboard() {
   const [activeTab, setActiveTab] = useState('shop'); // shop | orders
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const socketRef = useRef(null);
+  const [toastNotification, setToastNotification] = useState(null);
   
   const backendUrl = 'http://localhost:5000';
 
@@ -95,6 +96,12 @@ export default function BuyerDashboard() {
   useEffect(() => {
     socketRef.current = io(axios.defaults.baseURL?.replace('/api', '') || 'http://localhost:5000');
 
+    // Join the buyer's private room for targeted notifications
+    if (user?.id) {
+      socketRef.current.emit('join_user_room', user.id);
+    }
+
+    // Legacy per-order room listener
     socketRef.current.on('delivery_status_updated', (data) => {
       setMyOrders((prevOrders) =>
         prevOrders.map((order) => {
@@ -118,10 +125,44 @@ export default function BuyerDashboard() {
       );
     });
 
+    // ✨ Direct buyer-targeted ORDER_STATUS_UPDATED with toast notification
+    socketRef.current.on('ORDER_STATUS_UPDATED', (data) => {
+      // Update order state
+      setMyOrders((prevOrders) =>
+        prevOrders.map((order) => {
+          if (order.id === data.order_id) {
+            return {
+              ...order,
+              status: data.order_status,
+              delivery_status: data.delivery_status,
+              rider_name: data.rider_name,
+              rider_phone: data.rider_phone,
+              pickup_time: data.pickup_time,
+              delivery_time: data.delivery_time,
+              accepted_at: data.accepted_at,
+              picked_up_at: data.picked_up_at,
+              out_for_delivery_at: data.out_for_delivery_at,
+              delivered_at: data.delivered_at,
+            };
+          }
+          return order;
+        })
+      );
+
+      // Show toast notification
+      if (data.message) {
+        setToastNotification(data.message);
+        setTimeout(() => setToastNotification(null), 6000);
+      }
+
+      // Auto-switch to orders tab when status update received
+      setActiveTab('orders');
+    });
+
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
     };
-  }, []);
+  }, [user]);
 
   // Join Socket.io rooms for all retrieved orders
   useEffect(() => {
@@ -309,6 +350,20 @@ export default function BuyerDashboard() {
     <div className="dashboard-container" style={styles.dashboardContainer}>
       {/* Cart Sidebar */}
       <CartSidebar />
+
+      {/* ── Toast Notification ── */}
+      {toastNotification && (
+        <div style={styles.toast}>
+          <span style={{ fontSize: '18px' }}>🛵</span>
+          <span style={{ flex: 1 }}>{toastNotification}</span>
+          <button
+            onClick={() => setToastNotification(null)}
+            style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Tab Switcher */}
       <div style={styles.tabBar}>
@@ -717,6 +772,28 @@ export default function BuyerDashboard() {
 }
 
 const styles = {
+  // Toast notification
+  toast: {
+    position: 'fixed',
+    bottom: '90px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+    color: '#fff',
+    padding: '14px 20px',
+    borderRadius: '16px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    fontSize: '14px',
+    fontWeight: '600',
+    zIndex: 9999,
+    maxWidth: '420px',
+    width: 'calc(100% - 48px)',
+    borderLeft: '4px solid #F88000',
+    animation: 'slideUp 0.3s ease'
+  },
   // Main Container
   dashboardContainer: {
     fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -1401,6 +1478,12 @@ styleSheet.textContent = `
   @keyframes pulse {
     0%, 100% { transform: scale(1.05); }
     50% { transform: scale(1.1); }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
   }
   
   @keyframes flyToCart {

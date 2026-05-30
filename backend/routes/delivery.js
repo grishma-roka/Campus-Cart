@@ -175,7 +175,7 @@ router.put('/accept/:id', auth, requireRole(['rider']), async (req, res) => {
 
         await createNotification(
           buyer_id,
-          '🏍️ Order Accepted',
+          '🏔️ Order Accepted',
           notifMsg,
           'order_accepted',
           deliveryRows[0].order_id
@@ -183,7 +183,7 @@ router.put('/accept/:id', auth, requireRole(['rider']), async (req, res) => {
 
         await createNotification(
           seller_id,
-          '🏍️ Order Accepted',
+          '🏔️ Order Accepted',
           notifMsg,
           'order_accepted',
           deliveryRows[0].order_id
@@ -191,14 +191,22 @@ router.put('/accept/:id', auth, requireRole(['rider']), async (req, res) => {
 
         const io = req.app.get('io');
         if (io) {
-          // Emit socket event to the order room
-          io.to(`order_${deliveryRows[0].order_id}`).emit('delivery_status_updated', {
+          const statusPayload = {
             order_id: deliveryRows[0].order_id,
             order_status: 'assigned',
             delivery_status: 'assigned',
-            rider_name: rider_name,
-            rider_phone: rider_phone,
+            rider_name,
+            rider_phone,
             accepted_at: new Date().toISOString()
+          };
+
+          // Emit to per-order room (legacy)
+          io.to(`order_${deliveryRows[0].order_id}`).emit('delivery_status_updated', statusPayload);
+
+          // ✨ Emit directly to buyer's private user room
+          io.to(`user_${buyer_id}`).emit('ORDER_STATUS_UPDATED', {
+            ...statusPayload,
+            message: `🏔️ A rider has accepted your order for "${item_title}"!`
           });
 
           // Broadcast to riders to remove the request in real-time
@@ -333,7 +341,7 @@ router.put('/status/:id', auth, requireRole(['rider']), async (req, res) => {
       [status, delivery.order_id]
     );
 
-    // If delivered, set rider back to available
+    // If delivered, set rider back to available AND execute wallet payout
     if (status === 'delivered') {
       await conn.query(
         `UPDATE users SET rider_availability = 'available' WHERE id = ?`,
@@ -345,7 +353,8 @@ router.put('/status/:id', auth, requireRole(['rider']), async (req, res) => {
 
     // Fetch updated details to broadcast real-time socket events
     const [orderRows] = await db.query(
-      `SELECT o.buyer_id, o.seller_id, i.title as item_title, u.full_name as rider_name, u.phone as rider_phone
+      `SELECT o.buyer_id, o.seller_id, o.total_amount, o.delivery_fee,
+              i.title as item_title, u.full_name as rider_name, u.phone as rider_phone
        FROM orders o
        JOIN items i ON o.item_id = i.id
        JOIN users u ON u.id = ?
@@ -360,7 +369,33 @@ router.put('/status/:id', auth, requireRole(['rider']), async (req, res) => {
     const updatedDelivery = updatedDeliveryRows[0];
 
     if (orderRows.length) {
-      const { buyer_id, seller_id, item_title, rider_name, rider_phone } = orderRows[0];
+      const { buyer_id, seller_id, item_title, rider_name, rider_phone, total_amount, delivery_fee } = orderRows[0];
+
+      // ── Wallet Payout on Delivery ──────────────────────────────────────────
+      if (status === 'delivered') {
+        try {
+          // Credit seller with the item cost
+          await db.query(
+            `UPDATE users SET balance = balance + ? WHERE id = ?`,
+            [parseFloat(total_amount) || 0, seller_id]
+          );
+          // Credit rider with the delivery fee
+          await db.query(
+            `UPDATE users SET balance = balance + ? WHERE id = ?`,
+            [parseFloat(delivery_fee) || 0, riderId]
+          );
+          console.log(`💰 Wallet payout: seller ${seller_id} +${total_amount}, rider ${riderId} +${delivery_fee}`);
+        } catch (payoutErr) {
+          console.error('Wallet payout error (non-fatal):', payoutErr.message);
+        }
+      }
+
+      // Toast messages per status
+      const toastMessages = {
+        picked_up: `📦 Your item "${item_title}" has been picked up by ${rider_name}!`,
+        out_for_delivery: `🏔️ Your order "${item_title}" is on the way!`,
+        delivered: `✅ Your order "${item_title}" has been delivered. Enjoy!`
+      };
 
       // Add database notifications
       try {
@@ -370,21 +405,29 @@ router.put('/status/:id', auth, requireRole(['rider']), async (req, res) => {
         console.error('Notification db logging failed:', notifErr.message);
       }
 
-      // Emit real-time Socket.io update to room order_${orderId}
+      const statusPayload = {
+        order_id: delivery.order_id,
+        order_status: status,
+        delivery_status: status,
+        rider_name,
+        rider_phone,
+        pickup_time: updatedDelivery.pickup_time,
+        delivery_time: updatedDelivery.delivery_time,
+        accepted_at: updatedDelivery.accepted_at,
+        picked_up_at: updatedDelivery.picked_up_at,
+        out_for_delivery_at: updatedDelivery.out_for_delivery_at,
+        delivered_at: updatedDelivery.delivered_at
+      };
+
       const io = req.app.get('io');
       if (io) {
-        io.to(`order_${delivery.order_id}`).emit('delivery_status_updated', {
-          order_id: delivery.order_id,
-          order_status: status,
-          delivery_status: status,
-          rider_name: rider_name,
-          rider_phone: rider_phone,
-          pickup_time: updatedDelivery.pickup_time,
-          delivery_time: updatedDelivery.delivery_time,
-          accepted_at: updatedDelivery.accepted_at,
-          picked_up_at: updatedDelivery.picked_up_at,
-          out_for_delivery_at: updatedDelivery.out_for_delivery_at,
-          delivered_at: updatedDelivery.delivered_at
+        // Emit to order room (legacy)
+        io.to(`order_${delivery.order_id}`).emit('delivery_status_updated', statusPayload);
+
+        // ✨ Emit directly to buyer's private user room
+        io.to(`user_${buyer_id}`).emit('ORDER_STATUS_UPDATED', {
+          ...statusPayload,
+          message: toastMessages[status] || `Status updated: ${status}`
         });
       }
     }

@@ -3,6 +3,19 @@ const router = express.Router();
 const db = require('../config/db');
 const auth = require('../middlewares/authMiddleware');
 const requireRole = require('../middlewares/roleMiddleware');
+const { estimateDelivery } = require('../utils/fareEstimator');
+
+// ── DELIVERY FEE ESTIMATE (call before placing order) ─────────────────────────
+// GET /api/orders/estimate-fee?pickup_location=...&delivery_address=...
+router.get('/estimate-fee', auth, async (req, res) => {
+  try {
+    const { pickup_location, delivery_address } = req.query;
+    const estimate = estimateDelivery(pickup_location || '', delivery_address || '');
+    res.json(estimate);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to estimate fee' });
+  }
+});
 
 // CREATE ORDER (BUY ITEM)
 router.post('/create', auth, async (req, res) => {
@@ -29,6 +42,10 @@ router.post('/create', auth, async (req, res) => {
     const total_amount = item.price;
     const pm = payment_method || 'cod';
 
+    // ── Compute delivery fee ─────────────────────────────────────────────
+    const pickupLocation = item.pickup_location || 'Campus';
+    const { distance_km, delivery_fee } = estimateDelivery(pickupLocation, delivery_address || '');
+
     // Mark item as sold
     await db.query(`
       UPDATE items 
@@ -36,25 +53,24 @@ router.post('/create', auth, async (req, res) => {
       WHERE id = ?
     `, [buyer_id, item_id]);
 
-    // Create order — store coords + payment method
+    // Create order — store coords + payment method + delivery_fee
     const [result] = await db.query(`
       INSERT INTO orders (buyer_id, seller_id, item_id, quantity, total_amount, delivery_address,
-                          delivery_lat, delivery_lng, payment_method, phone, status)
-      VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 'confirmed')
+                          delivery_lat, delivery_lng, payment_method, phone, status, delivery_fee)
+      VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 'confirmed', ?)
     `, [buyer_id, item.seller_id, item_id, total_amount, delivery_address,
-        delivery_lat || null, delivery_lng || null, pm, phone || null]);
+        delivery_lat || null, delivery_lng || null, pm, phone || null, delivery_fee]);
 
     // Get seller info for pickup address
     const [sellerRows] = await db.query("SELECT full_name, phone FROM users WHERE id = ?", [item.seller_id]);
     const sellerName = sellerRows[0]?.full_name || 'Seller';
     const sellerPhone = sellerRows[0]?.phone || 'N/A';
-    const pickupAddress = `${sellerName} (Campus Cart Seller)`;
 
-    // Create delivery record with coords
+    // Create delivery record with coords and fee
     await db.query(`
-      INSERT INTO deliveries (order_id, pickup_address, delivery_address, delivery_lat, delivery_lng)
-      VALUES (?, ?, ?, ?, ?)
-    `, [result.insertId, pickupAddress, delivery_address, delivery_lat || null, delivery_lng || null]);
+      INSERT INTO deliveries (order_id, pickup_address, delivery_address, delivery_lat, delivery_lng, delivery_fee)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [result.insertId, pickupLocation, delivery_address, delivery_lat || null, delivery_lng || null, delivery_fee]);
 
     // Get buyer info
     const [buyerRows] = await db.query("SELECT full_name FROM users WHERE id = ?", [buyer_id]);
@@ -67,7 +83,7 @@ router.post('/create', auth, async (req, res) => {
         [
           item.seller_id,
           '🛒 New Order Received!',
-          `${buyerName} has placed a Cash on Delivery order for "${item.title}". Go to your seller dashboard to search for a rider.`,
+          `${buyerName} has placed an order for "${item.title}". Delivery fee: Rs. ${delivery_fee} (${distance_km} km). Go to your seller dashboard to search for a rider.`,
           'new_order',
           result.insertId
         ]
@@ -76,14 +92,14 @@ router.post('/create', auth, async (req, res) => {
       console.error('Seller notification failed (non-fatal):', e.message);
     }
 
-    // Notify buyer that their order is on the way
+    // Notify buyer
     try {
       await db.query(
         "INSERT INTO notifications (user_id, title, message, type, order_id) VALUES (?, ?, ?, ?, ?)",
         [
           buyer_id,
-          '📦 Your order is on the way!',
-          `You have successfully placed an order for "${item.title}". We'll notify you when a rider picks it up.`,
+          '📦 Order Placed!',
+          `You placed an order for "${item.title}". Delivery fee: Rs. ${delivery_fee}. We'll notify you when a rider picks it up.`,
           'order_placed',
           result.insertId
         ]
@@ -92,7 +108,7 @@ router.post('/create', auth, async (req, res) => {
       console.error('Buyer notification failed (non-fatal):', e.message);
     }
 
-    // Notify all active and approved riders about the new order requiring delivery
+    // Notify all active riders with a real-time NEW_DELIVERY_JOB broadcast
     try {
       const [riders] = await db.query(
         "SELECT id, full_name FROM users WHERE (role = 'rider' OR is_rider = 1) AND is_active = TRUE"
@@ -103,8 +119,8 @@ router.post('/create', auth, async (req, res) => {
           "INSERT INTO notifications (user_id, title, message, type, order_id) VALUES (?, ?, ?, ?, ?)",
           [
             rider.id,
-            '🛵 New Delivery Request!',
-            `Order: "${item.title}"\nPickup from: ${sellerName} (${sellerPhone})\nDeliver to: ${delivery_address}\nBuyer: ${buyerName}\nAmount: रू ${total_amount}\n\nOpen your Rider Dashboard to accept!`,
+            '🛵 New Delivery Job!',
+            `Order: "${item.title}"\nPickup: ${pickupLocation}\nDeliver to: ${delivery_address}\nBuyer: ${buyerName}\nItem: Rs. ${total_amount} | Delivery Fee: Rs. ${delivery_fee}\n\nOpen your Rider Dashboard to accept!`,
             'new_delivery',
             result.insertId
           ]
@@ -113,27 +129,31 @@ router.post('/create', auth, async (req, res) => {
 
       const io = req.app.get('io');
       if (io) {
-        io.to('riders').emit('new_delivery_request', {
+        io.to('riders').emit('NEW_DELIVERY_JOB', {
           order_id: result.insertId,
           product_name: item.title,
           buyer_name: buyerName,
           seller_name: sellerName,
-          pickup_location: pickupAddress,
+          pickup_location: pickupLocation,
           delivery_location: delivery_address,
           payment_method: pm,
-          order_amount: total_amount
+          order_amount: total_amount,
+          delivery_fee,
+          distance_km
         });
       }
     } catch (e) {
       console.error('Riders notification failed (non-fatal):', e.message);
     }
 
-    console.log(`✅ Item ${item_id} sold to buyer ${buyer_id}`);
+    console.log(`✅ Item ${item_id} sold to buyer ${buyer_id}, delivery_fee=Rs.${delivery_fee}`);
 
     res.json({ 
       message: "Item purchased successfully!", 
       orderId: result.insertId,
       total_amount,
+      delivery_fee,
+      distance_km,
       item_title: item.title
     });
 
@@ -390,15 +410,16 @@ router.post('/search-riders/:orderId', auth, async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
-      io.to('riders').emit('new_delivery_request', {
+      io.to('riders').emit('NEW_DELIVERY_JOB', {
         order_id: orderId,
         product_name: order.item_title,
         buyer_name: order.buyer_name,
         seller_name: sellerName,
-        pickup_location: `${sellerName} (Campus Cart Seller)`,
+        pickup_location: item.pickup_location || `${sellerName} (Campus Cart Seller)`,
         delivery_location: order.delivery_address,
         payment_method: order.payment_method,
-        order_amount: order.total_amount
+        order_amount: order.total_amount,
+        delivery_fee: order.delivery_fee || 40
       });
     }
 

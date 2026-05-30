@@ -140,4 +140,32 @@ router.get("/income", auth, requireRole(['rider']), async (req, res) => {
   }
 });
 
+// GET RIDER WALLET BALANCE
+router.get("/wallet", auth, requireRole(['rider']), async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT balance FROM users WHERE id = ?",
+      [req.user.id]
+    );
+    res.json({ balance: parseFloat(rows[0]?.balance || 0) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error fetching wallet balance" });
+  }
+});
+
+// GET RIDER WALLET BALANCE
+router.get("/wallet", auth, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT balance FROM users WHERE id = ?",
+      [req.user.id]
+    );
+    res.json({ balance: parseFloat(rows[0]?.balance || 0) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch wallet balance" });
+  }
+});
+
 module.exports = router;

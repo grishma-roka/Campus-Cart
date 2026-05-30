@@ -96,7 +96,7 @@ router.get('/search', async (req, res) => {
 // ADD ITEM (seller only)
 router.post('/add', auth, requireRole(['seller']), upload.single('image'), async (req, res) => {
   try {
-    const { title, description, price, category, condition_status } = req.body;
+    const { title, description, price, category, condition_status, pickup_location } = req.body;
     const sellerId = req.user.id;
     
     // 1. Optional Image Check
@@ -114,13 +114,14 @@ router.post('/add', auth, requireRole(['seller']), upload.single('image'), async
 
     // 4. Database Operation
     const [result] = await db.query(
-      `INSERT INTO items (seller_id, title, description, price, category, condition_status, is_borrowable, images, transaction_type)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO items (seller_id, title, description, price, category, condition_status, is_borrowable, images, transaction_type, pickup_location)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         sellerId, title, description, parseFloat(price), category, condition_status || 'good', 
         is_borrowable_val,
         imagesValue,
-        transaction_type
+        transaction_type,
+        pickup_location || null
       ]
     );
 

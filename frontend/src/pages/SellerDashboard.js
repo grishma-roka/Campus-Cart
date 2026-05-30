@@ -21,7 +21,8 @@ export default function SellerDashboard() {
     price: '',
     category: '',
     condition_status: 'good',
-    images: ''
+    images: '',
+    pickup_location: ''
   });
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -83,6 +84,7 @@ export default function SellerDashboard() {
       formData.append('borrow_price_per_day', 0);
       formData.append('max_borrow_days', 7);
       formData.append('transaction_type', newItem.transaction_type || 'buy');
+      formData.append('pickup_location', newItem.pickup_location || '');
       
       if (selectedFile) {
         formData.append('image', selectedFile);
@@ -95,7 +97,8 @@ export default function SellerDashboard() {
       setShowAddItem(false);
       setNewItem({
         title: '', description: '', price: '', category: '',
-        condition_status: 'good', images: '', transaction_type: 'buy'
+        condition_status: 'good', images: '', transaction_type: 'buy',
+        pickup_location: ''
       });
       setSelectedFile(null);
       setPreviewUrl(null);
@@ -359,6 +362,24 @@ export default function SellerDashboard() {
                     required
                     style={styles.input}
                   />
+                  {/* Pickup Location */}
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      placeholder="📍 Pickup Location (e.g., Hostel Block A, Room 12)"
+                      value={newItem.pickup_location}
+                      onChange={(e) => setNewItem({...newItem, pickup_location: e.target.value})}
+                      style={{
+                        ...styles.input,
+                        borderColor: '#F88000',
+                        borderWidth: '1.5px',
+                        background: 'rgba(248,128,0,0.04)'
+                      }}
+                    />
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', paddingLeft: '4px' }}>
+                      Where should the rider pick up this item? Be specific.
+                    </div>
+                  </div>
                   {/* Native File Upload / Dropzone */}
                   <div 
                     style={styles.dropzone}
