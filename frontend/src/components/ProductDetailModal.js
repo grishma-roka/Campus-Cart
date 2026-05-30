@@ -26,7 +26,7 @@ const ProductDetailModal = ({ product, onClose, onAddToCart, relatedProducts }) 
         <button style={styles.closeBtn} onClick={onClose}>✕</button>
         
         {/* Main Content */}
-        <div style={styles.content}>
+        <div className="product-modal-content" style={styles.content}>
           {/* Left Side - Image */}
           <div style={styles.imageSection}>
             <img 

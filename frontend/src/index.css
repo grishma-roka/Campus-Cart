@@ -350,9 +350,6 @@ body {
     padding: 0 var(--spacing-md) var(--spacing-lg);
   }
   
-  .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  }
   
   .search-bar {
     flex-direction: column;
@@ -671,5 +668,11 @@ body {
   /* Stepper / Timeline responsiveness */
   .stepItem {
     gap: 12px !important;
+  }
+
+  /* Product Modal Responsiveness */
+  .product-modal-content {
+    flex-direction: column !important;
+    padding: 20px !important;
   }
 }

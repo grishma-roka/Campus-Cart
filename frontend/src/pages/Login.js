@@ -129,7 +129,9 @@ const styles = {
     borderRadius: '4px',
     fontSize: '1rem',
     transition: 'border-color 0.3s',
-    outline: 'none'
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box'
   },
   button: {
     padding: '0.75rem',

@@ -887,7 +887,7 @@ const styles = {
   },
   itemsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))',
     gap: '2rem'
   },
   itemCard: {

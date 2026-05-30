@@ -484,14 +484,18 @@ const styles = {
     padding: '0.75rem',
     border: '1px solid #ddd',
     borderRadius: '4px',
-    fontSize: '1rem'
+    fontSize: '1rem',
+    width: '100%',
+    boxSizing: 'border-box'
   },
   select: {
     padding: '0.75rem',
     border: '1px solid #ddd',
     borderRadius: '4px',
     fontSize: '1rem',
-    backgroundColor: '#fff'
+    backgroundColor: '#fff',
+    width: '100%',
+    boxSizing: 'border-box'
   },
   helpText: {
     fontSize: '0.8rem',
