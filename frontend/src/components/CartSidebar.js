@@ -47,7 +47,7 @@ export default function CartSidebar() {
                 <div key={item.id} style={styles.cartItem}>
                   <img 
                     src={item.image 
-                      ? (item.image.startsWith('http') ? item.image : `${backendUrl}${item.image}`)
+                      ? (item.image.startsWith('http') ? item.image : `${backendUrl}/uploads/${item.image.replace(/^\/?(uploads\/)?/, '')}`)
                       : `https://dummyimage.com/100x100/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 3))}`}
                     alt={item.title}
                     style={styles.itemImage}

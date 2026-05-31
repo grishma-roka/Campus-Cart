@@ -20,7 +20,8 @@ const safeParseImages = (imageData) => {
 const getSafeImageUrl = (img) => {
   if (!img) return 'https://via.placeholder.com/600x400?text=No+Image';
   if (img.startsWith('http')) return img;
-  if (img.startsWith('/uploads')) return `http://localhost:5000${img}`;
+  if (img.startsWith('/uploads/')) return `http://localhost:5000${img}`;
+  if (img.startsWith('uploads/')) return `http://localhost:5000/${img}`;
   return `http://localhost:5000/uploads/${img}`;
 };
 

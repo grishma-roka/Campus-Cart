@@ -314,25 +314,28 @@ export default function BuyerDashboard() {
 
   const getSafeImageUrl = (images) => {
     if (!images) return 'https://via.placeholder.com/600x400?text=No+Image';
-    
     try {
       let firstImage = '';
       if (Array.isArray(images)) {
-        firstImage = images[0];
+        firstImage = images[0] || '';
       } else if (typeof images === 'string') {
         if (images.startsWith('[')) {
           const parsed = JSON.parse(images);
-          firstImage = Array.isArray(parsed) ? parsed[0] : (parsed || '');
+          firstImage = Array.isArray(parsed) ? (parsed[0] || '') : (parsed || '');
         } else {
-          firstImage = images.replace(/[\[\]"]/g, '');
+          firstImage = images.replace(/[\[\]"]/g, '').trim();
         }
       }
-      
       if (!firstImage) return 'https://via.placeholder.com/600x400?text=No+Image';
       if (firstImage.startsWith('http')) return firstImage;
-      return `${backendUrl}${firstImage.startsWith('/') ? '' : '/'}${firstImage}`;
+      // Already has /uploads/ prefix
+      if (firstImage.startsWith('/uploads/')) return `${backendUrl}${firstImage}`;
+      // Has /uploads/items/ or similar without leading slash
+      if (firstImage.startsWith('uploads/')) return `${backendUrl}/${firstImage}`;
+      // Raw filename — could be in /uploads/ root or /uploads/items/
+      // Try /uploads/ first (most common)
+      return `${backendUrl}/uploads/${firstImage}`;
     } catch (err) {
-      console.error("Error parsing images:", err);
       return 'https://via.placeholder.com/600x400?text=No+Image';
     }
   };

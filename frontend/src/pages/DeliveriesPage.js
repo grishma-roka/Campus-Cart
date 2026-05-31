@@ -139,6 +139,58 @@ export default function DeliveriesPage() {
               delivered: 'Delivered',
             }[d.status] || d.status;
 
+            const steps = [
+              {
+                key: 'assigned',
+                label: 'Accept Delivery',
+                checked: ['assigned', 'picked_up', 'out_for_delivery', 'delivered'].includes(d.status),
+                disabled: true,
+                icon: <Bike size={15} />,
+                time: d.accepted_at
+              },
+              {
+                key: 'picked_up',
+                label: 'Picked up the package',
+                checked: ['picked_up', 'out_for_delivery', 'delivered'].includes(d.status),
+                disabled: d.status !== 'assigned',
+                icon: <Package size={15} />,
+                time: d.pickup_time
+              },
+              {
+                key: 'out_for_delivery',
+                label: 'Delivering the package',
+                checked: ['out_for_delivery', 'delivered'].includes(d.status),
+                disabled: d.status !== 'picked_up',
+                icon: <Truck size={15} />,
+                time: d.out_for_delivery_at
+              },
+              {
+                key: 'delivered',
+                label: 'Delivered the package',
+                checked: d.status === 'delivered',
+                disabled: d.status !== 'out_for_delivery',
+                icon: <CheckCircle size={15} />,
+                time: d.delivery_time
+              }
+            ];
+
+            const checkboxStyle = (step) => ({
+              width: '22px',
+              height: '22px',
+              borderRadius: '6px',
+              border: step.checked ? 'none' : '2px solid #cbd5e1',
+              backgroundColor: step.checked ? '#10b981' : '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: step.disabled ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease-in-out',
+              boxShadow: step.checked ? '0 2px 6px rgba(16,185,129,0.3)' : 'none',
+            });
+
             return (
               <div key={d.id} style={s.card}>
                 <div style={s.cardTop}>
@@ -150,26 +202,92 @@ export default function DeliveriesPage() {
                 <div style={s.row}><User size={14} color="#64748b" /><span>Buyer: {d.buyer_name} {d.buyer_phone && `· ${d.buyer_phone}`}</span></div>
                 <div style={s.row}><CircleDollarSign size={14} color="#64748b" /><span>Your fee: <strong style={{ color: '#10b981' }}>रू {d.delivery_fee}</strong></span></div>
 
-                {/* Action buttons — sequential */}
-                <div style={{ marginTop: '14px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {d.status === 'assigned' && (
-                    <button onClick={() => updateStatus(d.id, 'picked_up')} disabled={acting === d.id} style={{ ...s.btn, background: '#a855f7' }}>
-                      {acting === d.id ? '...' : '📦 Mark Picked Up'}
-                    </button>
-                  )}
-                  {d.status === 'picked_up' && (
-                    <button onClick={() => updateStatus(d.id, 'out_for_delivery')} disabled={acting === d.id} style={{ ...s.btn, background: '#3b82f6' }}>
-                      {acting === d.id ? '...' : '🛵 Out for Delivery'}
-                    </button>
-                  )}
-                  {d.status === 'out_for_delivery' && (
-                    <button onClick={() => updateStatus(d.id, 'delivered')} disabled={acting === d.id} style={{ ...s.btn, background: '#10b981' }}>
-                      {acting === d.id ? '...' : '✅ Mark Delivered'}
-                    </button>
-                  )}
-                  {d.status === 'delivered' && (
-                    <span style={{ fontSize: '13px', color: '#10b981', fontWeight: '700' }}>✅ Completed</span>
-                  )}
+                <div style={{ 
+                  marginTop: '16px', 
+                  paddingTop: '16px', 
+                  borderTop: '1px solid rgba(0, 0, 0, 0.05)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ 
+                    fontSize: '12px', 
+                    fontWeight: '700', 
+                    color: '#64748b', 
+                    textTransform: 'uppercase', 
+                    letterSpacing: '0.05em',
+                    marginBottom: '4px'
+                  }}>
+                    Delivery Progress Checklist
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {steps.map((step) => {
+                      const isActive = !step.disabled && !step.checked;
+                      return (
+                        <div 
+                          key={step.key} 
+                          onClick={() => {
+                            if (isActive) updateStatus(d.id, step.key);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '10px 14px',
+                            borderRadius: '12px',
+                            backgroundColor: isActive ? '#fff7ed' : step.checked ? 'rgba(16, 185, 129, 0.04)' : '#f8fafc',
+                            border: isActive ? '1px dashed #F88000' : '1px solid rgba(0,0,0,0.02)',
+                            cursor: step.disabled ? 'default' : 'pointer',
+                            transition: 'all 0.2s ease-in-out',
+                          }}
+                          onMouseEnter={e => {
+                            if (isActive) {
+                              e.currentTarget.style.backgroundColor = '#ffeed6';
+                              e.currentTarget.style.borderColor = '#e67500';
+                            }
+                          }}
+                          onMouseLeave={e => {
+                            if (isActive) {
+                              e.currentTarget.style.backgroundColor = '#fff7ed';
+                              e.currentTarget.style.borderColor = '#F88000';
+                            }
+                          }}
+                        >
+                          {/* Styled Checkbox */}
+                          <div style={checkboxStyle(step)}>
+                            {step.checked && (acting === d.id ? '...' : '✓')}
+                          </div>
+
+                          {/* Icon */}
+                          <div style={{ 
+                            color: step.checked ? '#10b981' : isActive ? '#F88000' : '#94a3b8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            {step.icon}
+                          </div>
+
+                          {/* Info Label */}
+                          <div style={{ flex: 1 }}>
+                            <div style={{
+                              fontSize: '13px',
+                              fontWeight: step.checked ? '700' : isActive ? '700' : '500',
+                              color: step.checked ? '#1e293b' : isActive ? '#F88000' : '#64748b'
+                            }}>
+                              {step.label}
+                            </div>
+                            {step.checked && step.time && (
+                              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                                Checked at {new Date(step.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             );

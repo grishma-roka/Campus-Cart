@@ -236,9 +236,16 @@ export default function Messages() {
                                   {message.image_type} Image
                                 </div>
                               )}
-                              <a href={message.image_url.startsWith('http') ? message.image_url : `${backendUrl}${message.image_url}`} target="_blank" rel="noreferrer">
-                                <img src={message.image_url.startsWith('http') ? message.image_url : `${backendUrl}${message.image_url}`} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px' }} />
-                              </a>
+                              {(() => {
+                                const src = message.image_url.startsWith('http') ? message.image_url
+                                  : message.image_url.startsWith('/uploads/') ? `${backendUrl}${message.image_url}`
+                                  : `${backendUrl}/uploads/${message.image_url}`;
+                                return (
+                                  <a href={src} target="_blank" rel="noreferrer">
+                                    <img src={src} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+                                  </a>
+                                );
+                              })()}
                             </div>
                           )}
                           {message.message && <p style={styles.messageText}>{message.message}</p>}

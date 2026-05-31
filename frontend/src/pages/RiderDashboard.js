@@ -512,7 +512,18 @@ export default function RiderDashboard() {
 
       {/* New delivery banner */}
       {newDeliveryBanner && (
-        <div style={s.newDeliveryBanner}>
+        <div 
+          onClick={() => setActiveTab('available')}
+          style={{ ...s.newDeliveryBanner, cursor: 'pointer', transition: 'all 0.2s ease-in-out' }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(248,128,0,0.45)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 8px 20px rgba(248,128,0,0.3)';
+          }}
+        >
           <Bell size={18} /> New delivery request received! Check the Requests tab.
         </div>
       )}
@@ -830,6 +841,68 @@ function MyDeliveryCard({ delivery: d, onUpdateStatus }) {
     cancelled: '#ef4444',
   }[d.status] || '#94a3b8';
 
+  const steps = [
+    {
+      key: 'assigned',
+      label: 'Accept Delivery',
+      checked: ['assigned', 'picked_up', 'out_for_delivery', 'delivered'].includes(d.status),
+      disabled: true,
+      icon: <Bike size={15} />,
+      time: d.accepted_at
+    },
+    {
+      key: 'picked_up',
+      label: 'Picked up the package',
+      checked: ['picked_up', 'out_for_delivery', 'delivered'].includes(d.status),
+      disabled: d.status !== 'assigned',
+      icon: <Package size={15} />,
+      time: d.pickup_time
+    },
+    {
+      key: 'out_for_delivery',
+      label: 'Delivering the package',
+      checked: ['out_for_delivery', 'delivered'].includes(d.status),
+      disabled: d.status !== 'picked_up',
+      icon: <Truck size={15} />,
+      time: d.out_for_delivery_at
+    },
+    {
+      key: 'delivered',
+      label: 'Delivered the package',
+      checked: d.status === 'delivered',
+      disabled: d.status !== 'out_for_delivery',
+      icon: <CheckCircle size={15} />,
+      time: d.delivery_time
+    }
+  ];
+
+  const handleCheckboxChange = (stepKey) => {
+    if (stepKey === 'picked_up') {
+      onUpdateStatus(d.id, 'picked_up');
+    } else if (stepKey === 'out_for_delivery') {
+      onUpdateStatus(d.id, 'out_for_delivery');
+    } else if (stepKey === 'delivered') {
+      onUpdateStatus(d.id, 'delivered');
+    }
+  };
+
+  const checkboxStyle = (step) => ({
+    width: '22px',
+    height: '22px',
+    borderRadius: '6px',
+    border: step.checked ? 'none' : '2px solid #cbd5e1',
+    backgroundColor: step.checked ? '#10b981' : '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    cursor: step.disabled ? 'not-allowed' : 'pointer',
+    transition: 'all 0.2s ease-in-out',
+    boxShadow: step.checked ? '0 2px 6px rgba(16,185,129,0.3)' : 'none',
+  });
+
   return (
     <div style={s.deliveryCard}>
       <div style={{ ...s.statusBadge, backgroundColor: statusColor }}>
@@ -844,28 +917,101 @@ function MyDeliveryCard({ delivery: d, onUpdateStatus }) {
         <div style={s.infoRow}><span style={s.infoIcon}><MapPin size={14} /></span><span style={s.infoText}>{d.delivery_address}</span></div>
         <div style={s.infoRow}><span style={s.infoIcon}><CircleDollarSign size={14} /></span><span>रू {d.total_amount} &nbsp;·&nbsp; {paymentLabel(d.payment_method)}</span></div>
         <div style={s.infoRow}><span style={s.infoIcon}><Store size={14} /></span><span>Seller: {d.seller_name} · {d.seller_phone}</span></div>
-        {d.pickup_time && <div style={s.infoRow}><span style={s.infoIcon}><Package size={14} /></span><span>Picked up: {new Date(d.pickup_time).toLocaleString()}</span></div>}
-        {d.out_for_delivery_at && <div style={s.infoRow}><span style={s.infoIcon}><Truck size={14} /></span><span>Out for delivery: {new Date(d.out_for_delivery_at).toLocaleString()}</span></div>}
-        {d.delivery_time && <div style={s.infoRow}><span style={s.infoIcon}><CheckCircle size={14} /></span><span>Delivered: {new Date(d.delivery_time).toLocaleString()}</span></div>}
       </div>
 
-      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-        {d.status === 'assigned' && (
-          <button onClick={() => onUpdateStatus(d.id, 'picked_up')} style={{ ...s.primaryBtn, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-            <Package size={16} /> Mark Picked Up
-          </button>
-        )}
-        {d.status === 'picked_up' && (
-          <button onClick={() => onUpdateStatus(d.id, 'out_for_delivery')} style={{ ...s.primaryBtn, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#3b82f6' }}>
-            <Truck size={16} /> Out for Delivery
-          </button>
-        )}
-        {d.status === 'out_for_delivery' && (
-          <button onClick={() => onUpdateStatus(d.id, 'delivered')} style={{ ...s.successBtn, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-            <CheckCircle size={16} /> Mark Delivered
-          </button>
-        )}
-      </div>
+      {d.status !== 'cancelled' ? (
+        <div style={{ 
+          marginTop: '16px', 
+          paddingTop: '16px', 
+          borderTop: '1px solid rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          <div style={{ 
+            fontSize: '12px', 
+            fontWeight: '700', 
+            color: '#64748b', 
+            textTransform: 'uppercase', 
+            letterSpacing: '0.05em',
+            marginBottom: '4px'
+          }}>
+            Delivery Progress Checklist
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {steps.map((step) => {
+              const isActive = !step.disabled && !step.checked;
+              return (
+                <div 
+                  key={step.key} 
+                  onClick={() => {
+                    if (isActive) handleCheckboxChange(step.key);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    backgroundColor: isActive ? '#fff7ed' : step.checked ? 'rgba(16, 185, 129, 0.04)' : '#f8fafc',
+                    border: isActive ? '1px dashed #F88000' : '1px solid rgba(0,0,0,0.02)',
+                    cursor: step.disabled ? 'default' : 'pointer',
+                    transition: 'all 0.2s ease-in-out',
+                  }}
+                  onMouseEnter={e => {
+                    if (isActive) {
+                      e.currentTarget.style.backgroundColor = '#ffeed6';
+                      e.currentTarget.style.borderColor = '#e67500';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (isActive) {
+                      e.currentTarget.style.backgroundColor = '#fff7ed';
+                      e.currentTarget.style.borderColor = '#F88000';
+                    }
+                  }}
+                >
+                  {/* Styled Checkbox */}
+                  <div style={checkboxStyle(step)}>
+                    {step.checked && '✓'}
+                  </div>
+
+                  {/* Icon */}
+                  <div style={{ 
+                    color: step.checked ? '#10b981' : isActive ? '#F88000' : '#94a3b8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {step.icon}
+                  </div>
+
+                  {/* Info Label */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontSize: '13px',
+                      fontWeight: step.checked ? '700' : isActive ? '700' : '500',
+                      color: step.checked ? '#1e293b' : isActive ? '#F88000' : '#64748b'
+                    }}>
+                      {step.label}
+                    </div>
+                    {step.checked && step.time && (
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                        Checked at {new Date(step.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginTop: '16px', color: '#ef4444', fontWeight: 'bold', fontSize: '14px' }}>
+          This delivery has been cancelled.
+        </div>
+      )}
     </div>
   );
 }

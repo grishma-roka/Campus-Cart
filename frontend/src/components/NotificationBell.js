@@ -45,11 +45,11 @@ export default function NotificationBell() {
     setOpen(false);
     switch (n.type) {
       case 'new_delivery':
-        navigate('/deliveries');
+        navigate('/dashboard?mode=rider&rtab=available');
         break;
       case 'picked_up':
       case 'out_for_delivery':
-        navigate('/deliveries');
+        navigate('/dashboard?mode=rider&rtab=my-deliveries');
         break;
       case 'new_order':
         navigate('/dashboard?mode=seller');
