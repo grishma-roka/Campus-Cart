@@ -1,45 +1,44 @@
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
-// 1. Connect to your Cloudinary account
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+// 1. Setup the dynamic Local Disk storage configuration
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    let subFolder = 'misc';
 
-// 2. Setup the dynamic Cloudinary storage configuration
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    // This function replaces your old destination logic!
-    folder: (req, file) => {
-      if (req.originalUrl.includes('items')) {
-        return 'campus_cart/items';
-      } else if (req.originalUrl.includes('profile') || req.originalUrl.includes('avatar')) {
-        return 'campus_cart/profiles';
-      } else if (req.originalUrl.includes('rider') || req.originalUrl.includes('license') || req.originalUrl.includes('apply')) {
-        return 'campus_cart/licenses';
-      } else if (req.originalUrl.includes('chat') || req.originalUrl.includes('message') || req.originalUrl.includes('send')) {
-        return 'campus_cart/chat';
-      } else if (req.originalUrl.includes('borrow')) {
-        return 'campus_cart/borrow';
-      } else {
-        return 'campus_cart/misc';
-      }
-    },
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    public_id: (req, file) => {
-      // Create a clean, unique file name
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      const cleanName = file.originalname.replace(/\s+/g, '_').toLowerCase().split('.')[0];
-      return `${uniqueSuffix}-${cleanName}`;
+    // Perfectly matching your original URL sorting rules
+    if (req.originalUrl.includes('items')) {
+      subFolder = 'items';
+    } else if (req.originalUrl.includes('profile') || req.originalUrl.includes('avatar')) {
+      subFolder = 'profiles';
+    } else if (req.originalUrl.includes('rider') || req.originalUrl.includes('license') || req.originalUrl.includes('apply')) {
+      subFolder = 'licenses';
+    } else if (req.originalUrl.includes('chat') || req.originalUrl.includes('message') || req.originalUrl.includes('send')) {
+      subFolder = 'chat';
+    } else if (req.originalUrl.includes('borrow')) {
+      subFolder = 'borrow';
     }
+
+    // path.join goes up from 'backend/utils' to 'backend', then into 'uploads/<subFolder>'
+    const uploadDir = path.join(__dirname, '../uploads', subFolder);
+    
+    // Safety check: automatically create the local folder structure if it doesn't exist yet
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Perfectly matching your original clean cloud naming convention locally
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const cleanName = file.originalname.replace(/\s+/g, '_').toLowerCase().split('.')[0];
+    cb(null, `${uniqueSuffix}-${cleanName}${path.extname(file.originalname).toLowerCase()}`);
   }
 });
 
-// 3. Keep your original image-only check
+// 2. Keep your original image-only check
 const fileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
@@ -48,7 +47,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// 4. Export the configured upload instance
+// 3. Export the configured local upload instance
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
