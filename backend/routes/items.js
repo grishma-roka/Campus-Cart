@@ -70,18 +70,20 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// ADD ITEM (seller only)
+// ADD ITEM (seller only) — UPDATED TO LOCALHOST FOR IMAGE LOADS
 router.post('/add', auth, requireRole(['seller']), upload.single('image'), async (req, res) => {
   try {
     const { title, description, price, category, condition_status, pickup_location } = req.body;
     const sellerId = req.user.id;
     
-    // 1. Optional Image Check
-    const imagesValue = req.file 
-      ? JSON.stringify([req.file.path]) 
-      : '[]';
+    // Convert the Multer file object into a valid localhost HTTP address
+    let imagesValue = '[]';
+    if (req.file) {
+      const localImageUrl = `${req.protocol}://${req.get('host')}/uploads/items/${req.file.filename}`;
+      imagesValue = JSON.stringify([localImageUrl]);
+    }
 
-    // 2. Validate Other Inputs
+    // Validate Other Inputs
     if (!title || !price || !category) {
       return res.status(400).json({ error: "Title, price, and category are required" });
     }
@@ -89,7 +91,7 @@ router.post('/add', auth, requireRole(['seller']), upload.single('image'), async
     const transaction_type = req.body.transaction_type || 'buy';
     const is_borrowable_val = transaction_type === 'borrow' ? 1 : 0;
 
-    // 4. Database Operation
+    // Database Operation
     const [result] = await db.query(
       `INSERT INTO items (seller_id, title, description, price, category, condition_status, is_borrowable, images, transaction_type, pickup_location)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -142,14 +144,12 @@ router.get('/', async (req, res) => {
     }
 
     if (is_borrowable !== undefined) {
-      // Override default filter if specifically requested (e.g., is_borrowable=true)
       const isBorrowableVal = is_borrowable === 'true' || is_borrowable === true;
       if (isBorrowableVal) {
         query = query.replace('AND i.is_borrowable = FALSE', 'AND i.is_borrowable = TRUE');
       }
     }
 
-    // Price range filtering
     if (min_price) {
       query += ' AND i.price >= ?';
       params.push(parseFloat(min_price));
@@ -162,31 +162,18 @@ router.get('/', async (req, res) => {
 
     query += ' GROUP BY i.id';
 
-    // Sorting
     switch (sort_by) {
-      case 'price_low':
-        query += ' ORDER BY i.price ASC';
-        break;
-      case 'price_high':
-        query += ' ORDER BY i.price DESC';
-        break;
-      case 'newest':
-        query += ' ORDER BY i.created_at DESC';
-        break;
-      case 'oldest':
-        query += ' ORDER BY i.created_at ASC';
-        break;
-      case 'rating':
-        query += ' ORDER BY seller_rating DESC';
-        break;
-      default:
-        query += ' ORDER BY i.created_at DESC';
+      case 'price_low':   query += ' ORDER BY i.price ASC'; break;
+      case 'price_high':  query += ' ORDER BY i.price DESC'; break;
+      case 'newest':      query += ' ORDER BY i.created_at DESC'; break;
+      case 'oldest':      query += ' ORDER BY i.created_at ASC'; break;
+      case 'rating':      query += ' ORDER BY seller_rating DESC'; break;
+      default:            query += ' ORDER BY i.created_at DESC';
     }
 
     const [rows] = await db.query(query, params);
     console.log(`✅ Found ${rows.length} items - sending to frontend`);
     
-    // Log first item for debugging
     if (rows.length > 0) {
       console.log(`📦 Sample item: ${rows[0].title} - रू${rows[0].price}`);
     }
@@ -198,7 +185,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET ITEMS BY SELLER (seller only) — must be before /:id
+// GET ITEMS BY SELLER (seller only)
 router.get('/my-items', auth, requireRole(['seller']), async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -243,10 +230,11 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// UPDATE ITEM (seller only)
+// UPDATE ITEM (seller only) — UPDATED TO LOCALHOST FOR IMAGE LOADS
 router.put('/:id', auth, requireRole(['seller']), upload.single('image'), async (req, res) => {
   try {
-    const transaction_type = req.body.transaction_type || (is_borrowable === 'true' || is_borrowable === true ? 'borrow' : 'buy');
+    const { title, description, price, category, condition_status, is_available, borrow_price_per_day, max_borrow_days } = req.body;
+    const transaction_type = req.body.transaction_type || (req.body.is_borrowable === 'true' || req.body.is_borrowable === true ? 'borrow' : 'buy');
     const is_borrowable_val = transaction_type === 'borrow' ? 1 : 0;
     
     let query = `
@@ -255,16 +243,17 @@ router.put('/:id', auth, requireRole(['seller']), upload.single('image'), async 
       max_borrow_days = ?, is_available = ?, transaction_type = ?, updated_at = CURRENT_TIMESTAMP
     `;
     let params = [
-      title, description, price, category, condition_status, 
+      title, description, parseFloat(price), category, condition_status, 
       is_borrowable_val, 
-      borrow_price_per_day, max_borrow_days, 
-      is_available === 'true' || is_available === true,
+      borrow_price_per_day || 0, max_borrow_days || 0, 
+      is_available === 'true' || is_available === true || is_available === 1,
       transaction_type
     ];
 
     if (req.file) {
+      const localImageUrl = `${req.protocol}://${req.get('host')}/uploads/items/${req.file.filename}`;
       query += `, images = ?`;
-      params.push(JSON.stringify([ req.file.path ]));
+      params.push(JSON.stringify([localImageUrl]));
     }
 
     query += ` WHERE id = ? AND seller_id = ?`;
