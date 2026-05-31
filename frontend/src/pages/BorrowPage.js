@@ -16,7 +16,7 @@ export default function BorrowPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [requestModal, setRequestModal] = useState(null); // item to request
   const [chatTarget, setChatTarget] = useState(null); // { userId, userName, requestId, itemTitle }
-  const backendUrl = 'http://localhost:5000';
+  const backendUrl = 'https://campus-cart-on6p.onrender.com';
 
   const fetchAll = useCallback(async () => {
     try {
@@ -183,7 +183,7 @@ function BrowseTab({ items, userId, onRequest, onRefresh }) {
           <div key={item.id} className="borrow-card" style={s.card}>
             <div style={s.cardImg}>
               {img
-                ? <img src={img.startsWith('http') ? img : `http://localhost:5000${img}`} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <img src={img.startsWith('http') ? img : `https://campus-cart-on6p.onrender.com${img}`} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <div style={s.cardImgPlaceholder}><Package size={32} color="#94a3b8" strokeWidth={1.5} /></div>
               }
               <div style={{ ...s.availBadge, background: item.is_available ? '#10b981' : '#ef4444' }}>
@@ -236,7 +236,7 @@ function MyRequestsTab({ requests, onChat }) {
           <div key={req.id} style={s.requestCard}>
             <div style={s.requestLeft}>
               {images[0]
-                ? <img src={images[0].startsWith('http') ? images[0] : `http://localhost:5000${images[0]}`} alt={req.title} style={s.requestThumb} />
+                ? <img src={images[0].startsWith('http') ? images[0] : `https://campus-cart-on6p.onrender.com${images[0]}`} alt={req.title} style={s.requestThumb} />
                 : <div style={{ ...s.requestThumb, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={24} color="#94a3b8" /></div>
               }
               <div>
@@ -362,7 +362,7 @@ function ChatTab({ userId, initialTarget }) {
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
   const socketRef = useRef(null);
-  const backendUrl = 'http://localhost:5000';
+  const backendUrl = 'https://campus-cart-on6p.onrender.com';
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -381,7 +381,7 @@ function ChatTab({ userId, initialTarget }) {
   useEffect(() => { fetchConversations(); }, [fetchConversations]);
 
   useEffect(() => {
-    socketRef.current = io('http://localhost:5000');
+    socketRef.current = io('https://campus-cart-on6p.onrender.com');
     return () => socketRef.current.disconnect();
   }, []);
 
@@ -460,7 +460,7 @@ function ChatTab({ userId, initialTarget }) {
               {messages.map(m => (
                 <div key={m.id} style={{ display: 'flex', justifyContent: m.sender_id === userId ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
                   <div style={{ ...s.bubble, background: m.sender_id === userId ? '#F88000' : '#FFFFFF', color: m.sender_id === userId ? '#fff' : '#000' }}>
-                    {m.image_url && <img src={`http://localhost:5000${m.image_url}`} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px' }} />}
+                    {m.image_url && <img src={`https://campus-cart-on6p.onrender.com${m.image_url}`} alt="Shared" style={{ maxWidth: '100%', borderRadius: '8px' }} />}
                     {m.message && <div>{m.message}</div>}
                   </div>
                 </div>

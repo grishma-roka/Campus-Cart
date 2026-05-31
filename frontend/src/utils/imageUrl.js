@@ -9,7 +9,7 @@
  *   http://...       (already absolute)
  *   ["path"]         (JSON array string)
  */
-const BACKEND = 'http://localhost:5000';
+const BACKEND = process.env.REACT_APP_BACKEND_URL || 'https://campus-cart-on6p.onrender.com';
 
 export function imgUrl(raw, fallback = '') {
   if (!raw) return fallback;

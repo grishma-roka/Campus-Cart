@@ -116,7 +116,7 @@ export default function Register() {
 
         // Submit rider application directly
         try {
-          const response = await fetch('http://localhost:5000/api/auth/register-rider', {
+          const response = await fetch('https://campus-cart-on6p.onrender.com/api/auth/register-rider', {
             method: 'POST',
             body: formData
           });

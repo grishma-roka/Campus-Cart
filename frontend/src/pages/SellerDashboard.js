@@ -27,7 +27,7 @@ export default function SellerDashboard() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
 
-  const backendUrl = 'http://localhost:5000'; // Base URL for images
+  const backendUrl = 'https://campus-cart-on6p.onrender.com'; // Base URL for images
 
   useEffect(() => {
     // Check URL parameters for tab

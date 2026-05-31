@@ -30,7 +30,7 @@ export default function BuyerDashboard() {
   const socketRef = useRef(null);
   const [toastNotification, setToastNotification] = useState(null);
   
-  const backendUrl = 'http://localhost:5000';
+  const backendUrl = 'https://campus-cart-on6p.onrender.com';
 
   // Synchronize searching with URL parameters from global header
   useEffect(() => {
@@ -94,7 +94,7 @@ export default function BuyerDashboard() {
 
   // Socket connection and listener for live order status updates
   useEffect(() => {
-    socketRef.current = io(axios.defaults.baseURL?.replace('/api', '') || 'http://localhost:5000');
+    socketRef.current = io(axios.defaults.baseURL?.replace('/api', '') || 'https://campus-cart-on6p.onrender.com');
 
     // Join the buyer's private room for targeted notifications
     if (user?.id) {
@@ -405,7 +405,7 @@ export default function BuyerDashboard() {
                     const imgs = typeof order.images === 'string' ? JSON.parse(order.images) : order.images;
                     const first = Array.isArray(imgs) ? imgs[0] : imgs;
                     if (!first) return null;
-                    return first.startsWith('http') ? first : `http://localhost:5000${first}`;
+                    return first.startsWith('http') ? first : `https://campus-cart-on6p.onrender.com${first}`;
                   } catch { return null; }
                 })();
 
@@ -579,7 +579,7 @@ export default function BuyerDashboard() {
                       const imgs = typeof order.images === 'string' ? JSON.parse(order.images) : order.images;
                       const first = Array.isArray(imgs) ? imgs[0] : imgs;
                       if (!first) return null;
-                      return first.startsWith('http') ? first : `http://localhost:5000${first}`;
+                      return first.startsWith('http') ? first : `https://campus-cart-on6p.onrender.com${first}`;
                     } catch { return null; }
                   })();
 

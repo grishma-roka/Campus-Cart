@@ -14,7 +14,7 @@ export default function Messages() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const backendUrl = 'http://localhost:5000';
+  const backendUrl = 'https://campus-cart-on6p.onrender.com';
   const [sending, setSending] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
   const [imageUploadType, setImageUploadType] = useState(null);
@@ -24,7 +24,7 @@ export default function Messages() {
   const socketRef = useRef(null);
 
   useEffect(() => {
-    socketRef.current = io(axios.defaults.baseURL?.replace('/api', '') || 'http://localhost:5000');
+    socketRef.current = io(axios.defaults.baseURL?.replace('/api', '') || 'https://campus-cart-on6p.onrender.com');
     return () => socketRef.current.disconnect();
   }, []);
 

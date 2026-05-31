@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 const ProductDetailModal = ({ product, onClose, onAddToCart, relatedProducts }) => {
   const [addedToCart, setAddedToCart] = useState(false);
-  const backendUrl = 'http://localhost:5000';
+  const backendUrl = 'https://campus-cart-on6p.onrender.com';
 
   const handleAddToCart = () => {
     onAddToCart(product, 1); // Fixed quantity of 1

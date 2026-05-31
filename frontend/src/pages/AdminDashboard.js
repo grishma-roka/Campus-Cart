@@ -339,7 +339,7 @@ export default function AdminDashboard() {
                         <strong>License Image:</strong>
                         <div style={styles.licenseImageContainer}>
                           <img 
-                            src={`http://localhost:5000${request.license_image}`} 
+                            src={`https://campus-cart-on6p.onrender.com${request.license_image}`} 
                             alt="License" 
                             style={styles.licenseImage}
                             onError={(e) => {
@@ -351,7 +351,7 @@ export default function AdminDashboard() {
                             Image not available
                           </div>
                           <a 
-                            href={`http://localhost:5000${request.license_image}`} 
+                            href={`https://campus-cart-on6p.onrender.com${request.license_image}`} 
                             target="_blank" 
                             rel="noopener noreferrer" 
                             style={{...styles.viewFullImageLink, display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center'}}

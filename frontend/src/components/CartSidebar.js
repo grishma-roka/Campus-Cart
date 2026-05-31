@@ -6,7 +6,7 @@ import { ShoppingBag, X, Trash2 } from 'lucide-react';
 export default function CartSidebar() {
   const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, getCartTotal, clearCart } = useCart();
   const navigate = useNavigate();
-  const backendUrl = 'http://localhost:5000';
+  const backendUrl = 'https://campus-cart-on6p.onrender.com';
 
   if (!isCartOpen) return null;
 

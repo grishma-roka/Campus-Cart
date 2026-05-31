@@ -291,7 +291,7 @@ export default function CheckoutPage() {
   const images = safeParseImages(item.images);
   let mainImage = images[0] || `https://dummyimage.com/200x200/4CAF50/ffffff&text=${encodeURIComponent(item.title.substring(0, 3))}`;
   if (mainImage.startsWith('/uploads')) {
-    mainImage = `http://localhost:5000${mainImage}`;
+    mainImage = `https://campus-cart-on6p.onrender.com${mainImage}`;
   }
 
   const itemPrice = parseFloat(item.price) || 0;

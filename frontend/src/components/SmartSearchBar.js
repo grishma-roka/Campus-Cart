@@ -121,7 +121,7 @@ const SmartSearchBar = ({ onSearch, currentSearchTerm = '' }) => {
     );
   };
 
-  const backendUrl = 'http://localhost:5000';
+  const backendUrl = 'https://campus-cart-on6p.onrender.com';
 
   const getSafeImageUrl = (images) => {
     if (!images) return 'https://via.placeholder.com/300x300?text=No+Image';

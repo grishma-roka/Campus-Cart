@@ -151,7 +151,7 @@ export default function RiderDashboard() {
   useEffect(() => {
     if (user?.role !== 'rider') return;
 
-    socketRef.current = io(axios.defaults.baseURL?.replace('/api', '') || 'http://localhost:5000');
+    socketRef.current = io(axios.defaults.baseURL?.replace('/api', '') || 'https://campus-cart-on6p.onrender.com');
 
     socketRef.current.emit('join_riders');
 

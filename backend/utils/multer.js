@@ -17,8 +17,14 @@ const storage = new CloudinaryStorage({
     folder: (req, file) => {
       if (req.originalUrl.includes('items')) {
         return 'campus_cart/items';
-      } else if (req.originalUrl.includes('profile')) {
+      } else if (req.originalUrl.includes('profile') || req.originalUrl.includes('avatar')) {
         return 'campus_cart/profiles';
+      } else if (req.originalUrl.includes('rider') || req.originalUrl.includes('license') || req.originalUrl.includes('apply')) {
+        return 'campus_cart/licenses';
+      } else if (req.originalUrl.includes('chat') || req.originalUrl.includes('message') || req.originalUrl.includes('send')) {
+        return 'campus_cart/chat';
+      } else if (req.originalUrl.includes('borrow')) {
+        return 'campus_cart/borrow';
       } else {
         return 'campus_cart/misc';
       }

@@ -9,7 +9,7 @@ const InlineImageComparison = ({ messages }) => {
   const canvasBeforeRef = useRef(null);
   const canvasAfterRef = useRef(null);
   
-  const backendUrl = 'http://localhost:5000';
+  const backendUrl = 'https://campus-cart-on6p.onrender.com';
 
   useEffect(() => {
     const beforeMsgs = messages.filter(m => m.image_type === 'before' && m.image_url);
