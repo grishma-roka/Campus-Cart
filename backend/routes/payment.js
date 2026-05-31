@@ -43,9 +43,9 @@ router.post('/esewa/initiate', auth, async (req, res) => {
       const pickupLocation = item.pickup_location || 'Campus';
       const { delivery_fee } = estimateDelivery(pickupLocation, delivery_address || '');
 
-      // Mark item sold
+      // Update item as unavailable, but NOT sold yet (awaiting rider acceptance)
       await db.query(
-        'UPDATE items SET is_sold = TRUE, sold_at = CURRENT_TIMESTAMP, buyer_id = ?, is_available = FALSE WHERE id = ?',
+        'UPDATE items SET buyer_id = ?, is_available = FALSE WHERE id = ?',
         [buyer_id, item_id]
       );
 
@@ -231,9 +231,9 @@ router.post('/esewa/verify', auth, async (req, res) => {
     try {
       await conn.beginTransaction();
 
-      // Mark item sold
+      // Update item as unavailable, but NOT sold yet (awaiting rider acceptance)
       await conn.query(
-        'UPDATE items SET is_sold = TRUE, sold_at = CURRENT_TIMESTAMP, buyer_id = ?, is_available = FALSE WHERE id = ?',
+        'UPDATE items SET buyer_id = ?, is_available = FALSE WHERE id = ?',
         [buyer_id, item_id]
       );
       console.log('✅ item marked sold');

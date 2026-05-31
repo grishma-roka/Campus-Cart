@@ -154,6 +154,12 @@ router.put('/accept/:id', auth, requireRole(['rider']), async (req, res) => {
       [deliveryRows[0].order_id]
     );
 
+    // Officially mark the item as sold since the rider accepted the delivery
+    await conn.query(
+      `UPDATE items SET is_sold = TRUE, sold_at = CURRENT_TIMESTAMP WHERE id = (SELECT item_id FROM orders WHERE id = ?)`,
+      [deliveryRows[0].order_id]
+    );
+
     // Set rider to busy
     await conn.query(
       `UPDATE users SET rider_availability = 'busy' WHERE id = ?`,

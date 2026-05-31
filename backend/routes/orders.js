@@ -46,10 +46,10 @@ router.post('/create', auth, async (req, res) => {
     const pickupLocation = item.pickup_location || 'Campus';
     const { distance_km, delivery_fee } = estimateDelivery(pickupLocation, delivery_address || '');
 
-    // Mark item as sold
+    // Update item as unavailable, but NOT sold yet (awaiting rider acceptance)
     await db.query(`
       UPDATE items 
-      SET is_sold = TRUE, sold_at = CURRENT_TIMESTAMP, buyer_id = ?, is_available = FALSE
+      SET buyer_id = ?, is_available = FALSE
       WHERE id = ?
     `, [buyer_id, item_id]);
 
@@ -326,6 +326,13 @@ router.put('/cancel/:id', auth, async (req, res) => {
       SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
       WHERE order_id = ?
     `, [req.params.id]);
+
+    // Make the item available in the shop again since the order was cancelled before a rider accepted it
+    await db.query(`
+      UPDATE items 
+      SET is_available = TRUE, buyer_id = NULL, is_sold = FALSE, sold_at = NULL
+      WHERE id = ?
+    `, [orderRows[0].item_id]);
 
     res.json({ message: "Order cancelled successfully" });
   } catch (err) {
